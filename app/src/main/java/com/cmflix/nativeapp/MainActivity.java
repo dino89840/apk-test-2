@@ -224,27 +224,31 @@ public class MainActivity extends AppCompatActivity {
 
             button.setText(label);
             button.setAllCaps(false);
-            button.setTextSize(14);
+            button.setTextSize(13);
             button.setMinHeight(0);
             button.setMinimumHeight(0);
             button.setMinWidth(0);
             button.setMinimumWidth(0);
 
             button.setPadding(
-                    dp(18),
-                    dp(9),
-                    dp(18),
-                    dp(9)
-            );
+        dp(6),
+        dp(9),
+        dp(6),
+        dp(9)
+);
 
-            LinearLayout.LayoutParams params =
-                    new LinearLayout.LayoutParams(
-                            LinearLayout.LayoutParams.WRAP_CONTENT,
-                            LinearLayout.LayoutParams.WRAP_CONTENT
-                    );
+LinearLayout.LayoutParams params =
+        new LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+        );
 
-            params.setMarginEnd(dp(8));
-            button.setLayoutParams(params);
+params.setMarginStart(dp(3));
+params.setMarginEnd(dp(3));
+
+button.setLayoutParams(params);
+
             button.setTag(value);
 
             button.setOnClickListener(view -> {
