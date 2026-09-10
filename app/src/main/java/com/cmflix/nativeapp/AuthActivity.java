@@ -165,6 +165,15 @@ public class AuthActivity extends AppCompatActivity {
             showError(error.getMessage());
             return;
         }
+        try {
+            body.put(
+                    "deviceId",
+                    SessionManager.getDeviceId()
+            );
+        } catch (Exception error) {
+            showError(error.getMessage());
+            return;
+        }
 
         setLoading(true);
 
