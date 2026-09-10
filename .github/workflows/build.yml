@@ -35,7 +35,7 @@ jobs:
           java -version
           gradle --version
 
-            - name: Build Debug APK
+      - name: Build Debug APK
         env:
           CMFLIX_APP_KEY: ${{ secrets.CMFLIX_APP_KEY }}
         run: |
