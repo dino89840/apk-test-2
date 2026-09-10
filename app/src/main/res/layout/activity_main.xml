@@ -11,14 +11,21 @@
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="16dp"
-        android:paddingTop="14dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="10dp">
+        android:paddingStart="14dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="10dp"
+        android:paddingBottom="8dp">
+
+        <ImageView
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:contentDescription="@string/app_name"
+            android:src="@drawable/ic_cmflix_logo" />
 
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
             android:layout_weight="1"
             android:orientation="vertical">
 
@@ -28,36 +35,67 @@
                 android:layout_height="wrap_content"
                 android:text="CMFLIX"
                 android:textColor="@color/brand_red"
-                android:textSize="25sp"
+                android:textSize="23sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="1dp"
                 android:text="Movies &amp; Series"
                 android:textColor="@color/gray_text"
-                android:textSize="11sp" />
+                android:textSize="10sp" />
 
         </LinearLayout>
 
-        <EditText
-            android:id="@+id/searchInput"
-            android:layout_width="160dp"
-            android:layout_height="44dp"
-            android:background="@drawable/search_bg"
-            android:hint="Search movies"
-            android:imeOptions="actionSearch"
-            android:inputType="text"
-            android:maxLines="1"
-            android:paddingStart="14dp"
-            android:paddingEnd="14dp"
-            android:singleLine="true"
+        <Button
+            android:id="@+id/accountButton"
+            android:layout_width="wrap_content"
+            android:layout_height="38dp"
+            android:backgroundTint="@color/brand_red"
+            android:minHeight="0dp"
+            android:minWidth="0dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:text="LOGIN"
             android:textColor="@color/white"
-            android:textColorHint="@color/gray_text"
-            android:textSize="14sp" />
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/logoutButton"
+            android:layout_width="wrap_content"
+            android:layout_height="38dp"
+            android:layout_marginStart="6dp"
+            android:backgroundTint="@color/card_bg"
+            android:minHeight="0dp"
+            android:minWidth="0dp"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:text="LOGOUT"
+            android:textColor="@color/white"
+            android:textSize="10sp"
+            android:visibility="gone" />
 
     </LinearLayout>
+
+    <EditText
+        android:id="@+id/searchInput"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="6dp"
+        android:background="@drawable/search_bg"
+        android:hint="Search movies"
+        android:imeOptions="actionSearch"
+        android:inputType="text"
+        android:maxLines="1"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
+        android:singleLine="true"
+        android:textColor="@color/white"
+        android:textColorHint="@color/gray_text"
+        android:textSize="14sp" />
 
     <HorizontalScrollView
         android:layout_width="match_parent"
@@ -74,7 +112,7 @@
             android:paddingStart="16dp"
             android:paddingTop="5dp"
             android:paddingEnd="16dp"
-            android:paddingBottom="12dp" />
+            android:paddingBottom="10dp" />
 
     </HorizontalScrollView>
 
@@ -88,6 +126,7 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:clipToPadding="false"
+            android:overScrollMode="never"
             android:paddingStart="7dp"
             android:paddingTop="2dp"
             android:paddingEnd="7dp"
@@ -111,7 +150,6 @@
             android:layout_height="44dp"
             android:layout_gravity="bottom|center_horizontal"
             android:layout_marginBottom="18dp"
-            android:indeterminate="true"
             android:visibility="gone" />
 
     </FrameLayout>
