@@ -1,5 +1,6 @@
 package com.cmflix.nativeapp;
 
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
@@ -8,14 +9,18 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
-import android.content.Context;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.splashscreen.SplashScreen;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -32,11 +37,14 @@ public class MainActivity extends AppCompatActivity {
     private TextView errorText;
     private EditText searchInput;
     private LinearLayout categoryBar;
+    private Button accountButton;
+    private Button logoutButton;
 
     private TitleAdapter adapter;
     private GridLayoutManager layoutManager;
 
-    private final List<JSONObject> allItems = new ArrayList<>();
+    private final List<JSONObject> allItems =
+            new ArrayList<>();
 
     private String category = "movies";
     private String search = "";
@@ -44,22 +52,39 @@ public class MainActivity extends AppCompatActivity {
     private int currentPage = 0;
     private boolean hasMore = true;
     private boolean isLoading = false;
-
-    /*
-     * Category/search ပြောင်းသွားပြီးနောက် request အဟောင်းက
-     * response နောက်ကျရောက်လာရင် list ကို မဖုံးနိုင်အောင်သုံးသည်။
-     */
     private int requestGeneration = 0;
 
     private final String[][] categories = {
             {"Movies", "movies"},
             {"Series", "series"},
-            {"18+", "lugyi"}
+            {"18+", "lugyi"},
+            {"Favorites", "favorites"}
     };
+
+    private final ActivityResultLauncher<Intent>
+            authLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts
+                            .StartActivityForResult(),
+                    result -> {
+                        updateAccountButtons();
+
+                        if (
+                                result.getResultCode()
+                                        == RESULT_OK &&
+                                "favorites".equals(category)
+                        ) {
+                            resetAndLoad();
+                        }
+                    }
+            );
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        SplashScreen.installSplashScreen(this);
         super.onCreate(savedInstanceState);
+
+        ApiClient.initialize(this);
         setContentView(R.layout.activity_main);
 
         recycler = findViewById(R.id.recycler);
@@ -67,10 +92,13 @@ public class MainActivity extends AppCompatActivity {
         errorText = findViewById(R.id.errorText);
         searchInput = findViewById(R.id.searchInput);
         categoryBar = findViewById(R.id.categoryBar);
+        accountButton = findViewById(R.id.accountButton);
+        logoutButton = findViewById(R.id.logoutButton);
 
         setupRecycler();
         setupCategories();
         setupSearch();
+        setupAccountButtons();
 
         errorText.setOnClickListener(view -> {
             if (!isLoading) {
@@ -78,24 +106,60 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        updateAccountButtons();
         resetAndLoad();
     }
 
-    private void setupRecycler() {
-        int spanCount = getResources()
-                .getConfiguration()
-                .screenWidthDp >= 600 ? 5 : 3;
+    @Override
+    protected void onResume() {
+        super.onResume();
+        updateAccountButtons();
+    }
 
-        layoutManager = new GridLayoutManager(this, spanCount);
+    private void setupRecycler() {
+        int spanCount =
+                getResources()
+                        .getConfiguration()
+                        .screenWidthDp >= 600
+                        ? 5
+                        : 3;
+
+        layoutManager =
+                new GridLayoutManager(
+                        this,
+                        spanCount
+                );
+
         recycler.setLayoutManager(layoutManager);
 
+        /*
+         * Card height တည်ငြိမ်နေသောကြောင့်
+         * layout calculation လျှော့နိုင်သည်။
+         */
+        recycler.setHasFixedSize(true);
+
+        /*
+         * Pagination တိုင်း item animation ကြောင့်
+         * grid လှုပ်ခြင်းမဖြစ်စေရန်။
+         */
+        recycler.setItemAnimator(null);
+        recycler.setItemViewCacheSize(12);
+
+        recycler.getRecycledViewPool()
+                .setMaxRecycledViews(0, 30);
+
         adapter = new TitleAdapter(item -> {
-            Intent intent = new Intent(
-                    MainActivity.this,
-                    DetailActivity.class
+            Intent intent =
+                    new Intent(
+                            MainActivity.this,
+                            DetailActivity.class
+                    );
+
+            intent.putExtra(
+                    "slug",
+                    item.optString("slug")
             );
 
-            intent.putExtra("slug", item.optString("slug"));
             startActivity(intent);
         });
 
@@ -109,9 +173,18 @@ public class MainActivity extends AppCompatActivity {
                             int dx,
                             int dy
                     ) {
-                        super.onScrolled(recyclerView, dx, dy);
+                        super.onScrolled(
+                                recyclerView,
+                                dx,
+                                dy
+                        );
 
-                        if (dy <= 0 || isLoading || !hasMore) {
+                        if (
+                                dy <= 0 ||
+                                isLoading ||
+                                !hasMore ||
+                                "favorites".equals(category)
+                        ) {
                             return;
                         }
 
@@ -125,14 +198,9 @@ public class MainActivity extends AppCompatActivity {
                                 layoutManager
                                         .findFirstVisibleItemPosition();
 
-                        /*
-                         * List အောက်ဆုံးမရောက်ခင် item 6 ခုအလိုကတည်းက
-                         * နောက် page ကို ကြိုတင် load လုပ်မယ်။
-                         */
                         if (
-                                firstVisible
-                                        + visibleCount
-                                        >= totalCount - 6
+                                firstVisible + visibleCount
+                                        >= totalCount - 9
                         ) {
                             loadNextPage();
                         }
@@ -149,6 +217,7 @@ public class MainActivity extends AppCompatActivity {
             String value = item[1];
 
             Button button = new Button(this);
+
             button.setText(label);
             button.setAllCaps(false);
             button.setTextSize(14);
@@ -156,6 +225,7 @@ public class MainActivity extends AppCompatActivity {
             button.setMinimumHeight(0);
             button.setMinWidth(0);
             button.setMinimumWidth(0);
+
             button.setPadding(
                     dp(18),
                     dp(9),
@@ -171,10 +241,17 @@ public class MainActivity extends AppCompatActivity {
 
             params.setMarginEnd(dp(8));
             button.setLayoutParams(params);
-
             button.setTag(value);
 
             button.setOnClickListener(view -> {
+                if (
+                        "favorites".equals(value) &&
+                        !SessionManager.isLoggedIn()
+                ) {
+                    openLogin();
+                    return;
+                }
+
                 if (value.equals(category)) {
                     return;
                 }
@@ -182,6 +259,12 @@ public class MainActivity extends AppCompatActivity {
                 category = value;
                 search = "";
                 searchInput.setText("");
+
+                searchInput.setVisibility(
+                        "favorites".equals(category)
+                                ? View.GONE
+                                : View.VISIBLE
+                );
 
                 updateCategoryButtons();
                 recycler.scrollToPosition(0);
@@ -195,16 +278,24 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateCategoryButtons() {
-        for (int i = 0; i < categoryBar.getChildCount(); i++) {
-            View child = categoryBar.getChildAt(i);
+        for (
+                int index = 0;
+                index < categoryBar.getChildCount();
+                index++
+        ) {
+            View child =
+                    categoryBar.getChildAt(index);
 
             if (!(child instanceof Button)) {
                 continue;
             }
 
             Button button = (Button) child;
+
             boolean selected =
-                    category.equals(String.valueOf(button.getTag()));
+                    category.equals(
+                            String.valueOf(button.getTag())
+                    );
 
             button.setTextColor(
                     selected
@@ -241,18 +332,18 @@ public class MainActivity extends AppCompatActivity {
     private void setupSearch() {
         searchInput.setOnEditorActionListener(
                 (view, actionId, event) -> {
-                    boolean isSearch =
-                            actionId
-                                    == EditorInfo.IME_ACTION_SEARCH;
+                    boolean searchAction =
+                            actionId ==
+                                    EditorInfo.IME_ACTION_SEARCH;
 
-                    boolean isEnter =
-                            event != null
-                                    && event.getAction()
-                                    == KeyEvent.ACTION_DOWN
-                                    && event.getKeyCode()
-                                    == KeyEvent.KEYCODE_ENTER;
+                    boolean enter =
+                            event != null &&
+                                    event.getAction() ==
+                                            KeyEvent.ACTION_DOWN &&
+                                    event.getKeyCode() ==
+                                            KeyEvent.KEYCODE_ENTER;
 
-                    if (!isSearch && !isEnter) {
+                    if (!searchAction && !enter) {
                         return false;
                     }
 
@@ -270,6 +361,111 @@ public class MainActivity extends AppCompatActivity {
         );
     }
 
+    private void setupAccountButtons() {
+        accountButton.setOnClickListener(view -> {
+            if (SessionManager.isLoggedIn()) {
+                Toast.makeText(
+                        this,
+                        "Login user: " +
+                                SessionManager.getUsername(),
+                        Toast.LENGTH_SHORT
+                ).show();
+            } else {
+                openLogin();
+            }
+        });
+
+        logoutButton.setOnClickListener(view -> {
+            new AlertDialog.Builder(this)
+                    .setTitle("Logout")
+                    .setMessage(
+                            "Account မှ logout ထွက်မလား?"
+                    )
+                    .setNegativeButton(
+                            "မထွက်ပါ",
+                            null
+                    )
+                    .setPositiveButton(
+                            "LOGOUT",
+                            (dialog, which) -> logout()
+                    )
+                    .show();
+        });
+    }
+
+    private void updateAccountButtons() {
+        boolean loggedIn =
+                SessionManager.isLoggedIn();
+
+        accountButton.setText(
+                loggedIn
+                        ? SessionManager.getUsername()
+                        : "LOGIN"
+        );
+
+        logoutButton.setVisibility(
+                loggedIn ? View.VISIBLE : View.GONE
+        );
+    }
+
+    private void openLogin() {
+        authLauncher.launch(
+                new Intent(
+                        this,
+                        AuthActivity.class
+                )
+        );
+    }
+
+    private void logout() {
+        ApiClient.post(
+                "auth/logout",
+                new JSONObject(),
+                new ApiClient.Callback() {
+                    @Override
+                    public void onSuccess(JSONObject json) {
+                        runOnUiThread(() -> {
+                            SessionManager.clear();
+                            updateAccountButtons();
+
+                            if ("favorites".equals(category)) {
+                                category = "movies";
+                                searchInput.setVisibility(
+                                        View.VISIBLE
+                                );
+                                updateCategoryButtons();
+                                resetAndLoad();
+                            }
+
+                            Toast.makeText(
+                                    MainActivity.this,
+                                    "Logout ပြီးပါပြီ။",
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                        });
+                    }
+
+                    @Override
+                    public void onError(Exception error) {
+                        runOnUiThread(() -> {
+                            /*
+                             * Server session ပျက်နေခဲ့လည်း
+                             * local session ကိုရှင်းနိုင်မယ်။
+                             */
+                            SessionManager.clear();
+                            updateAccountButtons();
+
+                            Toast.makeText(
+                                    MainActivity.this,
+                                    safeMessage(error),
+                                    Toast.LENGTH_LONG
+                            ).show();
+                        });
+                    }
+                }
+        );
+    }
+
     private void resetAndLoad() {
         requestGeneration++;
 
@@ -278,10 +474,12 @@ public class MainActivity extends AppCompatActivity {
         isLoading = false;
 
         allItems.clear();
-        adapter.setItems(allItems);
+
+        adapter.submitList(
+                new ArrayList<>()
+        );
 
         errorText.setVisibility(View.GONE);
-
         loadNextPage();
     }
 
@@ -290,22 +488,41 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
+        if (
+                "favorites".equals(category) &&
+                !SessionManager.isLoggedIn()
+        ) {
+            openLogin();
+            return;
+        }
+
         isLoading = true;
 
-        final int generation = requestGeneration;
-        final int requestedPage = currentPage + 1;
+        final int generation =
+                requestGeneration;
+
+        final int requestedPage =
+                currentPage + 1;
 
         progress.setVisibility(View.VISIBLE);
         errorText.setVisibility(View.GONE);
 
-        String path =
-                "titles?category="
-                        + ApiClient.encode(category)
-                        + "&page="
-                        + requestedPage;
+        String path;
 
-        if (!search.isEmpty()) {
-            path += "&q=" + ApiClient.encode(search);
+        if ("favorites".equals(category)) {
+            path = "favorites";
+        } else {
+            path =
+                    "titles?category=" +
+                            ApiClient.encode(category) +
+                            "&page=" +
+                            requestedPage;
+
+            if (!search.isEmpty()) {
+                path +=
+                        "&q=" +
+                                ApiClient.encode(search);
+            }
         }
 
         ApiClient.get(
@@ -314,63 +531,73 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onSuccess(JSONObject json) {
                         runOnUiThread(() -> {
-                            /*
-                             * Request စတင်ပြီးနောက် category/search
-                             * ပြောင်းသွားခဲ့ရင် response အဟောင်းကို ပယ်မယ်။
-                             */
-                            if (generation != requestGeneration) {
+                            if (
+                                    generation !=
+                                            requestGeneration
+                            ) {
                                 return;
                             }
 
                             isLoading = false;
-                            progress.setVisibility(View.GONE);
+                            progress.setVisibility(
+                                    View.GONE
+                            );
 
                             JSONArray items =
                                     json.optJSONArray("items");
 
-                            List<JSONObject> newItems =
-                                    new ArrayList<>();
-
                             if (items != null) {
                                 for (
-                                        int i = 0;
-                                        i < items.length();
-                                        i++
+                                        int index = 0;
+                                        index < items.length();
+                                        index++
                                 ) {
                                     JSONObject item =
-                                            items.optJSONObject(i);
+                                            items.optJSONObject(index);
 
                                     if (item != null) {
-                                        newItems.add(item);
+                                        allItems.add(item);
                                     }
                                 }
                             }
 
-                            currentPage =
-                                    json.optInt(
-                                            "page",
-                                            requestedPage
-                                    );
+                            if ("favorites".equals(category)) {
+                                currentPage = 1;
+                                hasMore = false;
+                            } else {
+                                currentPage =
+                                        json.optInt(
+                                                "page",
+                                                requestedPage
+                                        );
 
-                            hasMore =
-                                    json.optBoolean(
-                                            "hasMore",
-                                            false
-                                    );
+                                hasMore =
+                                        json.optBoolean(
+                                                "hasMore",
+                                                false
+                                        );
+                            }
 
-                            allItems.addAll(newItems);
-                            adapter.setItems(allItems);
+                            /*
+                             * Mutable list ကိုတိုက်ရိုက်မပို့ရ။
+                             * ListAdapter အတွက် list copy အသစ်ပို့ပါ။
+                             */
+                            adapter.submitList(
+                                    new ArrayList<>(allItems)
+                            );
 
                             if (allItems.isEmpty()) {
                                 errorText.setText(
-                                        search.isEmpty()
+                                        "favorites".equals(category)
+                                                ? "Favorite မရှိသေးပါ။"
+                                                : search.isEmpty()
                                                 ? "ဇာတ်ကား မရှိသေးပါ။"
-                                                : "ရှာဖွေထားသော ဇာတ်ကား မတွေ့ပါ။"
+                                                : "ရှာထားသော ဇာတ်ကား မတွေ့ပါ။"
                                 );
 
-                                errorText.setVisibility(View.VISIBLE);
-                            } else {
-                                errorText.setVisibility(View.GONE);
+                                errorText.setVisibility(
+                                        View.VISIBLE
+                                );
                             }
                         });
                     }
@@ -378,20 +605,26 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onError(Exception error) {
                         runOnUiThread(() -> {
-                            if (generation != requestGeneration) {
+                            if (
+                                    generation !=
+                                            requestGeneration
+                            ) {
                                 return;
                             }
 
                             isLoading = false;
-                            progress.setVisibility(View.GONE);
-
-                            errorText.setText(
-                                    "ဇာတ်ကားများ ရယူ၍မရပါ။\n"
-                                            + "ပြန်စမ်းရန် ဒီနေရာကိုနှိပ်ပါ။\n\n"
-                                            + safeMessage(error)
+                            progress.setVisibility(
+                                    View.GONE
                             );
 
-                            errorText.setVisibility(View.VISIBLE);
+                            errorText.setText(
+                                    safeMessage(error) +
+                                            "\n\nပြန်စမ်းရန်နှိပ်ပါ။"
+                            );
+
+                            errorText.setVisibility(
+                                    View.VISIBLE
+                            );
                         });
                     }
                 }
@@ -400,11 +633,11 @@ public class MainActivity extends AppCompatActivity {
 
     private String safeMessage(Exception error) {
         if (
-                error == null
-                        || error.getMessage() == null
-                        || error.getMessage().trim().isEmpty()
+                error == null ||
+                error.getMessage() == null ||
+                error.getMessage().trim().isEmpty()
         ) {
-            return "Unknown error";
+            return "Request မအောင်မြင်ပါ။";
         }
 
         return error.getMessage();
@@ -418,9 +651,10 @@ public class MainActivity extends AppCompatActivity {
         }
 
         InputMethodManager manager =
-                (InputMethodManager) getSystemService(
-                        Context.INPUT_METHOD_SERVICE
-                );
+                (InputMethodManager)
+                        getSystemService(
+                                Context.INPUT_METHOD_SERVICE
+                        );
 
         if (manager != null) {
             manager.hideSoftInputFromWindow(
@@ -434,10 +668,10 @@ public class MainActivity extends AppCompatActivity {
 
     private int dp(int value) {
         return Math.round(
-                value
-                        * getResources()
-                        .getDisplayMetrics()
-                        .density
+                value *
+                        getResources()
+                                .getDisplayMetrics()
+                                .density
         );
     }
 }
