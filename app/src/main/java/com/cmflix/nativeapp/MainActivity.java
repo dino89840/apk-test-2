@@ -148,7 +148,8 @@ public class MainActivity extends AppCompatActivity {
         recycler.getRecycledViewPool()
                 .setMaxRecycledViews(0, 30);
 
-        adapter = new TitleAdapter(item -> {
+        adapter = new TitleAdapter(
+        item -> {
             Intent intent =
                     new Intent(
                             MainActivity.this,
@@ -161,7 +162,10 @@ public class MainActivity extends AppCompatActivity {
             );
 
             startActivity(intent);
-        });
+        },
+        this::removeFavoriteFromList
+);
+
 
         recycler.setAdapter(adapter);
 
@@ -375,23 +379,249 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        logoutButton.setOnClickListener(view -> {
-            new AlertDialog.Builder(this)
-                    .setTitle("Logout")
-                    .setMessage(
-                            "Account မှ logout ထွက်မလား?"
-                    )
-                    .setNegativeButton(
-                            "မထွက်ပါ",
-                            null
-                    )
-                    .setPositiveButton(
-                            "LOGOUT",
-                            (dialog, which) -> logout()
-                    )
-                    .show();
-        });
+        logoutButton.setOnClickListener(
+        view -> showLogoutDialog()
+);
+
     }
+private void showLogoutDialog() {
+    LinearLayout container =
+            new LinearLayout(this);
+
+    container.setOrientation(
+            LinearLayout.VERTICAL
+    );
+
+    container.setPadding(
+            dp(24),
+            dp(24),
+            dp(24),
+            dp(20)
+    );
+
+    GradientDrawable panelBackground =
+            new GradientDrawable();
+
+    panelBackground.setColor(
+            Color.parseColor("#171A22")
+    );
+
+    panelBackground.setCornerRadius(
+            dp(24)
+    );
+
+    panelBackground.setStroke(
+            dp(1),
+            Color.parseColor("#333844")
+    );
+
+    container.setBackground(
+            panelBackground
+    );
+
+    TextView icon =
+            new TextView(this);
+
+    icon.setText("↪");
+    icon.setTextSize(30);
+    icon.setGravity(
+            android.view.Gravity.CENTER
+    );
+    icon.setTextColor(
+            Color.parseColor("#E50914")
+    );
+
+    LinearLayout.LayoutParams iconParams =
+            new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    dp(52)
+            );
+
+    container.addView(
+            icon,
+            iconParams
+    );
+
+    TextView heading =
+            new TextView(this);
+
+    heading.setText("Logout");
+    heading.setTextColor(Color.WHITE);
+    heading.setTextSize(21);
+    heading.setGravity(
+            android.view.Gravity.CENTER
+    );
+
+    heading.setTypeface(
+            heading.getTypeface(),
+            android.graphics.Typeface.BOLD
+    );
+
+    container.addView(heading);
+
+    TextView message =
+            new TextView(this);
+
+    message.setText(
+            "CMFLIX account မှ ထွက်ရန် " +
+                    "သေချာပါသလား?"
+    );
+
+    message.setTextColor(
+            Color.parseColor("#A8ADB8")
+    );
+
+    message.setTextSize(14);
+    message.setGravity(
+            android.view.Gravity.CENTER
+    );
+
+    message.setPadding(
+            dp(8),
+            dp(12),
+            dp(8),
+            dp(22)
+    );
+
+    container.addView(message);
+
+    LinearLayout actions =
+            new LinearLayout(this);
+
+    actions.setOrientation(
+            LinearLayout.HORIZONTAL
+    );
+
+    Button cancelButton =
+            new Button(this);
+
+    cancelButton.setText("Cancel");
+    cancelButton.setAllCaps(false);
+    cancelButton.setTextColor(Color.WHITE);
+    cancelButton.setTextSize(14);
+    cancelButton.setBackground(
+            logoutButtonBackground(false)
+    );
+
+    Button confirmButton =
+            new Button(this);
+
+    confirmButton.setText("Logout");
+    confirmButton.setAllCaps(false);
+    confirmButton.setTextColor(Color.WHITE);
+    confirmButton.setTextSize(14);
+
+    confirmButton.setTypeface(
+            confirmButton.getTypeface(),
+            android.graphics.Typeface.BOLD
+    );
+
+    confirmButton.setBackground(
+            logoutButtonBackground(true)
+    );
+
+    LinearLayout.LayoutParams leftParams =
+            new LinearLayout.LayoutParams(
+                    0,
+                    dp(48),
+                    1f
+            );
+
+    leftParams.setMarginEnd(dp(6));
+
+    LinearLayout.LayoutParams rightParams =
+            new LinearLayout.LayoutParams(
+                    0,
+                    dp(48),
+                    1f
+            );
+
+    rightParams.setMarginStart(dp(6));
+
+    actions.addView(
+            cancelButton,
+            leftParams
+    );
+
+    actions.addView(
+            confirmButton,
+            rightParams
+    );
+
+    container.addView(actions);
+
+    AlertDialog dialog =
+            new AlertDialog.Builder(this)
+                    .setView(container)
+                    .create();
+
+    cancelButton.setOnClickListener(
+            view -> dialog.dismiss()
+    );
+
+    confirmButton.setOnClickListener(view -> {
+        confirmButton.setEnabled(false);
+        confirmButton.setText("Please wait…");
+        logout();
+        dialog.dismiss();
+    });
+
+    dialog.setOnShowListener(ignored -> {
+        if (dialog.getWindow() == null) {
+            return;
+        }
+
+        dialog.getWindow()
+                .setBackgroundDrawableResource(
+                        android.R.color.transparent
+                );
+
+        int width =
+                Math.round(
+                        getResources()
+                                .getDisplayMetrics()
+                                .widthPixels * 0.88f
+                );
+
+        dialog.getWindow().setLayout(
+                width,
+                android.view.ViewGroup
+                        .LayoutParams.WRAP_CONTENT
+        );
+    });
+
+    dialog.show();
+}
+
+private GradientDrawable logoutButtonBackground(
+        boolean danger
+) {
+    GradientDrawable background =
+            new GradientDrawable();
+
+    background.setShape(
+            GradientDrawable.RECTANGLE
+    );
+
+    background.setCornerRadius(
+            dp(14)
+    );
+
+    background.setColor(
+            danger
+                    ? Color.parseColor("#E50914")
+                    : Color.parseColor("#272B35")
+    );
+
+    if (!danger) {
+        background.setStroke(
+                dp(1),
+                Color.parseColor("#3B414E")
+        );
+    }
+
+    return background;
+}
 
     private void updateAccountButtons() {
         boolean loggedIn =
@@ -418,32 +648,63 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void logout() {
-        ApiClient.post(
-                "auth/logout",
-                new JSONObject(),
-                new ApiClient.Callback() {
-                    @Override
-                    public void onSuccess(JSONObject json) {
-                        runOnUiThread(() -> {
-                            SessionManager.clear();
-                            updateAccountButtons();
+    ApiClient.post(
+            "auth/logout",
+            new JSONObject(),
+            new ApiClient.Callback() {
+                @Override
+                public void onSuccess(JSONObject json) {
+                    runOnUiThread(() -> {
+                        finishLocalLogout();
 
-                            if ("favorites".equals(category)) {
-                                category = "movies";
-                                searchInput.setVisibility(
-                                        View.VISIBLE
-                                );
-                                updateCategoryButtons();
-                                resetAndLoad();
-                            }
+                        Toast.makeText(
+                                MainActivity.this,
+                                "Logout ပြီးပါပြီ။",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    });
+                }
 
-                            Toast.makeText(
-                                    MainActivity.this,
-                                    "Logout ပြီးပါပြီ။",
-                                    Toast.LENGTH_SHORT
-                            ).show();
-                        });
-                    }
+                @Override
+                public void onError(Exception error) {
+                    runOnUiThread(() -> {
+                        /*
+                         * Server session က သက်တမ်းကုန်သွားခြင်း၊
+                         * network error ဖြစ်ခြင်းတို့မှာလည်း
+                         * local session ကို ရှင်းပေးမယ်။
+                         */
+                        finishLocalLogout();
+
+                        Toast.makeText(
+                                MainActivity.this,
+                                "Local logout ပြီးပါပြီ။",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    });
+                }
+            }
+    );
+}
+
+private void finishLocalLogout() {
+    SessionManager.clear();
+    updateAccountButtons();
+
+    if ("favorites".equals(category)) {
+        category = "movies";
+        search = "";
+
+        searchInput.setText("");
+        searchInput.setVisibility(
+                View.VISIBLE
+        );
+
+        updateCategoryButtons();
+        recycler.scrollToPosition(0);
+        resetAndLoad();
+    }
+}
+
 
                     @Override
                     public void onError(Exception error) {
@@ -465,13 +726,112 @@ public class MainActivity extends AppCompatActivity {
                 }
         );
     }
+    private void removeFavoriteFromList(
+        JSONObject item
+) {
+    if (
+            item == null ||
+            !"favorites".equals(category)
+    ) {
+        return;
+    }
+
+    String titleId =
+            item.optString("id", "");
+
+    if (titleId.isEmpty()) {
+        Toast.makeText(
+                this,
+                "Movie ID မရှိပါ။",
+                Toast.LENGTH_SHORT
+        ).show();
+
+        adapter.notifyDataSetChanged();
+        return;
+    }
+
+    ApiClient.delete(
+            "favorites/" +
+                    ApiClient.encode(titleId),
+            new ApiClient.Callback() {
+                @Override
+                public void onSuccess(JSONObject json) {
+                    runOnUiThread(() -> {
+                        for (
+                                int index =
+                                        allItems.size() - 1;
+                                index >= 0;
+                                index--
+                        ) {
+                            JSONObject current =
+                                    allItems.get(index);
+
+                            if (
+                                    titleId.equals(
+                                            current.optString(
+                                                    "id",
+                                                    ""
+                                            )
+                                    )
+                            ) {
+                                allItems.remove(index);
+                            }
+                        }
+
+                        adapter.submitList(
+                                new ArrayList<>(allItems)
+                        );
+
+                        if (allItems.isEmpty()) {
+                            errorText.setText(
+                                    "Favorite မရှိသေးပါ။"
+                            );
+
+                            errorText.setVisibility(
+                                    View.VISIBLE
+                            );
+                        } else {
+                            errorText.setVisibility(
+                                    View.GONE
+                            );
+                        }
+
+                        Toast.makeText(
+                                MainActivity.this,
+                                "Favorite မှ ဖယ်ရှားပြီးပါပြီ။",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    });
+                }
+
+                @Override
+                public void onError(Exception error) {
+                    runOnUiThread(() -> {
+                        adapter.notifyDataSetChanged();
+
+                        Toast.makeText(
+                                MainActivity.this,
+                                safeMessage(error),
+                                Toast.LENGTH_LONG
+                        ).show();
+                    });
+                }
+            }
+    );
+}
+
 
     private void resetAndLoad() {
-        requestGeneration++;
+    requestGeneration++;
 
-        currentPage = 0;
-        hasMore = true;
-        isLoading = false;
+    adapter.setFavoriteMode(
+            "favorites".equals(category)
+    );
+
+    currentPage = 0;
+    hasMore = true;
+    isLoading = false;
+
 
         allItems.clear();
 
