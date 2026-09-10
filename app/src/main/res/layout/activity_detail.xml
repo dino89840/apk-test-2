@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/dark_bg">
+    android:background="@color/dark_bg"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -13,8 +15,8 @@
             android:id="@+id/backdrop"
             android:layout_width="match_parent"
             android:layout_height="220dp"
-            android:scaleType="centerCrop"
-            android:contentDescription="Backdrop" />
+            android:contentDescription="Backdrop"
+            android:scaleType="centerCrop" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -38,38 +40,74 @@
                 android:textColor="@color/gray_text"
                 android:textSize="13sp" />
 
+            <!-- Play နှင့် Favorite ကို overview အပေါ်ရွှေ့ထားသည် -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/playButton"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_weight="1"
+                    android:backgroundTint="@color/brand_red"
+                    android:text="▶ PLAY"
+                    android:textColor="@color/white"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
+                <Button
+                    android:id="@+id/favoriteButton"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:backgroundTint="@color/card_bg"
+                    android:text="♡ FAVORITE"
+                    android:textColor="@color/white"
+                    android:textStyle="bold" />
+
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/overviewLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="20dp"
+                android:text="ဇာတ်လမ်းအကျဉ်း"
+                android:textColor="@color/white"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
             <TextView
                 android:id="@+id/detailOverview"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:paddingTop="14dp"
+                android:paddingTop="8dp"
                 android:textColor="@color/white"
-                android:textSize="15sp" />
-
-            <Button
-                android:id="@+id/playButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="PLAY"
-                android:textStyle="bold" />
+                android:textSize="15sp"
+                android:lineSpacingExtra="3dp" />
 
             <TextView
                 android:id="@+id/episodesLabel"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:paddingTop="20dp"
+                android:paddingTop="24dp"
                 android:paddingBottom="8dp"
                 android:text="Episodes"
                 android:textColor="@color/white"
                 android:textSize="18sp"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                android:visibility="gone" />
 
             <LinearLayout
                 android:id="@+id/episodesContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical" />
+                android:orientation="vertical"
+                android:visibility="gone" />
 
         </LinearLayout>
     </LinearLayout>
