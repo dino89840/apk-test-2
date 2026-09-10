@@ -2,10 +2,35 @@ plugins {
     id 'com.android.application'
 }
 
+def envOrProperty = { String name ->
+    def value = System.getenv(name)
+
+    if (
+            value == null ||
+            value.toString().trim().isEmpty()
+    ) {
+        value = project.findProperty(name)
+    }
+
+    return value == null
+            ? ""
+            : value.toString()
+}
+
 def cmflixAppKey =
-        System.getenv("CMFLIX_APP_KEY")
-                ?: project.findProperty("CMFLIX_APP_KEY")
-                ?: ""
+        envOrProperty("CMFLIX_APP_KEY")
+
+def releaseStorePath =
+        envOrProperty("ANDROID_KEYSTORE_PATH")
+
+def releaseStorePassword =
+        envOrProperty("ANDROID_KEYSTORE_PASSWORD")
+
+def releaseKeyAlias =
+        envOrProperty("ANDROID_KEY_ALIAS")
+
+def releaseKeyPassword =
+        envOrProperty("ANDROID_KEY_PASSWORD")
 
 android {
     namespace 'com.cmflix.nativeapp'
@@ -23,7 +48,9 @@ android {
         buildConfigField(
                 "String",
                 "CMFLIX_APP_KEY",
-                "\"${cmflixAppKey.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+                "\"${cmflixAppKey
+                        .replace("\\", "\\\\")
+                        .replace("\"", "\\\"")}\""
         )
 
         buildConfigField(
@@ -37,14 +64,51 @@ android {
         buildConfig true
     }
 
+    signingConfigs {
+        release {
+            /*
+             * Keystore/password တွေကို source code ထဲ
+             * တိုက်ရိုက်မထည့်ဘဲ environment variables
+             * သို့မဟုတ် Gradle properties ကနေဖတ်မယ်။
+             */
+            storeFile rootProject.file(
+                    releaseStorePath.isEmpty()
+                            ? "__missing_release_keystore__.jks"
+                            : releaseStorePath
+            )
+
+            storePassword releaseStorePassword
+            keyAlias releaseKeyAlias
+            keyPassword releaseKeyPassword
+        }
+    }
+
     buildTypes {
         debug {
             minifyEnabled false
         }
 
         release {
+            /*
+             * Debuggable မဟုတ်သော production build။
+             */
+            debuggable false
+
+            /*
+             * R8 code shrinking, optimization နဲ့
+             * obfuscation ကိုဖွင့်ထားသည်။
+             */
             minifyEnabled true
+
+            /*
+             * အသုံးမပြုသည့် resources များကိုဖယ်ရှားမည်။
+             */
             shrinkResources true
+
+            /*
+             * Release keystore ဖြင့် sign လုပ်မည်။
+             */
+            signingConfig signingConfigs.release
 
             proguardFiles(
                     getDefaultProguardFile(
