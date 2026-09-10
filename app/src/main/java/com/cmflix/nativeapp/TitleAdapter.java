@@ -3,6 +3,7 @@ package com.cmflix.nativeapp;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -22,7 +23,14 @@ public class TitleAdapter
         void onClick(JSONObject item);
     }
 
+    public interface RemoveFavoriteListener {
+        void onRemove(JSONObject item);
+    }
+
     private final Listener listener;
+    private final RemoveFavoriteListener removeFavoriteListener;
+
+    private boolean favoriteMode = false;
 
     private static final DiffUtil.ItemCallback<JSONObject>
             DIFF_CALLBACK =
@@ -57,13 +65,28 @@ public class TitleAdapter
                 }
             };
 
-    public TitleAdapter(Listener listener) {
+    public TitleAdapter(
+            Listener listener,
+            RemoveFavoriteListener removeFavoriteListener
+    ) {
         super(DIFF_CALLBACK);
+
         this.listener = listener;
+        this.removeFavoriteListener =
+                removeFavoriteListener;
 
         setStateRestorationPolicy(
                 StateRestorationPolicy.PREVENT_WHEN_EMPTY
         );
+    }
+
+    public void setFavoriteMode(boolean value) {
+        if (favoriteMode == value) {
+            return;
+        }
+
+        favoriteMode = value;
+        notifyDataSetChanged();
     }
 
     @NonNull
@@ -113,10 +136,14 @@ public class TitleAdapter
                 metadata.append("  •  ");
             }
 
-            metadata.append("★ ").append(rating);
+            metadata
+                    .append("★ ")
+                    .append(rating);
         }
 
-        holder.meta.setText(metadata.toString());
+        holder.meta.setText(
+                metadata.toString()
+        );
 
         Glide.with(holder.poster)
                 .load(item.optString("poster_url", ""))
@@ -124,12 +151,34 @@ public class TitleAdapter
                 .thumbnail(0.25f)
                 .dontAnimate()
                 .placeholder(
-                        android.R.drawable.ic_menu_report_image
+                        android.R.drawable
+                                .ic_menu_report_image
                 )
                 .error(
-                        android.R.drawable.ic_menu_report_image
+                        android.R.drawable
+                                .ic_menu_report_image
                 )
                 .into(holder.poster);
+
+        holder.favoriteRemove.setVisibility(
+                favoriteMode
+                        ? View.VISIBLE
+                        : View.GONE
+        );
+
+        holder.favoriteRemove.setEnabled(true);
+        holder.favoriteRemove.setAlpha(1f);
+
+        holder.favoriteRemove.setOnClickListener(
+                view -> {
+                    view.setEnabled(false);
+                    view.setAlpha(0.55f);
+
+                    if (removeFavoriteListener != null) {
+                        removeFavoriteListener.onRemove(item);
+                    }
+                }
+        );
 
         holder.itemView.setOnClickListener(
                 view -> listener.onClick(item)
@@ -143,6 +192,14 @@ public class TitleAdapter
         Glide.with(holder.poster)
                 .clear(holder.poster);
 
+        holder.favoriteRemove.setOnClickListener(
+                null
+        );
+
+        holder.itemView.setOnClickListener(
+                null
+        );
+
         super.onViewRecycled(holder);
     }
 
@@ -150,6 +207,7 @@ public class TitleAdapter
             extends RecyclerView.ViewHolder {
 
         final ImageView poster;
+        final ImageButton favoriteRemove;
         final TextView title;
         final TextView meta;
 
@@ -158,6 +216,10 @@ public class TitleAdapter
 
             poster = itemView.findViewById(
                     R.id.poster
+            );
+
+            favoriteRemove = itemView.findViewById(
+                    R.id.favoriteRemove
             );
 
             title = itemView.findViewById(
