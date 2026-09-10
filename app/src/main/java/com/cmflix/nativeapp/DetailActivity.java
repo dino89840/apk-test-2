@@ -26,64 +26,70 @@ public class DetailActivity extends AppCompatActivity {
 
     private ImageView backdrop;
 
-private TextView title;
-private TextView meta;
-private TextView overview;
-private TextView episodesLabel;
-private TextView genresLabel;
+    private TextView title;
+    private TextView meta;
+    private TextView overview;
+    private TextView episodesLabel;
+    private TextView genresLabel;
 
-private Button playButton;
-private Button favoriteButton;
-private Button shareButton;
-private Button telegramButton;
+    private Button playButton;
+    private Button favoriteButton;
+    private Button shareButton;
+    private Button telegramButton;
 
-private LinearLayout genresContainer;
-private LinearLayout episodesContainer;
+    private LinearLayout genresContainer;
+    private LinearLayout episodesContainer;
 
-private View genresScroll;
-
+    private View genresScroll;
 
     private String firstVideoUrl = "";
     private String firstVideoType = "auto";
+    private String firstEpisodeId = "";
+
     private String titleId = "";
+    private String titleCategory = "";
 
     private boolean isFavorite = false;
     private boolean favoriteLoading = false;
     private boolean addFavoriteAfterLogin = false;
-    
-        private String titleCategory = "";
-    private String firstEpisodeId = "";
 
     private boolean playAfterLogin = false;
     private String pendingEpisodeId = "";
 
-
-    private final ActivityResultLauncher<Intent>
-            authLauncher =
+    private final ActivityResultLauncher<Intent> authLauncher =
             registerForActivityResult(
-                    new ActivityResultContracts
-                            .StartActivityForResult(),
+                    new ActivityResultContracts.StartActivityForResult(),
                     result -> {
                         updateFavoriteText();
 
-                        if (
-                                result.getResultCode()
-                                        == RESULT_OK
-                        ) {
+                        if (result.getResultCode() != RESULT_OK) {
+                            addFavoriteAfterLogin = false;
+                            playAfterLogin = false;
+                            pendingEpisodeId = "";
+                            return;
+                        }
+
+                        /*
+                         * Favorite ထည့်ဖို့ Login ဝင်ထားတာဆိုရင်
+                         * checkFavorite() ကို အရင်မခေါ်ပါ။
+                         *
+                         * checkFavorite() က favoriteLoading = true
+                         * လုပ်တာကြောင့် setFavorite() မလုပ်ဖြစ်နိုင်ပါ။
+                         */
+                        if (addFavoriteAfterLogin) {
+                            addFavoriteAfterLogin = false;
+                            setFavorite(true);
+                        } else {
                             checkFavorite();
+                        }
 
-                            if (addFavoriteAfterLogin) {
-                                addFavoriteAfterLogin = false;
-                                setFavorite(true);
-                            }
+                        if (playAfterLogin) {
+                            playAfterLogin = false;
 
-                            if (playAfterLogin) {
-                                playAfterLogin = false;
+                            String episodeId = pendingEpisodeId;
+                            pendingEpisodeId = "";
 
-                                requestProtectedPlayback(
-                                        pendingEpisodeId
-                                );
-                            }
+                            requestProtectedPlayback(episodeId);
                         }
                     }
             );
@@ -95,44 +101,54 @@ private View genresScroll;
         ApiClient.initialize(this);
         setContentView(R.layout.activity_detail);
 
-        backdrop = findViewById(R.id.backdrop);
+        bindViews();
+        setupClickListeners();
 
-title = findViewById(R.id.detailTitle);
-meta = findViewById(R.id.detailMeta);
-overview = findViewById(R.id.detailOverview);
-episodesLabel = findViewById(R.id.episodesLabel);
-genresLabel = findViewById(R.id.genresLabel);
+        String slug = getIntent().getStringExtra("slug");
 
-playButton = findViewById(R.id.playButton);
-favoriteButton = findViewById(R.id.favoriteButton);
-shareButton = findViewById(R.id.shareButton);
-telegramButton = findViewById(R.id.telegramButton);
+        if (slug == null || slug.trim().isEmpty()) {
+            Toast.makeText(
+                    this,
+                    "Movie slug မရှိပါ။",
+                    Toast.LENGTH_SHORT
+            ).show();
 
-genresScroll = findViewById(R.id.genresScroll);
-
-genresContainer = findViewById(
-        R.id.genresContainer
-);
-
-episodesContainer = findViewById(
-        R.id.episodesContainer
-);
-
-
-        String slug =
-                getIntent().getStringExtra("slug");
-
-        if (
-                slug == null ||
-                slug.trim().isEmpty()
-        ) {
             finish();
             return;
         }
 
         playButton.setVisibility(View.GONE);
+
+        shareButton.setEnabled(false);
+        shareButton.setAlpha(0.5f);
+
         updateFavoriteText();
 
+        loadTitle(slug);
+    }
+
+    private void bindViews() {
+        backdrop = findViewById(R.id.backdrop);
+
+        title = findViewById(R.id.detailTitle);
+        meta = findViewById(R.id.detailMeta);
+        overview = findViewById(R.id.detailOverview);
+
+        episodesLabel = findViewById(R.id.episodesLabel);
+        genresLabel = findViewById(R.id.genresLabel);
+
+        playButton = findViewById(R.id.playButton);
+        favoriteButton = findViewById(R.id.favoriteButton);
+        shareButton = findViewById(R.id.shareButton);
+        telegramButton = findViewById(R.id.telegramButton);
+
+        genresScroll = findViewById(R.id.genresScroll);
+
+        genresContainer = findViewById(R.id.genresContainer);
+        episodesContainer = findViewById(R.id.episodesContainer);
+    }
+
+    private void setupClickListeners() {
         favoriteButton.setOnClickListener(view -> {
             if (titleId.isEmpty() || favoriteLoading) {
                 return;
@@ -143,7 +159,7 @@ episodesContainer = findViewById(
 
                 authLauncher.launch(
                         new Intent(
-                                this,
+                                DetailActivity.this,
                                 AuthActivity.class
                         )
                 );
@@ -154,23 +170,44 @@ episodesContainer = findViewById(
             setFavorite(!isFavorite);
         });
 
+        shareButton.setOnClickListener(
+                view -> shareCurrentTitle()
+        );
+
+        telegramButton.setOnClickListener(
+                view -> openTelegramContact()
+        );
+
+        playButton.setOnClickListener(view ->
+                playVideo(
+                        firstVideoUrl,
+                        firstVideoType,
+                        firstEpisodeId
+                )
+        );
+    }
+
+    private void loadTitle(String slug) {
         ApiClient.get(
                 "titles/" + ApiClient.encode(slug),
                 new ApiClient.Callback() {
                     @Override
                     public void onSuccess(JSONObject json) {
-                        runOnUiThread(() -> {
-                            bind(json.optJSONObject("item"));
-                        });
+                        runOnUiThread(() ->
+                                bind(json.optJSONObject("item"))
+                        );
                     }
 
                     @Override
                     public void onError(Exception error) {
                         runOnUiThread(() -> {
                             overview.setText(
-                                    "Load failed: " +
-                                            safeMessage(error)
+                                    "Load failed: " + safeMessage(error)
                             );
+
+                            playButton.setVisibility(View.GONE);
+                            shareButton.setEnabled(false);
+                            shareButton.setAlpha(0.5f);
                         });
                     }
                 }
@@ -179,57 +216,66 @@ episodesContainer = findViewById(
 
     private void bind(JSONObject item) {
         if (item == null) {
-            overview.setText(
-                    "Movie not found."
-            );
+            overview.setText("Movie not found.");
+            playButton.setVisibility(View.GONE);
             return;
         }
 
         titleId = item.optString("id", "");
 
-        titleCategory =
-                item.optString(
-                        "category",
-                        ""
-                );
-
-        title.setText(
-                item.optString("title", "")
+        titleCategory = item.optString(
+                "category",
+                ""
         );
 
-        String year =
-                item.optString("year", "");
+        String currentTitle = item.optString(
+                "title",
+                ""
+        );
 
-        String rating =
-                item.optString("rating", "");
+        title.setText(currentTitle);
 
-        String genres =
-        item.optString("genres", "");
+        String year = item.optString(
+                "year",
+                ""
+        );
 
-StringBuilder metaText =
-        new StringBuilder();
+        String rating = item.optString(
+                "rating",
+                ""
+        );
 
-if (!year.isEmpty()) {
-    metaText.append(year);
-}
+        String genres = item.optString(
+                "genres",
+                ""
+        );
 
-if (!rating.isEmpty()) {
-    if (metaText.length() > 0) {
-        metaText.append("  •  ");
-    }
+        StringBuilder metaText = new StringBuilder();
 
-    metaText
-            .append("★ ")
-            .append(rating);
-}
+        if (!year.isEmpty()) {
+            metaText.append(year);
+        }
 
-meta.setText(metaText.toString());
+        if (!rating.isEmpty()) {
+            if (metaText.length() > 0) {
+                metaText.append("  •  ");
+            }
 
-bindGenres(genres);
+            metaText
+                    .append("★ ")
+                    .append(rating);
+        }
 
-shareButton.setEnabled(true);
-shareButton.setAlpha(1f);
+        meta.setText(metaText.toString());
 
+        bindGenres(genres);
+
+        shareButton.setEnabled(!currentTitle.trim().isEmpty());
+        shareButton.setAlpha(
+                currentTitle.trim().isEmpty()
+                        ? 0.5f
+                        : 1f
+        );
 
         overview.setText(
                 item.optString(
@@ -239,7 +285,12 @@ shareButton.setAlpha(1f);
         );
 
         Glide.with(this)
-                .load(item.optString("backdrop_url", ""))
+                .load(
+                        item.optString(
+                                "backdrop_url",
+                                ""
+                        )
+                )
                 .centerCrop()
                 .thumbnail(0.25f)
                 .dontAnimate()
@@ -252,14 +303,13 @@ shareButton.setAlpha(1f);
                 .into(backdrop);
 
         boolean isSeries =
-                "series".equalsIgnoreCase(
-                        item.optString("category", "")
-                );
+                "series".equalsIgnoreCase(titleCategory);
 
         episodesContainer.removeAllViews();
 
         firstVideoUrl = "";
         firstVideoType = "auto";
+        firstEpisodeId = "";
 
         if (isSeries) {
             bindSeries(item);
@@ -267,75 +317,61 @@ shareButton.setAlpha(1f);
             bindMovie(item);
         }
 
-        playButton.setOnClickListener(
-                view -> playVideo(
-                        firstVideoUrl,
-                        firstVideoType,
-                        firstEpisodeId
-                )
-        );
-
         if (SessionManager.isLoggedIn()) {
             checkFavorite();
         } else {
+            isFavorite = false;
             updateFavoriteText();
         }
     }
 
-        private void bindMovie(JSONObject item) {
+    private void bindMovie(JSONObject item) {
         episodesLabel.setVisibility(View.GONE);
         episodesContainer.setVisibility(View.GONE);
 
         firstEpisodeId = "";
 
-        firstVideoUrl =
-                item.optString(
-                        "video_url",
-                        ""
-                );
+        firstVideoUrl = item.optString(
+                "video_url",
+                ""
+        );
 
-        firstVideoType =
-                item.optString(
-                        "video_type",
-                        "auto"
-                );
+        firstVideoType = item.optString(
+                "video_type",
+                "auto"
+        );
 
-        boolean hasVideo =
-                item.optBoolean(
-                        "has_video",
-                        !firstVideoUrl.isEmpty()
-                );
+        boolean hasVideo = item.optBoolean(
+                "has_video",
+                !firstVideoUrl.isEmpty()
+        );
 
         if (hasVideo) {
-            playButton.setText(
-                    "lugyi".equalsIgnoreCase(
-                            titleCategory
-                    )
-                            ? " VIP PLAY"
-                            : " PLAY"
-            );
+            if ("lugyi".equalsIgnoreCase(titleCategory)) {
+                playButton.setText("VIP PLAY");
+            } else {
+                playButton.setText("PLAY");
+            }
 
-            playButton.setVisibility(
-                    View.VISIBLE
-            );
+            playButton.setEnabled(true);
+            playButton.setVisibility(View.VISIBLE);
         } else {
-            playButton.setVisibility(
-                    View.GONE
-            );
+            playButton.setVisibility(View.GONE);
         }
     }
 
-
     private void bindSeries(JSONObject item) {
-        JSONArray episodes =
-                firstEpisodeId = "";
+        /*
+         * မူရင်းကုဒ်ရဲ့ compile error ဖြစ်နေတဲ့နေရာကို
+         * ဒီလို ခွဲရေးရပါမယ်။
+         */
+        firstEpisodeId = "";
+        firstVideoUrl = "";
+        firstVideoType = "auto";
 
-                item.optJSONArray("episodes");
+        JSONArray episodes = item.optJSONArray("episodes");
 
-        if (
-                episodes == null ||
-                episodes.length() == 0
-        ) {
+        if (episodes == null || episodes.length() == 0) {
             episodesLabel.setVisibility(View.GONE);
             episodesContainer.setVisibility(View.GONE);
             playButton.setVisibility(View.GONE);
@@ -345,59 +381,56 @@ shareButton.setAlpha(1f);
         episodesLabel.setVisibility(View.VISIBLE);
         episodesContainer.setVisibility(View.VISIBLE);
 
-        for (
-                int index = 0;
-                index < episodes.length();
-                index++
-        ) {
-            JSONObject episode =
-                    episodes.optJSONObject(index);
+        for (int index = 0; index < episodes.length(); index++) {
+            JSONObject episode = episodes.optJSONObject(index);
 
             if (episode == null) {
                 continue;
             }
 
-            String videoUrl =
-                    episode.optString(
-                            "video_url",
-                            ""
-                    );
-                         String episodeId =
-                    episode.optString(
-                            "id",
-                            ""
-                    );
+            final String videoUrl = episode.optString(
+                    "video_url",
+                    ""
+            );
 
-            boolean hasVideo =
-                    episode.optBoolean(
-                            "has_video",
-                            !videoUrl.isEmpty()
-                    );
+            final String episodeId = episode.optString(
+                    "id",
+                    ""
+            );
 
-            String videoType =
-                    episode.optString(
-                            "video_type",
-                            "auto"
-                    );
+            final String videoType = episode.optString(
+                    "video_type",
+                    "auto"
+            );
 
-            if (
-                    firstEpisodeId.isEmpty() &&
-                    hasVideo
-            ) {
+            boolean hasVideo = episode.optBoolean(
+                    "has_video",
+                    !videoUrl.isEmpty()
+            );
+
+            if (firstEpisodeId.isEmpty() && hasVideo) {
                 firstEpisodeId = episodeId;
                 firstVideoUrl = videoUrl;
                 firstVideoType = videoType;
             }
 
-            TextView episodeButton =
-                    (TextView)
-                            LayoutInflater
-                                    .from(this)
-                                    .inflate(
-                                            R.layout.item_episode,
-                                            episodesContainer,
-                                            false
-                                    );
+            View episodeView = LayoutInflater
+                    .from(this)
+                    .inflate(
+                            R.layout.item_episode,
+                            episodesContainer,
+                            false
+                    );
+
+            if (!(episodeView instanceof TextView)) {
+                /*
+                 * item_episode.xml ရဲ့ root view က TextView
+                 * မဟုတ်ရင် ClassCastException မဖြစ်အောင်ပါ။
+                 */
+                continue;
+            }
+
+            TextView episodeButton = (TextView) episodeView;
 
             String label =
                     "S" +
@@ -411,53 +444,50 @@ shareButton.setAlpha(1f);
                                     1
                             );
 
-            String episodeTitle =
-                    episode.optString(
-                            "episode_title",
-                            ""
-                    );
+            String episodeTitle = episode.optString(
+                    "episode_title",
+                    ""
+            );
 
             if (!episodeTitle.isEmpty()) {
                 label += "  " + episodeTitle;
             }
 
             episodeButton.setText(label);
-
             episodeButton.setEnabled(hasVideo);
+            episodeButton.setAlpha(hasVideo ? 1f : 0.5f);
 
-            episodeButton.setOnClickListener(
-                    view -> playVideo(
-                            videoUrl,
-                            videoType,
-                            episodeId
-                    )
-            );
+            if (hasVideo) {
+                episodeButton.setOnClickListener(view ->
+                        playVideo(
+                                videoUrl,
+                                videoType,
+                                episodeId
+                        )
+                );
+            } else {
+                episodeButton.setOnClickListener(null);
+            }
 
-            episodesContainer.addView(
-                    episodeButton
-            );
+            episodesContainer.addView(episodeButton);
         }
 
         if (!firstVideoUrl.isEmpty()) {
-            playButton.setText(
-                    "▶ PLAY FIRST EPISODE"
-            );
+            if ("lugyi".equalsIgnoreCase(titleCategory)) {
+                playButton.setText("VIP PLAY FIRST EPISODE");
+            } else {
+                playButton.setText("PLAY FIRST EPISODE");
+            }
 
-            playButton.setVisibility(
-                    View.VISIBLE
-            );
+            playButton.setEnabled(true);
+            playButton.setVisibility(View.VISIBLE);
         } else {
-            playButton.setVisibility(
-                    View.GONE
-            );
+            playButton.setVisibility(View.GONE);
         }
     }
 
     private void checkFavorite() {
-        if (
-                !SessionManager.isLoggedIn() ||
-                titleId.isEmpty()
-        ) {
+        if (!SessionManager.isLoggedIn() || titleId.isEmpty()) {
             isFavorite = false;
             updateFavoriteText();
             return;
@@ -465,14 +495,7 @@ shareButton.setAlpha(1f);
 
         favoriteLoading = true;
         favoriteButton.setEnabled(false);
-        shareButton.setOnClickListener(
-        view -> shareCurrentTitle()
-);
-
-telegramButton.setOnClickListener(
-        view -> openTelegramContact()
-);
-
+        favoriteButton.setText("Please wait…");
 
         ApiClient.get(
                 "favorites",
@@ -485,8 +508,7 @@ telegramButton.setOnClickListener(
 
                             isFavorite = false;
 
-                            JSONArray items =
-                                    json.optJSONArray("items");
+                            JSONArray items = json.optJSONArray("items");
 
                             if (items != null) {
                                 for (
@@ -494,18 +516,20 @@ telegramButton.setOnClickListener(
                                         index < items.length();
                                         index++
                                 ) {
-                                    JSONObject item =
+                                    JSONObject favoriteItem =
                                             items.optJSONObject(index);
 
-                                    if (
-                                            item != null &&
-                                            titleId.equals(
-                                                    item.optString(
-                                                            "id",
-                                                            ""
-                                                    )
-                                            )
-                                    ) {
+                                    if (favoriteItem == null) {
+                                        continue;
+                                    }
+
+                                    String favoriteTitleId =
+                                            favoriteItem.optString(
+                                                    "id",
+                                                    ""
+                                            );
+
+                                    if (titleId.equals(favoriteTitleId)) {
                                         isFavorite = true;
                                         break;
                                     }
@@ -529,17 +553,26 @@ telegramButton.setOnClickListener(
     }
 
     private void setFavorite(boolean shouldFavorite) {
-        if (
-                favoriteLoading ||
-                titleId.isEmpty()
-        ) {
+        if (favoriteLoading || titleId.isEmpty()) {
+            return;
+        }
+
+        if (!SessionManager.isLoggedIn()) {
+            addFavoriteAfterLogin = true;
+
+            authLauncher.launch(
+                    new Intent(
+                            this,
+                            AuthActivity.class
+                    )
+            );
+
             return;
         }
 
         favoriteLoading = true;
         favoriteButton.setEnabled(false);
         favoriteButton.setText("Please wait…");
-
 
         ApiClient.Callback callback =
                 new ApiClient.Callback() {
@@ -548,6 +581,7 @@ telegramButton.setOnClickListener(
                         runOnUiThread(() -> {
                             favoriteLoading = false;
                             favoriteButton.setEnabled(true);
+
                             isFavorite = shouldFavorite;
                             updateFavoriteText();
 
@@ -596,181 +630,171 @@ telegramButton.setOnClickListener(
     }
 
     private void updateFavoriteText() {
-    if (!SessionManager.isLoggedIn()) {
-        favoriteButton.setText(
-                "♡  Login to add Favorite"
-        );
-        return;
-    }
-
-    favoriteButton.setText(
-            isFavorite
-                    ? "♥  Added to Favorites"
-                    : "♡  Add to Favorites"
-    );
-}
-
-private void bindGenres(String genres) {
-    genresContainer.removeAllViews();
-
-    if (
-            genres == null ||
-            genres.trim().isEmpty()
-    ) {
-        genresLabel.setVisibility(View.GONE);
-        genresScroll.setVisibility(View.GONE);
-        return;
-    }
-
-    genresLabel.setVisibility(View.VISIBLE);
-    genresScroll.setVisibility(View.VISIBLE);
-
-    String[] genreItems =
-            genres.split(",");
-
-    for (String genreValue : genreItems) {
-        String genre =
-                genreValue.trim();
-
-        if (genre.isEmpty()) {
-            continue;
+        if (!SessionManager.isLoggedIn()) {
+            favoriteButton.setText(
+                    "♡  Login to add Favorite"
+            );
+            return;
         }
 
-        TextView chip =
-                new TextView(this);
-
-        chip.setText(genre);
-        chip.setTextColor(Color.WHITE);
-        chip.setTextSize(13);
-        chip.setSingleLine(true);
-
-        chip.setPadding(
-                dp(14),
-                dp(8),
-                dp(14),
-                dp(8)
-        );
-
-        GradientDrawable background =
-                new GradientDrawable();
-
-        background.setShape(
-                GradientDrawable.RECTANGLE
-        );
-
-        background.setColor(
-                Color.parseColor("#1A1D24")
-        );
-
-        background.setCornerRadius(
-                dp(50)
-        );
-
-        background.setStroke(
-                dp(1),
-                Color.parseColor("#3A404C")
-        );
-
-        chip.setBackground(background);
-
-        LinearLayout.LayoutParams params =
-                new LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.WRAP_CONTENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                );
-
-        params.setMarginEnd(dp(8));
-
-        genresContainer.addView(
-                chip,
-                params
+        favoriteButton.setText(
+                isFavorite
+                        ? "♥  Added to Favorites"
+                        : "♡  Add to Favorites"
         );
     }
 
-    if (genresContainer.getChildCount() == 0) {
-        genresLabel.setVisibility(View.GONE);
-        genresScroll.setVisibility(View.GONE);
+    private void bindGenres(String genres) {
+        genresContainer.removeAllViews();
+
+        if (genres == null || genres.trim().isEmpty()) {
+            genresLabel.setVisibility(View.GONE);
+            genresScroll.setVisibility(View.GONE);
+            return;
+        }
+
+        genresLabel.setVisibility(View.VISIBLE);
+        genresScroll.setVisibility(View.VISIBLE);
+
+        String[] genreItems = genres.split(",");
+
+        for (String genreValue : genreItems) {
+            String genre = genreValue.trim();
+
+            if (genre.isEmpty()) {
+                continue;
+            }
+
+            TextView chip = new TextView(this);
+
+            chip.setText(genre);
+            chip.setTextColor(Color.WHITE);
+            chip.setTextSize(13);
+            chip.setSingleLine(true);
+
+            chip.setPadding(
+                    dp(14),
+                    dp(8),
+                    dp(14),
+                    dp(8)
+            );
+
+            GradientDrawable background =
+                    new GradientDrawable();
+
+            background.setShape(
+                    GradientDrawable.RECTANGLE
+            );
+
+            background.setColor(
+                    Color.parseColor("#1A1D24")
+            );
+
+            background.setCornerRadius(
+                    dp(50)
+            );
+
+            background.setStroke(
+                    dp(1),
+                    Color.parseColor("#3A404C")
+            );
+
+            chip.setBackground(background);
+
+            LinearLayout.LayoutParams params =
+                    new LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                    );
+
+            params.setMarginEnd(dp(8));
+
+            genresContainer.addView(
+                    chip,
+                    params
+            );
+        }
+
+        if (genresContainer.getChildCount() == 0) {
+            genresLabel.setVisibility(View.GONE);
+            genresScroll.setVisibility(View.GONE);
+        }
     }
-}
 
-private void shareCurrentTitle() {
-    String currentTitle =
-            title.getText()
-                    .toString()
-                    .trim();
+    private void shareCurrentTitle() {
+        String currentTitle =
+                title.getText()
+                        .toString()
+                        .trim();
 
-    if (currentTitle.isEmpty()) {
-        return;
+        if (currentTitle.isEmpty()) {
+            return;
+        }
+
+        String shareText =
+                "CMFLIX မှာ \"" +
+                        currentTitle +
+                        "\" ကို ကြည့်ရှုပါ။";
+
+        Intent shareIntent =
+                new Intent(Intent.ACTION_SEND);
+
+        shareIntent.setType("text/plain");
+
+        shareIntent.putExtra(
+                Intent.EXTRA_SUBJECT,
+                currentTitle
+        );
+
+        shareIntent.putExtra(
+                Intent.EXTRA_TEXT,
+                shareText
+        );
+
+        startActivity(
+                Intent.createChooser(
+                        shareIntent,
+                        "Share movie"
+                )
+        );
     }
 
-    String shareText =
-            "CMFLIX မှာ \"" +
-                    currentTitle +
-                    "\" ကို ကြည့်ရှုပါ။";
+    private void openTelegramContact() {
+        try {
+            Intent intent =
+                    new Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse("https://t.me/iqowoq")
+                    );
 
-    Intent shareIntent =
-            new Intent(Intent.ACTION_SEND);
-
-    shareIntent.setType("text/plain");
-
-    shareIntent.putExtra(
-            Intent.EXTRA_SUBJECT,
-            currentTitle
-    );
-
-    shareIntent.putExtra(
-            Intent.EXTRA_TEXT,
-            shareText
-    );
-
-    startActivity(
-            Intent.createChooser(
-                    shareIntent,
-                    "Share movie"
-            )
-    );
-}
-
-private void openTelegramContact() {
-    try {
-        Intent intent =
-                new Intent(
-                        Intent.ACTION_VIEW,
-                        Uri.parse(
-                                "https://t.me/iqowoq"
-                        )
-                );
-
-        startActivity(intent);
-    } catch (Exception error) {
-        Toast.makeText(
-                this,
-                "Telegram contact ကို ဖွင့်၍မရပါ။",
-                Toast.LENGTH_SHORT
-        ).show();
+            startActivity(intent);
+        } catch (Exception error) {
+            Toast.makeText(
+                    this,
+                    "Telegram contact ကို ဖွင့်၍မရပါ။",
+                    Toast.LENGTH_SHORT
+            ).show();
+        }
     }
-}
 
-private int dp(int value) {
-    return Math.round(
-            value *
-                    getResources()
-                            .getDisplayMetrics()
-                            .density
-    );
-}
+    private int dp(int value) {
+        return Math.round(
+                value *
+                        getResources()
+                                .getDisplayMetrics()
+                                .density
+        );
+    }
+
     private void playVideo(
             String url,
             String type,
             String episodeId
     ) {
-        if (
-                "lugyi".equalsIgnoreCase(
-                        titleCategory
-                )
-        ) {
+        if ("lugyi".equalsIgnoreCase(titleCategory)) {
             if (!SessionManager.isLoggedIn()) {
                 playAfterLogin = true;
+
                 pendingEpisodeId =
                         episodeId == null
                                 ? ""
@@ -786,28 +810,28 @@ private int dp(int value) {
                 return;
             }
 
-            requestProtectedPlayback(
-                    episodeId
-            );
-
+            requestProtectedPlayback(episodeId);
             return;
         }
 
         openPlayer(url, type);
     }
 
-    private void requestProtectedPlayback(
-            String episodeId
-    ) {
+    private void requestProtectedPlayback(String episodeId) {
         if (titleId.isEmpty()) {
+            Toast.makeText(
+                    this,
+                    "Title ID မရှိပါ။",
+                    Toast.LENGTH_SHORT
+            ).show();
+
             return;
         }
 
         playButton.setEnabled(false);
         playButton.setText("Checking VIP...");
 
-        JSONObject body =
-                new JSONObject();
+        JSONObject body = new JSONObject();
 
         try {
             body.put(
@@ -815,18 +839,14 @@ private int dp(int value) {
                     titleId
             );
 
-            if (
-                    episodeId != null &&
-                    !episodeId.isEmpty()
-            ) {
+            if (episodeId != null && !episodeId.isEmpty()) {
                 body.put(
                         "episodeId",
                         episodeId
                 );
             }
         } catch (Exception error) {
-            playButton.setEnabled(true);
-            playButton.setText(" VIP PLAY");
+            restorePlayButtonText();
 
             Toast.makeText(
                     this,
@@ -842,14 +862,9 @@ private int dp(int value) {
                 body,
                 new ApiClient.Callback() {
                     @Override
-                    public void onSuccess(
-                            JSONObject json
-                    ) {
+                    public void onSuccess(JSONObject json) {
                         runOnUiThread(() -> {
-                            playButton.setEnabled(true);
-                            playButton.setText(
-                                    " VIP PLAY"
-                            );
+                            restorePlayButtonText();
 
                             String videoUrl =
                                     json.optString(
@@ -881,14 +896,9 @@ private int dp(int value) {
                     }
 
                     @Override
-                    public void onError(
-                            Exception error
-                    ) {
+                    public void onError(Exception error) {
                         runOnUiThread(() -> {
-                            playButton.setEnabled(true);
-                            playButton.setText(
-                                    " VIP PLAY"
-                            );
+                            restorePlayButtonText();
 
                             Toast.makeText(
                                     DetailActivity.this,
@@ -901,14 +911,38 @@ private int dp(int value) {
         );
     }
 
+    private void restorePlayButtonText() {
+        playButton.setEnabled(true);
+
+        boolean isSeries =
+                episodesContainer.getVisibility() == View.VISIBLE;
+
+        if ("lugyi".equalsIgnoreCase(titleCategory)) {
+            playButton.setText(
+                    isSeries
+                            ? "VIP PLAY FIRST EPISODE"
+                            : "VIP PLAY"
+            );
+        } else {
+            playButton.setText(
+                    isSeries
+                            ? "PLAY FIRST EPISODE"
+                            : "PLAY"
+            );
+        }
+    }
+
     private void openPlayer(
             String url,
             String type
     ) {
-        if (
-                url == null ||
-                url.trim().isEmpty()
-        ) {
+        if (url == null || url.trim().isEmpty()) {
+            Toast.makeText(
+                    this,
+                    "Video link မရှိပါ။",
+                    Toast.LENGTH_SHORT
+            ).show();
+
             return;
         }
 
@@ -925,7 +959,9 @@ private int dp(int value) {
 
         intent.putExtra(
                 "video_type",
-                type
+                type == null || type.trim().isEmpty()
+                        ? "auto"
+                        : type
         );
 
         intent.putExtra(
