@@ -4,7 +4,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/dark_bg"
-    android:fillViewport="true">
+    android:fillViewport="true"
+    android:overScrollMode="never">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -15,6 +16,7 @@
             android:id="@+id/backdrop"
             android:layout_width="match_parent"
             android:layout_height="220dp"
+            android:background="#20232A"
             android:contentDescription="Backdrop"
             android:scaleType="centerCrop" />
 
@@ -22,7 +24,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:paddingStart="16dp"
+            android:paddingTop="16dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="32dp">
 
             <TextView
                 android:id="@+id/detailTitle"
@@ -40,42 +45,126 @@
                 android:textColor="@color/gray_text"
                 android:textSize="13sp" />
 
-            <!-- Play နှင့် Favorite ကို overview အပေါ်ရွှေ့ထားသည် -->
-            <LinearLayout
+            <!-- Genres -->
+
+            <TextView
+                android:id="@+id/genresLabel"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:orientation="horizontal">
+                android:paddingTop="14dp"
+                android:paddingBottom="8dp"
+                android:text="Genres"
+                android:textColor="@color/white"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <HorizontalScrollView
+                android:id="@+id/genresScroll"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false"
+                android:scrollbars="none"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:id="@+id/genresContainer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingEnd="8dp" />
+
+            </HorizontalScrollView>
+
+            <!-- Netflix style full-width actions -->
+
+            <LinearLayout
+                android:id="@+id/mainActions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:orientation="vertical">
 
                 <Button
                     android:id="@+id/playButton"
-                    android:layout_width="0dp"
-                    android:layout_height="50dp"
-                    android:layout_weight="1"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
                     android:backgroundTint="@color/brand_red"
-                    android:text="▶ PLAY"
+                    android:minHeight="0dp"
+                    android:text="▶  PLAY"
+                    android:textAllCaps="false"
                     android:textColor="@color/white"
+                    android:textSize="15sp"
                     android:textStyle="bold"
                     android:visibility="gone" />
 
                 <Button
                     android:id="@+id/favoriteButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="8dp"
+                    android:backgroundTint="@color/card_bg"
+                    android:minHeight="0dp"
+                    android:text="♡  Favorite"
+                    android:textAllCaps="false"
+                    android:textColor="@color/white"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+            </LinearLayout>
+
+            <!-- Share and Telegram -->
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/shareButton"
                     android:layout_width="0dp"
-                    android:layout_height="50dp"
-                    android:layout_marginStart="8dp"
+                    android:layout_height="48dp"
                     android:layout_weight="1"
                     android:backgroundTint="@color/card_bg"
-                    android:text="♡ FAVORITE"
+                    android:enabled="false"
+                    android:minHeight="0dp"
+                    android:text="↗  Share"
+                    android:textAllCaps="false"
                     android:textColor="@color/white"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/telegramButton"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:backgroundTint="#229ED9"
+                    android:minHeight="0dp"
+                    android:text="Telegram"
+                    android:textAllCaps="false"
+                    android:textColor="@color/white"
+                    android:textSize="13sp"
                     android:textStyle="bold" />
 
             </LinearLayout>
 
             <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:paddingTop="7dp"
+                android:text="Contact: @iqowoq"
+                android:textColor="@color/gray_text"
+                android:textSize="11sp" />
+
+            <TextView
                 android:id="@+id/overviewLabel"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:paddingTop="20dp"
+                android:paddingTop="24dp"
                 android:text="ဇာတ်လမ်းအကျဉ်း"
                 android:textColor="@color/white"
                 android:textSize="18sp"
@@ -85,10 +174,10 @@
                 android:id="@+id/detailOverview"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:lineSpacingExtra="3dp"
                 android:paddingTop="8dp"
                 android:textColor="@color/white"
-                android:textSize="15sp"
-                android:lineSpacingExtra="3dp" />
+                android:textSize="15sp" />
 
             <TextView
                 android:id="@+id/episodesLabel"
@@ -110,5 +199,7 @@
                 android:visibility="gone" />
 
         </LinearLayout>
+
     </LinearLayout>
+
 </ScrollView>
