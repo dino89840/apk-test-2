@@ -2,6 +2,11 @@ plugins {
     id 'com.android.application'
 }
 
+def cmflixAppKey =
+        System.getenv("CMFLIX_APP_KEY")
+                ?: project.findProperty("CMFLIX_APP_KEY")
+                ?: ""
+
 android {
     namespace 'com.cmflix.nativeapp'
     compileSdk 36
@@ -12,8 +17,24 @@ android {
         minSdk 23
         targetSdk 35
 
-        versionCode 2
-        versionName "1.1"
+        versionCode 3
+        versionName "1.2"
+
+        buildConfigField(
+                "String",
+                "CMFLIX_APP_KEY",
+                "\"${cmflixAppKey.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+        )
+
+        buildConfigField(
+                "String",
+                "API_BASE_URL",
+                "\"https://kkflix.xubi.org/api/\""
+        )
+    }
+
+    buildFeatures {
+        buildConfig true
     }
 
     buildTypes {
@@ -44,6 +65,7 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.7.1'
     implementation 'androidx.activity:activity:1.11.0'
     implementation 'androidx.recyclerview:recyclerview:1.4.0'
+    implementation 'androidx.core:core-splashscreen:1.0.0'
 
     def media3Version = "1.11.0"
 
