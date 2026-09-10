@@ -372,12 +372,12 @@ button.setLayoutParams(params);
     private void setupAccountButtons() {
         accountButton.setOnClickListener(view -> {
             if (SessionManager.isLoggedIn()) {
-                Toast.makeText(
-                        this,
-                        "Login user: " +
-                                SessionManager.getUsername(),
-                        Toast.LENGTH_SHORT
-                ).show();
+                startActivity(
+                        new Intent(
+                                this,
+                                ProfileActivity.class
+                        )
+                );
             } else {
                 openLogin();
             }
