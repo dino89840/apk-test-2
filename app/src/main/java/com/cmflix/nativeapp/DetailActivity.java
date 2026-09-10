@@ -1,6 +1,9 @@
 package com.cmflix.nativeapp;
 
 import android.content.Intent;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -22,13 +25,23 @@ import org.json.JSONObject;
 public class DetailActivity extends AppCompatActivity {
 
     private ImageView backdrop;
-    private TextView title;
-    private TextView meta;
-    private TextView overview;
-    private TextView episodesLabel;
-    private Button playButton;
-    private Button favoriteButton;
-    private LinearLayout episodesContainer;
+
+private TextView title;
+private TextView meta;
+private TextView overview;
+private TextView episodesLabel;
+private TextView genresLabel;
+
+private Button playButton;
+private Button favoriteButton;
+private Button shareButton;
+private Button telegramButton;
+
+private LinearLayout genresContainer;
+private LinearLayout episodesContainer;
+
+private View genresScroll;
+
 
     private String firstVideoUrl = "";
     private String firstVideoType = "auto";
@@ -68,15 +81,28 @@ public class DetailActivity extends AppCompatActivity {
         setContentView(R.layout.activity_detail);
 
         backdrop = findViewById(R.id.backdrop);
-        title = findViewById(R.id.detailTitle);
-        meta = findViewById(R.id.detailMeta);
-        overview = findViewById(R.id.detailOverview);
-        episodesLabel = findViewById(R.id.episodesLabel);
-        playButton = findViewById(R.id.playButton);
-        favoriteButton = findViewById(R.id.favoriteButton);
-        episodesContainer = findViewById(
-                R.id.episodesContainer
-        );
+
+title = findViewById(R.id.detailTitle);
+meta = findViewById(R.id.detailMeta);
+overview = findViewById(R.id.detailOverview);
+episodesLabel = findViewById(R.id.episodesLabel);
+genresLabel = findViewById(R.id.genresLabel);
+
+playButton = findViewById(R.id.playButton);
+favoriteButton = findViewById(R.id.favoriteButton);
+shareButton = findViewById(R.id.shareButton);
+telegramButton = findViewById(R.id.telegramButton);
+
+genresScroll = findViewById(R.id.genresScroll);
+
+genresContainer = findViewById(
+        R.id.genresContainer
+);
+
+episodesContainer = findViewById(
+        R.id.episodesContainer
+);
+
 
         String slug =
                 getIntent().getStringExtra("slug");
@@ -157,34 +183,32 @@ public class DetailActivity extends AppCompatActivity {
                 item.optString("rating", "");
 
         String genres =
-                item.optString("genres", "");
+        item.optString("genres", "");
 
-        StringBuilder metaText =
-                new StringBuilder();
+StringBuilder metaText =
+        new StringBuilder();
 
-        if (!year.isEmpty()) {
-            metaText.append(year);
-        }
+if (!year.isEmpty()) {
+    metaText.append(year);
+}
 
-        if (!rating.isEmpty()) {
-            if (metaText.length() > 0) {
-                metaText.append("  •  ");
-            }
+if (!rating.isEmpty()) {
+    if (metaText.length() > 0) {
+        metaText.append("  •  ");
+    }
 
-            metaText
-                    .append("★ ")
-                    .append(rating);
-        }
+    metaText
+            .append("★ ")
+            .append(rating);
+}
 
-        if (!genres.isEmpty()) {
-            if (metaText.length() > 0) {
-                metaText.append('\n');
-            }
+meta.setText(metaText.toString());
 
-            metaText.append(genres);
-        }
+bindGenres(genres);
 
-        meta.setText(metaText.toString());
+shareButton.setEnabled(true);
+shareButton.setAlpha(1f);
+
 
         overview.setText(
                 item.optString(
@@ -383,6 +407,14 @@ public class DetailActivity extends AppCompatActivity {
 
         favoriteLoading = true;
         favoriteButton.setEnabled(false);
+        shareButton.setOnClickListener(
+        view -> shareCurrentTitle()
+);
+
+telegramButton.setOnClickListener(
+        view -> openTelegramContact()
+);
+
 
         ApiClient.get(
                 "favorites",
@@ -448,7 +480,8 @@ public class DetailActivity extends AppCompatActivity {
 
         favoriteLoading = true;
         favoriteButton.setEnabled(false);
-        favoriteButton.setText("PLEASE WAIT…");
+        favoriteButton.setText("Please wait…");
+
 
         ApiClient.Callback callback =
                 new ApiClient.Callback() {
@@ -505,19 +538,169 @@ public class DetailActivity extends AppCompatActivity {
     }
 
     private void updateFavoriteText() {
-        if (!SessionManager.isLoggedIn()) {
-            favoriteButton.setText(
-                    "♡ LOGIN TO FAVORITE"
-            );
-            return;
+    if (!SessionManager.isLoggedIn()) {
+        favoriteButton.setText(
+                "♡  Login to add Favorite"
+        );
+        return;
+    }
+
+    favoriteButton.setText(
+            isFavorite
+                    ? "♥  Added to Favorites"
+                    : "♡  Add to Favorites"
+    );
+}
+
+private void bindGenres(String genres) {
+    genresContainer.removeAllViews();
+
+    if (
+            genres == null ||
+            genres.trim().isEmpty()
+    ) {
+        genresLabel.setVisibility(View.GONE);
+        genresScroll.setVisibility(View.GONE);
+        return;
+    }
+
+    genresLabel.setVisibility(View.VISIBLE);
+    genresScroll.setVisibility(View.VISIBLE);
+
+    String[] genreItems =
+            genres.split(",");
+
+    for (String genreValue : genreItems) {
+        String genre =
+                genreValue.trim();
+
+        if (genre.isEmpty()) {
+            continue;
         }
 
-        favoriteButton.setText(
-                isFavorite
-                        ? "♥ FAVORITED"
-                        : "♡ FAVORITE"
+        TextView chip =
+                new TextView(this);
+
+        chip.setText(genre);
+        chip.setTextColor(Color.WHITE);
+        chip.setTextSize(13);
+        chip.setSingleLine(true);
+
+        chip.setPadding(
+                dp(14),
+                dp(8),
+                dp(14),
+                dp(8)
+        );
+
+        GradientDrawable background =
+                new GradientDrawable();
+
+        background.setShape(
+                GradientDrawable.RECTANGLE
+        );
+
+        background.setColor(
+                Color.parseColor("#1A1D24")
+        );
+
+        background.setCornerRadius(
+                dp(50)
+        );
+
+        background.setStroke(
+                dp(1),
+                Color.parseColor("#3A404C")
+        );
+
+        chip.setBackground(background);
+
+        LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                );
+
+        params.setMarginEnd(dp(8));
+
+        genresContainer.addView(
+                chip,
+                params
         );
     }
+
+    if (genresContainer.getChildCount() == 0) {
+        genresLabel.setVisibility(View.GONE);
+        genresScroll.setVisibility(View.GONE);
+    }
+}
+
+private void shareCurrentTitle() {
+    String currentTitle =
+            title.getText()
+                    .toString()
+                    .trim();
+
+    if (currentTitle.isEmpty()) {
+        return;
+    }
+
+    String shareText =
+            "CMFLIX မှာ \"" +
+                    currentTitle +
+                    "\" ကို ကြည့်ရှုပါ။";
+
+    Intent shareIntent =
+            new Intent(Intent.ACTION_SEND);
+
+    shareIntent.setType("text/plain");
+
+    shareIntent.putExtra(
+            Intent.EXTRA_SUBJECT,
+            currentTitle
+    );
+
+    shareIntent.putExtra(
+            Intent.EXTRA_TEXT,
+            shareText
+    );
+
+    startActivity(
+            Intent.createChooser(
+                    shareIntent,
+                    "Share movie"
+            )
+    );
+}
+
+private void openTelegramContact() {
+    try {
+        Intent intent =
+                new Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse(
+                                "https://t.me/iqowoq"
+                        )
+                );
+
+        startActivity(intent);
+    } catch (Exception error) {
+        Toast.makeText(
+                this,
+                "Telegram contact ကို ဖွင့်၍မရပါ။",
+                Toast.LENGTH_SHORT
+        ).show();
+    }
+}
+
+private int dp(int value) {
+    return Math.round(
+            value *
+                    getResources()
+                            .getDisplayMetrics()
+                            .density
+    );
+}
 
     private void openPlayer(
             String url,
