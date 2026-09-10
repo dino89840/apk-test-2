@@ -90,6 +90,11 @@ public final class ApiClient {
                         BuildConfig.CMFLIX_APP_KEY
                 );
 
+                connection.setRequestProperty(
+                        "x-cmflix-device-id",
+                        SessionManager.getDeviceId()
+                );
+
                 String cookie =
                         SessionManager.getCookie();
 
