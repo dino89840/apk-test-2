@@ -647,74 +647,146 @@ private GradientDrawable logoutButtonBackground(
         );
     }
 
-    private void logout() {
-    ApiClient.post(
-            "auth/logout",
-            new JSONObject(),
-            new ApiClient.Callback() {
-                @Override
-                public void onSuccess(JSONObject json) {
-                    runOnUiThread(() -> {
-                        finishLocalLogout();
+        private void logout() {
+        ApiClient.post(
+                "auth/logout",
+                new JSONObject(),
+                new ApiClient.Callback() {
+                    @Override
+                    public void onSuccess(JSONObject json) {
+                        runOnUiThread(() -> {
+                            finishLocalLogout();
 
-                        Toast.makeText(
-                                MainActivity.this,
-                                "Logout ပြီးပါပြီ။",
-                                Toast.LENGTH_SHORT
-                        ).show();
-                    });
-                }
-
-                @Override
-                public void onError(Exception error) {
-                    runOnUiThread(() -> {
-                        /*
-                         * Server session က သက်တမ်းကုန်သွားခြင်း၊
-                         * network error ဖြစ်ခြင်းတို့မှာလည်း
-                         * local session ကို ရှင်းပေးမယ်။
-                         */
-                        finishLocalLogout();
-
-                        Toast.makeText(
-                                MainActivity.this,
-                                "Local logout ပြီးပါပြီ။",
-                                Toast.LENGTH_SHORT
-                        ).show();
-                    });
-                }
-            }
-    );
-}
-
-private void finishLocalLogout() {
-    SessionManager.clear();
-    updateAccountButtons();
-
-    if ("favorites".equals(category)) {
-        category = "movies";
-        search = "";
-
-        searchInput.setText("");
-        searchInput.setVisibility(
-                View.VISIBLE
-        );
-
-        updateCategoryButtons();
-        recycler.scrollToPosition(0);
-        resetAndLoad();
-    }
-}
-
+                            Toast.makeText(
+                                    MainActivity.this,
+                                    "Logout ပြီးပါပြီ။",
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                        });
+                    }
 
                     @Override
                     public void onError(Exception error) {
                         runOnUiThread(() -> {
                             /*
-                             * Server session ပျက်နေခဲ့လည်း
-                             * local session ကိုရှင်းနိုင်မယ်။
+                             * Server session သက်တမ်းကုန်ခြင်း၊
+                             * network error ဖြစ်ခြင်းတို့မှာလည်း
+                             * local session ကို ရှင်းပေးမယ်။
                              */
-                            SessionManager.clear();
-                            updateAccountButtons();
+                            finishLocalLogout();
+
+                            Toast.makeText(
+                                    MainActivity.this,
+                                    "Local logout ပြီးပါပြီ။",
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                        });
+                    }
+                }
+        );
+    }
+
+    private void finishLocalLogout() {
+        SessionManager.clear();
+        updateAccountButtons();
+
+        if ("favorites".equals(category)) {
+            category = "movies";
+            search = "";
+
+            searchInput.setText("");
+            searchInput.setVisibility(
+                    View.VISIBLE
+            );
+
+            updateCategoryButtons();
+            recycler.scrollToPosition(0);
+            resetAndLoad();
+        }
+    }
+
+    private void removeFavoriteFromList(
+            JSONObject item
+    ) {
+        if (
+                item == null ||
+                !"favorites".equals(category)
+        ) {
+            return;
+        }
+
+        String titleId =
+                item.optString("id", "");
+
+        if (titleId.isEmpty()) {
+            Toast.makeText(
+                    this,
+                    "Movie ID မရှိပါ။",
+                    Toast.LENGTH_SHORT
+            ).show();
+
+            adapter.notifyDataSetChanged();
+            return;
+        }
+
+        ApiClient.delete(
+                "favorites/" +
+                        ApiClient.encode(titleId),
+                new ApiClient.Callback() {
+                    @Override
+                    public void onSuccess(JSONObject json) {
+                        runOnUiThread(() -> {
+                            for (
+                                    int index =
+                                            allItems.size() - 1;
+                                    index >= 0;
+                                    index--
+                            ) {
+                                JSONObject current =
+                                        allItems.get(index);
+
+                                if (
+                                        titleId.equals(
+                                                current.optString(
+                                                        "id",
+                                                        ""
+                                                )
+                                        )
+                                ) {
+                                    allItems.remove(index);
+                                }
+                            }
+
+                            adapter.submitList(
+                                    new ArrayList<>(allItems)
+                            );
+
+                            if (allItems.isEmpty()) {
+                                errorText.setText(
+                                        "Favorite မရှိသေးပါ။"
+                                );
+
+                                errorText.setVisibility(
+                                        View.VISIBLE
+                                );
+                            } else {
+                                errorText.setVisibility(
+                                        View.GONE
+                                );
+                            }
+
+                            Toast.makeText(
+                                    MainActivity.this,
+                                    "Favorite မှ ဖယ်ရှားပြီးပါပြီ။",
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                        });
+                    }
+
+                    @Override
+                    public void onError(Exception error) {
+                        runOnUiThread(() -> {
+                            adapter.notifyDataSetChanged();
 
                             Toast.makeText(
                                     MainActivity.this,
@@ -726,99 +798,6 @@ private void finishLocalLogout() {
                 }
         );
     }
-    private void removeFavoriteFromList(
-        JSONObject item
-) {
-    if (
-            item == null ||
-            !"favorites".equals(category)
-    ) {
-        return;
-    }
-
-    String titleId =
-            item.optString("id", "");
-
-    if (titleId.isEmpty()) {
-        Toast.makeText(
-                this,
-                "Movie ID မရှိပါ။",
-                Toast.LENGTH_SHORT
-        ).show();
-
-        adapter.notifyDataSetChanged();
-        return;
-    }
-
-    ApiClient.delete(
-            "favorites/" +
-                    ApiClient.encode(titleId),
-            new ApiClient.Callback() {
-                @Override
-                public void onSuccess(JSONObject json) {
-                    runOnUiThread(() -> {
-                        for (
-                                int index =
-                                        allItems.size() - 1;
-                                index >= 0;
-                                index--
-                        ) {
-                            JSONObject current =
-                                    allItems.get(index);
-
-                            if (
-                                    titleId.equals(
-                                            current.optString(
-                                                    "id",
-                                                    ""
-                                            )
-                                    )
-                            ) {
-                                allItems.remove(index);
-                            }
-                        }
-
-                        adapter.submitList(
-                                new ArrayList<>(allItems)
-                        );
-
-                        if (allItems.isEmpty()) {
-                            errorText.setText(
-                                    "Favorite မရှိသေးပါ။"
-                            );
-
-                            errorText.setVisibility(
-                                    View.VISIBLE
-                            );
-                        } else {
-                            errorText.setVisibility(
-                                    View.GONE
-                            );
-                        }
-
-                        Toast.makeText(
-                                MainActivity.this,
-                                "Favorite မှ ဖယ်ရှားပြီးပါပြီ။",
-                                Toast.LENGTH_SHORT
-                        ).show();
-                    });
-                }
-
-                @Override
-                public void onError(Exception error) {
-                    runOnUiThread(() -> {
-                        adapter.notifyDataSetChanged();
-
-                        Toast.makeText(
-                                MainActivity.this,
-                                safeMessage(error),
-                                Toast.LENGTH_LONG
-                        ).show();
-                    });
-                }
-            }
-    );
-}
 
 
     private void resetAndLoad() {
