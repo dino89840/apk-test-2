@@ -53,8 +53,8 @@ public class DetailActivity extends AppCompatActivity {
     private boolean favoriteLoading = false;
     private boolean addFavoriteAfterLogin = false;
 
-    private boolean playAfterLogin = false;
-    private String pendingEpisodeId = "";
+    private boolean loginRequestedForPlayback = false;
+
 
     private final ActivityResultLauncher<Intent> authLauncher =
             registerForActivityResult(
@@ -63,11 +63,11 @@ public class DetailActivity extends AppCompatActivity {
                         updateFavoriteText();
 
                         if (result.getResultCode() != RESULT_OK) {
-                            addFavoriteAfterLogin = false;
-                            playAfterLogin = false;
-                            pendingEpisodeId = "";
-                            return;
-                        }
+    addFavoriteAfterLogin = false;
+    loginRequestedForPlayback = false;
+    return;
+}
+
 
                         /*
                          * Favorite ထည့်ဖို့ Login ဝင်ထားတာဆိုရင်
@@ -83,14 +83,16 @@ public class DetailActivity extends AppCompatActivity {
                             checkFavorite();
                         }
 
-                        if (playAfterLogin) {
-                            playAfterLogin = false;
+                        if (loginRequestedForPlayback) {
+    loginRequestedForPlayback = false;
 
-                            String episodeId = pendingEpisodeId;
-                            pendingEpisodeId = "";
+    Toast.makeText(
+            DetailActivity.this,
+            "Login အောင်မြင်ပါသည်။ ကြည့်ရန် PLAY ကို ထပ်နှိပ်ပါ။",
+            Toast.LENGTH_SHORT
+    ).show();
+}
 
-                            requestProtectedPlayback(episodeId);
-                        }
                     }
             );
 
@@ -292,8 +294,7 @@ public class DetailActivity extends AppCompatActivity {
                         )
                 )
                 .centerCrop()
-                .thumbnail(0.25f)
-                .dontAnimate()
+                               .dontAnimate()
                 .placeholder(
                         android.R.drawable.ic_menu_report_image
                 )
@@ -793,22 +794,18 @@ public class DetailActivity extends AppCompatActivity {
     ) {
         if ("lugyi".equalsIgnoreCase(titleCategory)) {
             if (!SessionManager.isLoggedIn()) {
-                playAfterLogin = true;
+    loginRequestedForPlayback = true;
 
-                pendingEpisodeId =
-                        episodeId == null
-                                ? ""
-                                : episodeId;
+    authLauncher.launch(
+            new Intent(
+                    this,
+                    AuthActivity.class
+            )
+    );
 
-                authLauncher.launch(
-                        new Intent(
-                                this,
-                                AuthActivity.class
-                        )
-                );
+    return;
+}
 
-                return;
-            }
 
             requestProtectedPlayback(episodeId);
             return;
@@ -829,7 +826,8 @@ public class DetailActivity extends AppCompatActivity {
         }
 
         playButton.setEnabled(false);
-        playButton.setText("Checking VIP...");
+playButton.setAlpha(0.65f);
+
 
         JSONObject body = new JSONObject();
 
@@ -913,6 +911,8 @@ public class DetailActivity extends AppCompatActivity {
 
     private void restorePlayButtonText() {
         playButton.setEnabled(true);
+playButton.setAlpha(1f);
+
 
         boolean isSeries =
                 episodesContainer.getVisibility() == View.VISIBLE;
