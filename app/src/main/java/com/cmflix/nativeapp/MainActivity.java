@@ -38,13 +38,7 @@ public class MainActivity extends AppCompatActivity {
     private EditText searchInput;
     private LinearLayout categoryBar;
     private Button accountButton;
-    private Button premiumButton;
-
-private boolean vipRefreshInFlight = false;
-
-private static final long VIP_REFRESH_INTERVAL =
-        5L * 60L * 1000L;
-
+    private Button logoutButton;
 
     private TitleAdapter adapter;
     private GridLayoutManager layoutManager;
@@ -99,7 +93,7 @@ private static final long VIP_REFRESH_INTERVAL =
         searchInput = findViewById(R.id.searchInput);
         categoryBar = findViewById(R.id.categoryBar);
         accountButton = findViewById(R.id.accountButton);
-        premiumButton = findViewById(R.id.premiumButton);
+        logoutButton = findViewById(R.id.logoutButton);
 
         setupRecycler();
         setupCategories();
@@ -376,20 +370,344 @@ button.setLayoutParams(params);
     }
 
     private void setupAccountButtons() {
-    accountButton.setOnClickListener(view -> {
-        if (SessionManager.isLoggedIn()) {
-            startActivity(
-                    new Intent(
-                            this,
-                            ProfileActivity.class
-                    )
+        accountButton.setOnClickListener(view -> {
+            if (SessionManager.isLoggedIn()) {
+                startActivity(
+                        new Intent(
+                                this,
+                                ProfileActivity.class
+                        )
+                );
+            } else {
+                openLogin();
+            }
+        });
+
+        logoutButton.setOnClickListener(
+        view -> showLogoutDialog()
+);
+
+    }
+private void showLogoutDialog() {
+    LinearLayout container =
+            new LinearLayout(this);
+
+    container.setOrientation(
+            LinearLayout.VERTICAL
+    );
+
+    container.setPadding(
+            dp(24),
+            dp(24),
+            dp(24),
+            dp(20)
+    );
+
+    GradientDrawable panelBackground =
+            new GradientDrawable();
+
+    panelBackground.setColor(
+            Color.parseColor("#171A22")
+    );
+
+    panelBackground.setCornerRadius(
+            dp(24)
+    );
+
+    panelBackground.setStroke(
+            dp(1),
+            Color.parseColor("#333844")
+    );
+
+    container.setBackground(
+            panelBackground
+    );
+
+    TextView icon =
+            new TextView(this);
+
+    icon.setText("↪");
+    icon.setTextSize(30);
+    icon.setGravity(
+            android.view.Gravity.CENTER
+    );
+    icon.setTextColor(
+            Color.parseColor("#E50914")
+    );
+
+    LinearLayout.LayoutParams iconParams =
+            new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    dp(52)
             );
-        } else {
-            openLogin();
-        }
+
+    container.addView(
+            icon,
+            iconParams
+    );
+
+    TextView heading =
+            new TextView(this);
+
+    heading.setText("Logout");
+    heading.setTextColor(Color.WHITE);
+    heading.setTextSize(21);
+    heading.setGravity(
+            android.view.Gravity.CENTER
+    );
+
+    heading.setTypeface(
+            heading.getTypeface(),
+            android.graphics.Typeface.BOLD
+    );
+
+    container.addView(heading);
+
+    TextView message =
+            new TextView(this);
+
+    message.setText(
+            "CMFLIX account မှ ထွက်ရန် " +
+                    "သေချာပါသလား?"
+    );
+
+    message.setTextColor(
+            Color.parseColor("#A8ADB8")
+    );
+
+    message.setTextSize(14);
+    message.setGravity(
+            android.view.Gravity.CENTER
+    );
+
+    message.setPadding(
+            dp(8),
+            dp(12),
+            dp(8),
+            dp(22)
+    );
+
+    container.addView(message);
+
+    LinearLayout actions =
+            new LinearLayout(this);
+
+    actions.setOrientation(
+            LinearLayout.HORIZONTAL
+    );
+
+    Button cancelButton =
+            new Button(this);
+
+    cancelButton.setText("Cancel");
+    cancelButton.setAllCaps(false);
+    cancelButton.setTextColor(Color.WHITE);
+    cancelButton.setTextSize(14);
+    cancelButton.setBackground(
+            logoutButtonBackground(false)
+    );
+
+    Button confirmButton =
+            new Button(this);
+
+    confirmButton.setText("Logout");
+    confirmButton.setAllCaps(false);
+    confirmButton.setTextColor(Color.WHITE);
+    confirmButton.setTextSize(14);
+
+    confirmButton.setTypeface(
+            confirmButton.getTypeface(),
+            android.graphics.Typeface.BOLD
+    );
+
+    confirmButton.setBackground(
+            logoutButtonBackground(true)
+    );
+
+    LinearLayout.LayoutParams leftParams =
+            new LinearLayout.LayoutParams(
+                    0,
+                    dp(48),
+                    1f
+            );
+
+    leftParams.setMarginEnd(dp(6));
+
+    LinearLayout.LayoutParams rightParams =
+            new LinearLayout.LayoutParams(
+                    0,
+                    dp(48),
+                    1f
+            );
+
+    rightParams.setMarginStart(dp(6));
+
+    actions.addView(
+            cancelButton,
+            leftParams
+    );
+
+    actions.addView(
+            confirmButton,
+            rightParams
+    );
+
+    container.addView(actions);
+
+    AlertDialog dialog =
+            new AlertDialog.Builder(this)
+                    .setView(container)
+                    .create();
+
+    cancelButton.setOnClickListener(
+            view -> dialog.dismiss()
+    );
+
+    confirmButton.setOnClickListener(view -> {
+        confirmButton.setEnabled(false);
+        confirmButton.setText("Please wait…");
+        logout();
+        dialog.dismiss();
     });
+
+    dialog.setOnShowListener(ignored -> {
+        if (dialog.getWindow() == null) {
+            return;
+        }
+
+        dialog.getWindow()
+                .setBackgroundDrawableResource(
+                        android.R.color.transparent
+                );
+
+        int width =
+                Math.round(
+                        getResources()
+                                .getDisplayMetrics()
+                                .widthPixels * 0.88f
+                );
+
+        dialog.getWindow().setLayout(
+                width,
+                android.view.ViewGroup
+                        .LayoutParams.WRAP_CONTENT
+        );
+    });
+
+    dialog.show();
 }
 
+private GradientDrawable logoutButtonBackground(
+        boolean danger
+) {
+    GradientDrawable background =
+            new GradientDrawable();
+
+    background.setShape(
+            GradientDrawable.RECTANGLE
+    );
+
+    background.setCornerRadius(
+            dp(14)
+    );
+
+    background.setColor(
+            danger
+                    ? Color.parseColor("#E50914")
+                    : Color.parseColor("#272B35")
+    );
+
+    if (!danger) {
+        background.setStroke(
+                dp(1),
+                Color.parseColor("#3B414E")
+        );
+    }
+
+    return background;
+}
+
+    private void updateAccountButtons() {
+        boolean loggedIn =
+                SessionManager.isLoggedIn();
+
+        accountButton.setText(
+                loggedIn
+                        ? SessionManager.getUsername()
+                        : "LOGIN"
+        );
+
+        logoutButton.setVisibility(
+                loggedIn ? View.VISIBLE : View.GONE
+        );
+    }
+
+    private void openLogin() {
+        authLauncher.launch(
+                new Intent(
+                        this,
+                        AuthActivity.class
+                )
+        );
+    }
+
+        private void logout() {
+        ApiClient.post(
+                "auth/logout",
+                new JSONObject(),
+                new ApiClient.Callback() {
+                    @Override
+                    public void onSuccess(JSONObject json) {
+                        runOnUiThread(() -> {
+                            finishLocalLogout();
+
+                            Toast.makeText(
+                                    MainActivity.this,
+                                    "Logout ပြီးပါပြီ။",
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                        });
+                    }
+
+                    @Override
+                    public void onError(Exception error) {
+                        runOnUiThread(() -> {
+                            /*
+                             * Server session သက်တမ်းကုန်ခြင်း၊
+                             * network error ဖြစ်ခြင်းတို့မှာလည်း
+                             * local session ကို ရှင်းပေးမယ်။
+                             */
+                            finishLocalLogout();
+
+                            Toast.makeText(
+                                    MainActivity.this,
+                                    "Local logout ပြီးပါပြီ။",
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                        });
+                    }
+                }
+        );
+    }
+
+    private void finishLocalLogout() {
+        SessionManager.clear();
+        updateAccountButtons();
+
+        if ("favorites".equals(category)) {
+            category = "movies";
+            search = "";
+
+            searchInput.setText("");
+            searchInput.setVisibility(
+                    View.VISIBLE
+            );
+
+            updateCategoryButtons();
+            recycler.scrollToPosition(0);
+            resetAndLoad();
+        }
+    }
 
     private void removeFavoriteFromList(
             JSONObject item
