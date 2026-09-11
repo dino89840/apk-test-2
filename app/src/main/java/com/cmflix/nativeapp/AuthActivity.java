@@ -199,10 +199,12 @@ public class AuthActivity extends AppCompatActivity {
                             }
 
                             SessionManager.saveAuth(
-                                    json.optString("csrf", ""),
-                                    user.optString("username", ""),
-                                    user.optString("email", "")
-                            );
+        json.optString("csrf", ""),
+        user.optString("username", ""),
+        user.optString("email", ""),
+        user.optLong("vipUntil", 0L)
+);
+
 
                             Toast.makeText(
                                     AuthActivity.this,
