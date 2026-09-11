@@ -699,35 +699,35 @@ public class ProfileActivity
     }
 
     private Button createDialogButton(
-            String text,
-            int color
-    ) {
-        Button button = new Button(this);
+        String text,
+        int color
+) {
+    Button button = new Button(this);
 
-        button.setLayoutParams(
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams
-                                .MATCH_PARENT,
-                        dp(54)
-                )
-        );
+    button.setLayoutParams(
+            new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    dp(54)
+            )
+    );
 
-        button.setMinHeight(0);
-        button.setText(text);
-        button.setTextSize(15);
-        button.setTextColor(Color.WHITE);
-        button.setTextAllCaps(false);
+    button.setMinHeight(0);
+    button.setText(text);
+    button.setTextSize(15);
+    button.setTextColor(Color.WHITE);
+    button.setAllCaps(false);
 
-        GradientDrawable background =
-                new GradientDrawable();
+    GradientDrawable background =
+            new GradientDrawable();
 
-        background.setColor(color);
-        background.setCornerRadius(dp(16));
+    background.setColor(color);
+    background.setCornerRadius(dp(16));
 
-        button.setBackground(background);
+    button.setBackground(background);
 
-        return button;
-    }
+    return button;
+}
+
 
     private TextView createText(
             String value,
