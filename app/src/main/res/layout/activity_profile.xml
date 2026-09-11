@@ -120,6 +120,17 @@
             android:text="CHANGE PASSWORD"
             android:textColor="@color/white"
             android:textStyle="bold" />
+            <Button
+    android:id="@+id/profileLogoutButton"
+    android:layout_width="match_parent"
+    android:layout_height="52dp"
+    android:layout_marginTop="14dp"
+    android:layout_marginBottom="24dp"
+    android:backgroundTint="#2A2E38"
+    android:text="LOGOUT"
+    android:textColor="@color/white"
+    android:textStyle="bold" />
+
 
     </LinearLayout>
 </ScrollView>
