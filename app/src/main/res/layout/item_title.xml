@@ -3,20 +3,27 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="5dp"
+    android:layout_marginStart="7dp"
+    android:layout_marginTop="7dp"
+    android:layout_marginEnd="7dp"
+    android:layout_marginBottom="7dp"
     android:background="@drawable/card_bg"
     android:clickable="true"
     android:focusable="true"
     android:foreground="?android:attr/selectableItemBackground"
     android:orientation="vertical"
-    android:paddingBottom="8dp">
+    android:paddingBottom="7dp">
 
+    <!--
+        clipToOutline နဲ့ poster image ရဲ့
+        အပေါ်ဘက်ထောင့်နှစ်ခုကို ကွေးထားသည်။
+    -->
     <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="170dp">
+        android:layout_height="160dp"
+        android:background="@drawable/poster_rounded_bg"
         android:clipChildren="true"
-android:clipToPadding="true"
-
+        android:clipToOutline="true">
 
         <ImageView
             android:id="@+id/poster"
@@ -25,33 +32,34 @@ android:clipToPadding="true"
             android:background="#20232A"
             android:contentDescription="Movie poster"
             android:scaleType="centerCrop" />
-<TextView
-    android:id="@+id/vipRibbon"
-    android:layout_width="82dp"
-    android:layout_height="24dp"
-    android:layout_gravity="top|end"
-    android:background="@color/brand_red"
-    android:elevation="7dp"
-    android:gravity="center"
-    android:rotation="45"
-    android:text="VIP"
-    android:textColor="@color/white"
-    android:textSize="11sp"
-    android:textStyle="bold"
-    android:translationX="18dp"
-    android:translationY="11dp"
-    android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/vipRibbon"
+            android:layout_width="82dp"
+            android:layout_height="24dp"
+            android:layout_gravity="top|end"
+            android:background="@color/brand_red"
+            android:elevation="7dp"
+            android:gravity="center"
+            android:rotation="45"
+            android:text="VIP"
+            android:textColor="@color/white"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:translationX="18dp"
+            android:translationY="11dp"
+            android:visibility="gone" />
 
         <ImageButton
             android:id="@+id/favoriteRemove"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
             android:layout_gravity="top|end"
-            android:layout_margin="7dp"
+            android:layout_margin="6dp"
             android:background="@drawable/favorite_remove_bg"
             android:contentDescription="Remove from favorites"
             android:elevation="8dp"
-            android:padding="9dp"
+            android:padding="8dp"
             android:src="@android:drawable/ic_menu_close_clear_cancel"
             android:tint="@color/white"
             android:visibility="gone" />
@@ -65,11 +73,11 @@ android:clipToPadding="true"
         android:ellipsize="end"
         android:maxLines="2"
         android:minLines="2"
-        android:paddingStart="8dp"
-        android:paddingTop="8dp"
-        android:paddingEnd="8dp"
+        android:paddingStart="7dp"
+        android:paddingTop="7dp"
+        android:paddingEnd="7dp"
         android:textColor="@color/white"
-        android:textSize="13sp"
+        android:textSize="12sp"
         android:textStyle="bold" />
 
     <TextView
@@ -78,10 +86,10 @@ android:clipToPadding="true"
         android:layout_height="wrap_content"
         android:ellipsize="end"
         android:maxLines="1"
-        android:paddingStart="8dp"
-        android:paddingTop="3dp"
-        android:paddingEnd="8dp"
+        android:paddingStart="7dp"
+        android:paddingTop="2dp"
+        android:paddingEnd="7dp"
         android:textColor="@color/gray_text"
-        android:textSize="11sp" />
+        android:textSize="10sp" />
 
 </LinearLayout>
