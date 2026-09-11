@@ -62,19 +62,24 @@
             android:textStyle="bold" />
 
         <Button
-            android:id="@+id/logoutButton"
-            android:layout_width="wrap_content"
-            android:layout_height="38dp"
-            android:layout_marginStart="6dp"
-            android:backgroundTint="@color/card_bg"
-            android:minHeight="0dp"
-            android:minWidth="0dp"
-            android:paddingStart="10dp"
-            android:paddingEnd="10dp"
-            android:text="LOGOUT"
-            android:textColor="@color/white"
-            android:textSize="10sp"
-            android:visibility="gone" />
+    android:id="@+id/premiumButton"
+    android:layout_width="wrap_content"
+    android:layout_height="38dp"
+    android:layout_marginStart="6dp"
+    android:backgroundTint="@color/card_bg"
+    android:clickable="false"
+    android:focusable="false"
+    android:minHeight="0dp"
+    android:minWidth="0dp"
+    android:paddingStart="10dp"
+    android:paddingEnd="10dp"
+    android:text="P-0Day"
+    android:textAllCaps="false"
+    android:textColor="@color/white"
+    android:textSize="10sp"
+    android:textStyle="bold"
+    android:visibility="gone" />
+
 
     </LinearLayout>
 
