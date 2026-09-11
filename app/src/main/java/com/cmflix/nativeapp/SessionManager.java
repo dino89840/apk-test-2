@@ -25,8 +25,17 @@ public final class SessionManager {
     private static final String KEY_EMAIL =
             "email";
 
+    private static final String KEY_VIP_UNTIL =
+            "vip_until";
+
+    private static final String KEY_PROFILE_SYNCED_AT =
+            "profile_synced_at";
+
     private static final String KEY_DEVICE_ID =
             "device_id";
+
+    private static final long ONE_DAY_MS =
+            24L * 60L * 60L * 1000L;
 
     private static SharedPreferences preferences;
     private static SharedPreferences devicePreferences;
@@ -135,6 +144,49 @@ public final class SessionManager {
         );
     }
 
+    public static long getVipUntil() {
+        return prefs().getLong(
+                KEY_VIP_UNTIL,
+                0L
+        );
+    }
+
+    public static long getPremiumDaysRemaining() {
+        long remaining =
+                getVipUntil() - System.currentTimeMillis();
+
+        if (remaining <= 0L) {
+            return 0L;
+        }
+
+        /*
+         * 2 ရက် 1 နာရီကျန်လျှင် P-3Day ပြရန်
+         * အပေါ်ဘက်သို့ round တက်ထားသည်။
+         */
+        return (remaining + ONE_DAY_MS - 1L)
+                / ONE_DAY_MS;
+    }
+
+    public static String getPremiumLabel() {
+        return "P-" +
+                getPremiumDaysRemaining() +
+                "Day";
+    }
+
+    public static boolean isProfileRefreshDue(
+            long maxAgeMillis
+    ) {
+        long lastSync =
+                prefs().getLong(
+                        KEY_PROFILE_SYNCED_AT,
+                        0L
+                );
+
+        return lastSync <= 0L ||
+                System.currentTimeMillis() - lastSync
+                        >= maxAgeMillis;
+    }
+
     public static void saveCookie(String cookie) {
         prefs()
                 .edit()
@@ -148,7 +200,8 @@ public final class SessionManager {
     public static void saveAuth(
             String csrf,
             String username,
-            String email
+            String email,
+            long vipUntil
     ) {
         prefs()
                 .edit()
@@ -164,12 +217,34 @@ public final class SessionManager {
                         KEY_EMAIL,
                         email == null ? "" : email
                 )
+                .putLong(
+                        KEY_VIP_UNTIL,
+                        Math.max(0L, vipUntil)
+                )
+                .putLong(
+                        KEY_PROFILE_SYNCED_AT,
+                        System.currentTimeMillis()
+                )
+                .apply();
+    }
+
+    public static void saveVipState(long vipUntil) {
+        prefs()
+                .edit()
+                .putLong(
+                        KEY_VIP_UNTIL,
+                        Math.max(0L, vipUntil)
+                )
+                .putLong(
+                        KEY_PROFILE_SYNCED_AT,
+                        System.currentTimeMillis()
+                )
                 .apply();
     }
 
     /*
-     * Logout လုပ်လျှင် session ကိုသာရှင်းမယ်။
-     * Device ID ကိုမဖျက်ရ။
+     * Account session ပဲရှင်းမယ်။
+     * Device ID ကို မရှင်းပါ။
      */
     public static void clear() {
         prefs().edit().clear().apply();
