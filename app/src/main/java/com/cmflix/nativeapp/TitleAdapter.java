@@ -144,11 +144,36 @@ public class TitleAdapter
         holder.meta.setText(
                 metadata.toString()
         );
+boolean vipTitle =
+        "lugyi".equalsIgnoreCase(
+                item.optString(
+                        "category",
+                        ""
+                )
+        );
+
+holder.vipRibbon.setVisibility(
+        vipTitle
+                ? View.VISIBLE
+                : View.GONE
+);
 
         Glide.with(holder.poster)
                 .load(item.optString("poster_url", ""))
                 .centerCrop()
-                .thumbnail(0.25f)
+                Glide.with(holder.poster)
+        .load(item.optString("poster_url", ""))
+        .centerCrop()
+        .dontAnimate()
+        .placeholder(
+                android.R.drawable
+                        .ic_menu_report_image
+        )
+        .error(
+                android.R.drawable
+                        .ic_menu_report_image
+        )
+        .into(holder.poster);
                 .dontAnimate()
                 .placeholder(
                         android.R.drawable
@@ -210,6 +235,8 @@ public class TitleAdapter
         final ImageButton favoriteRemove;
         final TextView title;
         final TextView meta;
+        final TextView vipRibbon;
+
 
         Holder(@NonNull View itemView) {
             super(itemView);
@@ -221,6 +248,9 @@ public class TitleAdapter
             favoriteRemove = itemView.findViewById(
                     R.id.favoriteRemove
             );
+vipRibbon = itemView.findViewById(
+        R.id.vipRibbon
+);
 
             title = itemView.findViewById(
                     R.id.movieTitle
