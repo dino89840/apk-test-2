@@ -14,6 +14,9 @@
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="170dp">
+        android:clipChildren="true"
+android:clipToPadding="true"
+
 
         <ImageView
             android:id="@+id/poster"
@@ -22,6 +25,22 @@
             android:background="#20232A"
             android:contentDescription="Movie poster"
             android:scaleType="centerCrop" />
+<TextView
+    android:id="@+id/vipRibbon"
+    android:layout_width="82dp"
+    android:layout_height="24dp"
+    android:layout_gravity="top|end"
+    android:background="@color/brand_red"
+    android:elevation="7dp"
+    android:gravity="center"
+    android:rotation="45"
+    android:text="VIP"
+    android:textColor="@color/white"
+    android:textSize="11sp"
+    android:textStyle="bold"
+    android:translationX="18dp"
+    android:translationY="11dp"
+    android:visibility="gone" />
 
         <ImageButton
             android:id="@+id/favoriteRemove"
