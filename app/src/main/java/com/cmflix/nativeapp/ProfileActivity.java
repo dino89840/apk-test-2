@@ -38,18 +38,20 @@ private boolean logoutLoading = false;
             Bundle savedInstanceState
     ) {
         super.onCreate(savedInstanceState);
-logoutButton =
-        findViewById(
-                R.id.profileLogoutButton
-        );
-
-logoutButton.setOnClickListener(
-        view -> showLogoutDialog()
-);
 
         ApiClient.initialize(this);
+
         setContentView(
                 R.layout.activity_profile
+        );
+
+        logoutButton =
+                findViewById(
+                        R.id.profileLogoutButton
+                );
+
+        logoutButton.setOnClickListener(
+                view -> showLogoutDialog()
         );
 
         usernameText =
@@ -349,8 +351,8 @@ if (isVip && vipUntil > System.currentTimeMillis()) {
 
         return error.getMessage();
     }
-}
-private void showLogoutDialog() {
+
+    private void showLogoutDialog() {
     if (logoutLoading) {
         return;
     }
@@ -427,4 +429,5 @@ private void completeLocalLogout(
 
     setResult(RESULT_OK);
     finish();
+}
 }
