@@ -430,6 +430,16 @@ button.setLayoutParams(params);
         );
     }
 }
+
+private void openLogin() {
+    Intent intent =
+            new Intent(
+                    MainActivity.this,
+                    AuthActivity.class
+            );
+
+    authLauncher.launch(intent);
+}
 private void refreshProfileIfNeeded() {
     if (
             !SessionManager.isLoggedIn() ||
