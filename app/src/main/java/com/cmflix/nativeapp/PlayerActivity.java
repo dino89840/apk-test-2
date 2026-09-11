@@ -85,17 +85,49 @@ public class PlayerActivity extends AppCompatActivity {
     }
 
     private void setupResizeButton() {
-        resizeButton.setOnClickListener(view -> {
-            resizeModeIndex++;
+    /*
+     * PlayerView ရဲ့ မူရင်း playback controls
+     * ပေါ်/ပျောက် အခြေအနေနဲ့ resize button ကို
+     * အတူတူ ပေါ်/ပျောက်စေမယ်။
+     */
+    playerView.setControllerVisibilityListener(visibility -> {
+        resizeButton.setVisibility(
+                visibility == View.VISIBLE
+                        ? View.VISIBLE
+                        : View.GONE
+        );
+    });
 
-            if (resizeModeIndex > 2) {
-                resizeModeIndex = 0;
-            }
+    /*
+     * Listener တပ်လိုက်ချိန်မှာ controller ရဲ့
+     * လက်ရှိအခြေအနေကို resize button မှာ ချက်ချင်းသက်ရောက်စေမယ်။
+     */
+    resizeButton.setVisibility(
+            playerView.isControllerFullyVisible()
+                    ? View.VISIBLE
+                    : View.GONE
+    );
 
-            applyResizeMode(true);
-            enterImmersive();
-        });
-    }
+    resizeButton.setOnClickListener(view -> {
+        resizeModeIndex++;
+
+        if (resizeModeIndex > 2) {
+            resizeModeIndex = 0;
+        }
+
+        applyResizeMode(true);
+
+        /*
+         * Resize button နှိပ်ထားချိန်မှာ controller timeout ကို
+         * ပြန်စပေးမယ်။ သတ်မှတ်ထားတဲ့အချိန်ပြည့်ရင်
+         * controller နဲ့ resize button နှစ်ခုလုံး ပျောက်မယ်။
+         */
+        playerView.showController();
+
+        enterImmersive();
+    });
+}
+
 
     private void applyResizeMode(boolean showMessage) {
         String label;
