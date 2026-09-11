@@ -6,6 +6,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import androidx.appcompat.app.AlertDialog;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -22,6 +23,8 @@ public class ProfileActivity
     private TextView emailText;
     private TextView vipText;
     private TextView deviceText;
+    private Button logoutButton;
+private boolean logoutLoading = false;
 
     private EditText currentPassword;
     private EditText newPassword;
@@ -35,6 +38,14 @@ public class ProfileActivity
             Bundle savedInstanceState
     ) {
         super.onCreate(savedInstanceState);
+logoutButton =
+        findViewById(
+                R.id.profileLogoutButton
+        );
+
+logoutButton.setOnClickListener(
+        view -> showLogoutDialog()
+);
 
         ApiClient.initialize(this);
         setContentView(
@@ -118,6 +129,24 @@ public class ProfileActivity
                                 finish();
                                 return;
                             }
+SessionManager.saveAuth(
+        json.optString(
+                "csrf",
+                SessionManager.getCsrf()
+        ),
+        user.optString(
+                "username",
+                SessionManager.getUsername()
+        ),
+        user.optString(
+                "email",
+                SessionManager.getEmail()
+        ),
+        user.optLong(
+                "vipUntil",
+                0L
+        )
+);
 
                             usernameText.setText(
                                     "Username: " +
@@ -136,36 +165,34 @@ public class ProfileActivity
                             );
 
                             boolean isVip =
-                                    user.optBoolean(
-                                            "isVip",
-                                            false
-                                    );
+        user.optBoolean(
+                "isVip",
+                false
+        );
 
-                            long vipUntil =
-                                    user.optLong(
-                                            "vipUntil",
-                                            0
-                                    );
+long vipUntil =
+        user.optLong(
+                "vipUntil",
+                0L
+        );
 
-                            if (isVip && vipUntil > 0) {
-                                String expiry =
-                                        DateFormat
-                                                .getDateTimeInstance()
-                                                .format(
-                                                        new Date(
-                                                                vipUntil
-                                                        )
-                                                );
+if (isVip && vipUntil > System.currentTimeMillis()) {
+    String expiry =
+            DateFormat
+                    .getDateTimeInstance()
+                    .format(
+                            new Date(vipUntil)
+                    );
 
-                                vipText.setText(
-                                        "VIP Active\nသက်တမ်းကုန်မည့်အချိန်: " +
-                                                expiry
-                                );
-                            } else {
-                                vipText.setText(
-                                        "VIP မရှိပါ"
-                                );
-                            }
+    vipText.setText(
+            SessionManager.getPremiumLabel() +
+                    "\nVIP သက်တမ်းကုန်မည့်အချိန်: " +
+                    expiry
+    );
+} else {
+    vipText.setText("P-0Day\nPremium မရှိသေးပါ");
+}
+
 
                             deviceText.setText(
                                     user.optBoolean(
@@ -322,4 +349,82 @@ public class ProfileActivity
 
         return error.getMessage();
     }
+}
+private void showLogoutDialog() {
+    if (logoutLoading) {
+        return;
+    }
+
+    new AlertDialog.Builder(this)
+            .setTitle("Logout")
+            .setMessage(
+                    "CMFLIX account မှ ထွက်ရန် " +
+                            "သေချာပါသလား?"
+            )
+            .setNegativeButton(
+                    "Cancel",
+                    null
+            )
+            .setPositiveButton(
+                    "Logout",
+                    (dialog, which) -> logout()
+            )
+            .show();
+}
+
+private void logout() {
+    if (logoutLoading) {
+        return;
+    }
+
+    logoutLoading = true;
+    logoutButton.setEnabled(false);
+    logoutButton.setText("Please wait…");
+    progress.setVisibility(View.VISIBLE);
+
+    ApiClient.post(
+            "auth/logout",
+            new JSONObject(),
+            new ApiClient.Callback() {
+                @Override
+                public void onSuccess(JSONObject json) {
+                    runOnUiThread(() ->
+                            completeLocalLogout(
+                                    "Logout ပြီးပါပြီ။"
+                            )
+                    );
+                }
+
+                @Override
+                public void onError(Exception error) {
+                    /*
+                     * Server session သက်တမ်းကုန်နေခြင်း သို့မဟုတ်
+                     * network error ဖြစ်နေရင်လည်း ဖုန်းထဲက
+                     * local session ကိုရှင်းနိုင်ရမည်။
+                     */
+                    runOnUiThread(() ->
+                            completeLocalLogout(
+                                    "Local logout ပြီးပါပြီ။"
+                            )
+                    );
+                }
+            }
+    );
+}
+
+private void completeLocalLogout(
+        String message
+) {
+    logoutLoading = false;
+
+    SessionManager.clear();
+
+    Toast.makeText(
+            this,
+            message,
+            Toast.LENGTH_SHORT
+    ).show();
+
+    setResult(RESULT_OK);
+    finish();
 }
