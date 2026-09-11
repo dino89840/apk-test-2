@@ -86,27 +86,32 @@ public class PlayerActivity extends AppCompatActivity {
 
     private void setupResizeButton() {
     /*
-     * PlayerView ရဲ့ မူရင်း playback controls
-     * ပေါ်/ပျောက် အခြေအနေနဲ့ resize button ကို
-     * အတူတူ ပေါ်/ပျောက်စေမယ်။
+     * Media3 မှာ setControllerVisibilityListener overload
+     * နှစ်မျိုးရှိတဲ့အတွက် PlayerView.ControllerVisibilityListener
+     * ကို အတိအကျသတ်မှတ်ပေးထားပါတယ်။
      */
-    playerView.setControllerVisibilityListener(visibility -> {
-        resizeButton.setVisibility(
-                visibility == View.VISIBLE
-                        ? View.VISIBLE
-                        : View.GONE
-        );
-    });
+    playerView.setControllerVisibilityListener(
+            new PlayerView.ControllerVisibilityListener() {
+                @Override
+                public void onVisibilityChanged(int visibility) {
+                    if (visibility == View.VISIBLE) {
+                        resizeButton.setVisibility(View.VISIBLE);
+                    } else {
+                        resizeButton.setVisibility(View.GONE);
+                    }
+                }
+            }
+    );
 
     /*
-     * Listener တပ်လိုက်ချိန်မှာ controller ရဲ့
-     * လက်ရှိအခြေအနေကို resize button မှာ ချက်ချင်းသက်ရောက်စေမယ်။
+     * Listener မခေါ်ရသေးခင် controller ရဲ့
+     * လက်ရှိအခြေအနေကို button မှာ သက်ရောက်စေမယ်။
      */
-    resizeButton.setVisibility(
-            playerView.isControllerFullyVisible()
-                    ? View.VISIBLE
-                    : View.GONE
-    );
+    if (playerView.isControllerFullyVisible()) {
+        resizeButton.setVisibility(View.VISIBLE);
+    } else {
+        resizeButton.setVisibility(View.GONE);
+    }
 
     resizeButton.setOnClickListener(view -> {
         resizeModeIndex++;
@@ -118,15 +123,15 @@ public class PlayerActivity extends AppCompatActivity {
         applyResizeMode(true);
 
         /*
-         * Resize button နှိပ်ထားချိန်မှာ controller timeout ကို
-         * ပြန်စပေးမယ်။ သတ်မှတ်ထားတဲ့အချိန်ပြည့်ရင်
-         * controller နဲ့ resize button နှစ်ခုလုံး ပျောက်မယ်။
+         * Resize button နှိပ်တိုင်း controller timeout ကို
+         * ပြန်စပေးမယ်။
          */
         playerView.showController();
 
         enterImmersive();
     });
 }
+
 
 
     private void applyResizeMode(boolean showMessage) {
