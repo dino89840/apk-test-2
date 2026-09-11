@@ -597,19 +597,40 @@ public class DetailActivity extends AppCompatActivity {
                     }
 
                     @Override
-                    public void onError(Exception error) {
-                        runOnUiThread(() -> {
-                            favoriteLoading = false;
-                            favoriteButton.setEnabled(true);
-                            updateFavoriteText();
+public void onError(Exception error) {
+    runOnUiThread(() -> {
+        restorePlayButtonText();
 
-                            Toast.makeText(
-                                    DetailActivity.this,
-                                    safeMessage(error),
-                                    Toast.LENGTH_LONG
-                            ).show();
-                        });
-                    }
+        String message =
+                safeMessage(error);
+
+        String lowerMessage =
+                message.toLowerCase(
+                        java.util.Locale.US
+                );
+
+        boolean premiumError =
+                lowerMessage.contains("premium") ||
+                lowerMessage.contains("vip") ||
+                lowerMessage.contains("403") ||
+                lowerMessage.contains("expired");
+
+        if (premiumError) {
+            SessionManager.saveVipState(0L);
+            PremiumDialog.show(
+                    DetailActivity.this
+            );
+            return;
+        }
+
+        Toast.makeText(
+                DetailActivity.this,
+                message,
+                Toast.LENGTH_LONG
+        ).show();
+    });
+}
+
                 };
 
         String path =
@@ -788,31 +809,43 @@ public class DetailActivity extends AppCompatActivity {
     }
 
     private void playVideo(
-            String url,
-            String type,
-            String episodeId
-    ) {
-        if ("lugyi".equalsIgnoreCase(titleCategory)) {
-            if (!SessionManager.isLoggedIn()) {
-    loginRequestedForPlayback = true;
+        String url,
+        String type,
+        String episodeId
+) {
+    if ("lugyi".equalsIgnoreCase(titleCategory)) {
+        if (!SessionManager.isLoggedIn()) {
+            loginRequestedForPlayback = true;
 
-    authLauncher.launch(
-            new Intent(
-                    this,
-                    AuthActivity.class
-            )
-    );
+            authLauncher.launch(
+                    new Intent(
+                            this,
+                            AuthActivity.class
+                    )
+            );
 
-    return;
-}
-
-
-            requestProtectedPlayback(episodeId);
             return;
         }
 
-        openPlayer(url, type);
+        /*
+         * Cached VIP သက်တမ်းမရှိ/ကုန်နေပါက
+         * server ကို request မပို့ခင် Premium dialog ပြမယ်။
+         */
+        if (
+                SessionManager.getVipUntil()
+                        <= System.currentTimeMillis()
+        ) {
+            PremiumDialog.show(this);
+            return;
+        }
+
+        requestProtectedPlayback(episodeId);
+        return;
     }
+
+    openPlayer(url, type);
+}
+
 
     private void requestProtectedPlayback(String episodeId) {
         if (titleId.isEmpty()) {
