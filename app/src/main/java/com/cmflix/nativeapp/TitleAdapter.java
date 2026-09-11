@@ -144,36 +144,23 @@ public class TitleAdapter
         holder.meta.setText(
                 metadata.toString()
         );
-boolean vipTitle =
-        "lugyi".equalsIgnoreCase(
-                item.optString(
-                        "category",
-                        ""
-                )
-        );
+        boolean vipTitle =
+                "lugyi".equalsIgnoreCase(
+                        item.optString(
+                                "category",
+                                ""
+                        )
+                );
 
-holder.vipRibbon.setVisibility(
-        vipTitle
-                ? View.VISIBLE
-                : View.GONE
-);
+        holder.vipRibbon.setVisibility(
+                vipTitle
+                        ? View.VISIBLE
+                        : View.GONE
+        );
 
         Glide.with(holder.poster)
                 .load(item.optString("poster_url", ""))
                 .centerCrop()
-                Glide.with(holder.poster)
-        .load(item.optString("poster_url", ""))
-        .centerCrop()
-        .dontAnimate()
-        .placeholder(
-                android.R.drawable
-                        .ic_menu_report_image
-        )
-        .error(
-                android.R.drawable
-                        .ic_menu_report_image
-        )
-        .into(holder.poster);
                 .dontAnimate()
                 .placeholder(
                         android.R.drawable
