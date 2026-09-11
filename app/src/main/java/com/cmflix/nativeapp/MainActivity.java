@@ -395,11 +395,28 @@ button.setLayoutParams(params);
         }
     });
 
-    /*
-     * Premium button က status ပြရန်သာဖြစ်သည်။
-     * Logout ကို Profile screen သို့ရွှေ့ထားသည်။
-     */
-    premiumButton.setOnClickListener(null);
+   premiumButton.setOnClickListener(view -> {
+    if (!SessionManager.isLoggedIn()) {
+        openLogin();
+        return;
+    }
+
+    if (
+            SessionManager.getVipUntil()
+                    <= System.currentTimeMillis()
+    ) {
+        PremiumDialog.show(this);
+        return;
+    }
+
+    startActivity(
+            new Intent(
+                    this,
+                    ProfileActivity.class
+            )
+    );
+});
+
 }
 
 
