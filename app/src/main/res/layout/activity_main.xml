@@ -48,18 +48,21 @@
         </LinearLayout>
 
         <Button
-            android:id="@+id/accountButton"
-            android:layout_width="wrap_content"
-            android:layout_height="38dp"
-            android:backgroundTint="@color/brand_red"
-            android:minHeight="0dp"
-            android:minWidth="0dp"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:text="LOGIN"
-            android:textColor="@color/white"
-            android:textSize="11sp"
-            android:textStyle="bold" />
+    android:id="@+id/accountButton"
+    android:layout_width="wrap_content"
+    android:layout_height="34dp"
+    android:background="@drawable/account_badge_bg"
+    android:backgroundTint="@null"
+    android:minHeight="0dp"
+    android:minWidth="0dp"
+    android:paddingStart="13dp"
+    android:paddingEnd="13dp"
+    android:text="LOGIN"
+    android:textAllCaps="false"
+    android:textColor="@color/white"
+    android:textSize="10sp"
+    android:textStyle="bold" />
+
 
         <Button
     android:id="@+id/premiumButton"
