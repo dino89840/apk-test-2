@@ -954,9 +954,11 @@ public class DetailActivity extends AppCompatActivity {
 
 
     private void loadTitle(String slug) {
-        ApiClient.get(
-                "titles/" + ApiClient.encode(slug),
-                new ApiClient.Callback() {
+        ApiClient.getCached(
+        "titles/" + ApiClient.encode(slug),
+        30L * 60L * 1000L,
+        new ApiClient.Callback() {
+
                     @Override
                     public void onSuccess(JSONObject json) {
                         runOnUiThread(() ->
