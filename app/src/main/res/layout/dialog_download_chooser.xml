@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/download_dialog_bg"
+    android:orientation="vertical"
+    android:paddingStart="24dp"
+    android:paddingTop="25dp"
+    android:paddingEnd="24dp"
+    android:paddingBottom="21dp">
+
+    <TextView
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        android:layout_gravity="center_horizontal"
+        android:background="@drawable/download_dialog_icon_bg"
+        android:gravity="center"
+        android:text="↓"
+        android:textColor="#17131F"
+        android:textSize="38sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="16dp"
+        android:fontFamily="sans-serif-medium"
+        android:gravity="center"
+        android:text="PREMIUM DOWNLOAD"
+        android:textColor="#F5C76B"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.12" />
+
+    <TextView
+        android:id="@+id/downloadMovieTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="9dp"
+        android:ellipsize="end"
+        android:fontFamily="sans-serif-medium"
+        android:gravity="center"
+        android:maxLines="2"
+        android:text="Movie title"
+        android:textColor="#FFFFFF"
+        android:textSize="22sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/downloadFileName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="9dp"
+        android:ellipsize="middle"
+        android:gravity="center"
+        android:maxLines="1"
+        android:text="movie.mp4"
+        android:textColor="#AAA4B4"
+        android:textSize="13sp" />
+
+    <TextView
+        android:id="@+id/downloadDownloaderStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="19dp"
+        android:background="@drawable/download_status_bg"
+        android:gravity="center"
+        android:paddingStart="12dp"
+        android:paddingTop="11dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="11dp"
+        android:text="Download link ပြင်ဆင်ပြီး"
+        android:textColor="#65D68A"
+        android:textSize="13sp" />
+
+    <TextView
+        android:id="@+id/downloadAdmButton"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginTop="19dp"
+        android:background="@drawable/download_adm_button_bg"
+        android:clickable="true"
+        android:focusable="true"
+        android:fontFamily="sans-serif-medium"
+        android:gravity="center"
+        android:text="ADM ဖြင့် Download"
+        android:textColor="#171008"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/downloadBrowserButton"
+        android:layout_width="match_parent"
+        android:layout_height="54dp"
+        android:layout_marginTop="11dp"
+        android:background="@drawable/download_browser_button_bg"
+        android:clickable="true"
+        android:focusable="true"
+        android:fontFamily="sans-serif-medium"
+        android:gravity="center"
+        android:text="Browser ဖြင့် Download"
+        android:textColor="#FFFFFF"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/downloadCancelButton"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="11dp"
+        android:background="@drawable/download_cancel_button_bg"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center"
+        android:text="မလုပ်တော့ပါ"
+        android:textColor="#C8C2D0"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="15dp"
+        android:gravity="center"
+        android:text="Signed download link သည် အချိန်ကန့်သတ်ချက်ရှိနိုင်ပါသည်"
+        android:textColor="#746E7D"
+        android:textSize="11sp" />
+
+</LinearLayout>
