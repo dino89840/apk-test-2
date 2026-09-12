@@ -1,6 +1,9 @@
 package com.cmflix.nativeapp;
 
+import android.content.ActivityNotFoundException;
+import android.content.ClipData;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
@@ -12,6 +15,8 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.ImageButton;
+
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -33,7 +38,8 @@ public class DetailActivity extends AppCompatActivity {
     private TextView genresLabel;
 
     private Button playButton;
-    private Button favoriteButton;
+    private Button downloadButton;
+    private ImageButton favoriteButton;
     private Button shareButton;
     private Button telegramButton;
 
@@ -48,6 +54,7 @@ public class DetailActivity extends AppCompatActivity {
 
     private String titleId = "";
     private String titleCategory = "";
+    private String currentTitleName = "";
 
     private boolean isFavorite = false;
     private boolean favoriteLoading = false;
@@ -140,6 +147,7 @@ public class DetailActivity extends AppCompatActivity {
         genresLabel = findViewById(R.id.genresLabel);
 
         playButton = findViewById(R.id.playButton);
+        downloadButton = findViewById(R.id.downloadButton);
         favoriteButton = findViewById(R.id.favoriteButton);
         shareButton = findViewById(R.id.shareButton);
         telegramButton = findViewById(R.id.telegramButton);
@@ -188,6 +196,408 @@ public class DetailActivity extends AppCompatActivity {
                 )
         );
     }
+            downloadButton.setOnClickListener(
+                view -> requestDownload()
+        );
+    private void requestDownload() {
+        boolean downloadableCategory =
+                "series".equalsIgnoreCase(
+                        titleCategory
+                ) ||
+                "lugyi".equalsIgnoreCase(
+                        titleCategory
+                );
+
+        if (!downloadableCategory) {
+            Toast.makeText(
+                    this,
+                    "ဒီဇာတ်ကားမှာ Download မရပါ။",
+                    Toast.LENGTH_SHORT
+            ).show();
+
+            return;
+        }
+
+        if (!SessionManager.isLoggedIn()) {
+            authLauncher.launch(
+                    new Intent(
+                            this,
+                            AuthActivity.class
+                    )
+            );
+
+            return;
+        }
+
+        if (
+                SessionManager.getVipUntil()
+                        <= System.currentTimeMillis()
+        ) {
+            PremiumDialog.show(this);
+            return;
+        }
+
+        if (titleId.isEmpty()) {
+            Toast.makeText(
+                    this,
+                    "Title ID မရှိပါ။",
+                    Toast.LENGTH_SHORT
+            ).show();
+
+            return;
+        }
+
+        downloadButton.setEnabled(false);
+        downloadButton.setAlpha(0.6f);
+        downloadButton.setText(
+                "Preparing download…"
+        );
+
+        JSONObject body = new JSONObject();
+
+        try {
+            body.put(
+                    "titleId",
+                    titleId
+            );
+        } catch (Exception error) {
+            restoreDownloadButton();
+            return;
+        }
+
+        ApiClient.post(
+                "download",
+                body,
+                new ApiClient.Callback() {
+                    @Override
+                    public void onSuccess(
+                            JSONObject json
+                    ) {
+                        runOnUiThread(() -> {
+                            restoreDownloadButton();
+
+                            String url =
+                                    json.optString(
+                                            "downloadUrl",
+                                            ""
+                                    );
+
+                            String fileName =
+                                    json.optString(
+                                            "fileName",
+                                            buildLocalFileName(
+                                                    currentTitleName,
+                                                    url
+                                            )
+                                    );
+
+                            if (url.trim().isEmpty()) {
+                                Toast.makeText(
+                                        DetailActivity.this,
+                                        "Download link မရပါ။",
+                                        Toast.LENGTH_LONG
+                                ).show();
+
+                                return;
+                            }
+
+                            showDownloadChooser(
+                                    url,
+                                    fileName
+                            );
+                        });
+                    }
+
+                    @Override
+                    public void onError(
+                            Exception error
+                    ) {
+                        runOnUiThread(() -> {
+                            restoreDownloadButton();
+
+                            String message =
+                                    safeMessage(error);
+
+                            String lower =
+                                    message.toLowerCase(
+                                            java.util.Locale.US
+                                    );
+
+                            if (
+                                    lower.contains("vip") ||
+                                    lower.contains("premium") ||
+                                    lower.contains("403") ||
+                                    lower.contains("expired")
+                            ) {
+                                SessionManager.saveVipState(
+                                        0L
+                                );
+
+                                PremiumDialog.show(
+                                        DetailActivity.this
+                                );
+
+                                return;
+                            }
+
+                            Toast.makeText(
+                                    DetailActivity.this,
+                                    message,
+                                    Toast.LENGTH_LONG
+                            ).show();
+                        });
+                    }
+                }
+        );
+    }
+
+    private void restoreDownloadButton() {
+        downloadButton.setEnabled(true);
+        downloadButton.setAlpha(1f);
+        downloadButton.setText(
+                "↓  DOWNLOAD"
+        );
+    }
+
+    private void showDownloadChooser(
+            String url,
+            String fileName
+    ) {
+        boolean admInstalled =
+                isPackageInstalled(
+                        "com.dv.adm"
+                ) ||
+                isPackageInstalled(
+                        "com.dv.adm.pay"
+                );
+
+        androidx.appcompat.app.AlertDialog.Builder builder =
+                new androidx.appcompat.app.AlertDialog.Builder(
+                        this
+                );
+
+        builder.setTitle(
+                "Premium Download"
+        );
+
+        builder.setMessage(
+                currentTitleName +
+                "\n\nDownloader ရွေးပါ။"
+        );
+
+        builder.setNegativeButton(
+                "BROWSER",
+                (dialog, which) ->
+                        openBrowserDownload(
+                                url,
+                                fileName
+                        )
+        );
+
+        if (admInstalled) {
+            builder.setPositiveButton(
+                    "ADM",
+                    (dialog, which) ->
+                            openAdmDownload(
+                                    url,
+                                    fileName
+                            )
+            );
+        } else {
+            builder.setPositiveButton(
+                    "ADM မရှိပါ",
+                    (dialog, which) -> {
+                        Toast.makeText(
+                                this,
+                                "ADM app မတွေ့ပါ။",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+            );
+        }
+
+        builder.setNeutralButton(
+                "CANCEL",
+                null
+        );
+
+        builder.show();
+    }
+
+    private void openBrowserDownload(
+            String url,
+            String fileName
+    ) {
+        try {
+            Intent intent =
+                    createDownloadIntent(
+                            url,
+                            fileName
+                    );
+
+            startActivity(
+                    Intent.createChooser(
+                            intent,
+                            "Browser ရွေးပါ"
+                    )
+            );
+        } catch (Exception error) {
+            Toast.makeText(
+                    this,
+                    "Download link ဖွင့်၍မရပါ။",
+                    Toast.LENGTH_LONG
+            ).show();
+        }
+    }
+
+    private void openAdmDownload(
+            String url,
+            String fileName
+    ) {
+        String[] packages = {
+                "com.dv.adm",
+                "com.dv.adm.pay"
+        };
+
+        for (String packageName : packages) {
+            if (!isPackageInstalled(packageName)) {
+                continue;
+            }
+
+            try {
+                Intent intent =
+                        createDownloadIntent(
+                                url,
+                                fileName
+                        );
+
+                intent.setPackage(
+                        packageName
+                );
+
+                startActivity(intent);
+                return;
+            } catch (ActivityNotFoundException ignored) {
+                // နောက် package ကိုစမ်းမယ်။
+            }
+        }
+
+        Toast.makeText(
+                this,
+                "ADM ဖြင့်ဖွင့်၍မရပါ။",
+                Toast.LENGTH_LONG
+        ).show();
+    }
+
+    private Intent createDownloadIntent(
+            String url,
+            String fileName
+    ) {
+        Uri uri = Uri.parse(url);
+
+        Intent intent =
+                new Intent(
+                        Intent.ACTION_VIEW,
+                        uri
+                );
+
+        intent.addCategory(
+                Intent.CATEGORY_BROWSABLE
+        );
+
+        intent.addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK
+        );
+
+        intent.putExtra(
+                Intent.EXTRA_TITLE,
+                fileName
+        );
+
+        intent.putExtra(
+                "android.intent.extra.TITLE",
+                fileName
+        );
+
+        intent.putExtra(
+                "suggested_filename",
+                fileName
+        );
+
+        intent.setClipData(
+                ClipData.newPlainText(
+                        fileName,
+                        url
+                )
+        );
+
+        return intent;
+    }
+
+    private boolean isPackageInstalled(
+            String packageName
+    ) {
+        try {
+            getPackageManager()
+                    .getPackageInfo(
+                            packageName,
+                            0
+                    );
+
+            return true;
+        } catch (
+                PackageManager.NameNotFoundException error
+        ) {
+            return false;
+        }
+    }
+
+    private String buildLocalFileName(
+            String movieTitle,
+            String url
+    ) {
+        String safeTitle =
+                movieTitle == null
+                        ? "movie"
+                        : movieTitle
+                        .replaceAll(
+                                "[\\\\/:*?\"<>|]",
+                                " "
+                        )
+                        .replaceAll(
+                                "\\s+",
+                                " "
+                        )
+                        .trim();
+
+        if (safeTitle.isEmpty()) {
+            safeTitle = "movie";
+        }
+
+        String extension = ".mp4";
+
+        try {
+            String path =
+                    Uri.parse(url)
+                            .getLastPathSegment();
+
+            if (
+                    path != null &&
+                    path.matches(
+                            ".*\\.[A-Za-z0-9]{2,6}$"
+                    )
+            ) {
+                extension =
+                        path.substring(
+                                path.lastIndexOf(".")
+                        );
+            }
+        } catch (Exception ignored) {
+        }
+
+        return safeTitle + extension;
+    }
+
 
     private void loadTitle(String slug) {
         ApiClient.get(
@@ -235,6 +645,7 @@ public class DetailActivity extends AppCompatActivity {
                 ""
         );
 
+        currentTitleName = currentTitle;
         title.setText(currentTitle);
 
         String year = item.optString(
@@ -303,20 +714,22 @@ public class DetailActivity extends AppCompatActivity {
                 )
                 .into(backdrop);
 
-        boolean isSeries =
-                "series".equalsIgnoreCase(titleCategory);
-
         episodesContainer.removeAllViews();
+
+        episodesLabel.setVisibility(View.GONE);
+        episodesContainer.setVisibility(View.GONE);
 
         firstVideoUrl = "";
         firstVideoType = "auto";
         firstEpisodeId = "";
 
-        if (isSeries) {
-            bindSeries(item);
-        } else {
-            bindMovie(item);
-        }
+        /*
+         * series category ကို Free 18+ အဖြစ်
+         * standalone title ပုံစံသုံးမယ်။
+         */
+        bindMovie(item);
+
+        updateDownloadVisibility();
 
         if (SessionManager.isLoggedIn()) {
             checkFavorite();
@@ -486,6 +899,37 @@ public class DetailActivity extends AppCompatActivity {
             playButton.setVisibility(View.GONE);
         }
     }
+    private void updateDownloadVisibility() {
+        boolean downloadableCategory =
+                "series".equalsIgnoreCase(
+                        titleCategory
+                ) ||
+                "lugyi".equalsIgnoreCase(
+                        titleCategory
+                );
+
+        downloadButton.setVisibility(
+                downloadableCategory
+                        ? View.VISIBLE
+                        : View.GONE
+        );
+
+        downloadButton.setText(
+                downloadableCategory
+                        ? "↓  DOWNLOAD"
+                        : ""
+        );
+
+        downloadButton.setEnabled(
+                downloadableCategory
+        );
+
+        downloadButton.setAlpha(
+                downloadableCategory
+                        ? 1f
+                        : 0.5f
+        );
+    }
 
     private void checkFavorite() {
         if (!SessionManager.isLoggedIn() || titleId.isEmpty()) {
@@ -496,7 +940,7 @@ public class DetailActivity extends AppCompatActivity {
 
         favoriteLoading = true;
         favoriteButton.setEnabled(false);
-        favoriteButton.setText("Please wait…");
+        favoriteButton.setAlpha(0.55f);
 
         ApiClient.get(
                 "favorites",
@@ -573,7 +1017,7 @@ public class DetailActivity extends AppCompatActivity {
 
         favoriteLoading = true;
         favoriteButton.setEnabled(false);
-        favoriteButton.setText("Please wait…");
+        favoriteButton.setAlpha(0.55f);
 
         ApiClient.Callback callback =
                 new ApiClient.Callback() {
@@ -597,39 +1041,19 @@ public class DetailActivity extends AppCompatActivity {
                     }
 
                     @Override
-public void onError(Exception error) {
-    runOnUiThread(() -> {
-        restorePlayButtonText();
+                    public void onError(Exception error) {
+                        runOnUiThread(() -> {
+                            favoriteLoading = false;
+                            favoriteButton.setEnabled(true);
+                            updateFavoriteText();
 
-        String message =
-                safeMessage(error);
-
-        String lowerMessage =
-                message.toLowerCase(
-                        java.util.Locale.US
-                );
-
-        boolean premiumError =
-                lowerMessage.contains("premium") ||
-                lowerMessage.contains("vip") ||
-                lowerMessage.contains("403") ||
-                lowerMessage.contains("expired");
-
-        if (premiumError) {
-            SessionManager.saveVipState(0L);
-            PremiumDialog.show(
-                    DetailActivity.this
-            );
-            return;
-        }
-
-        Toast.makeText(
-                DetailActivity.this,
-                message,
-                Toast.LENGTH_LONG
-        ).show();
-    });
-}
+                            Toast.makeText(
+                                    DetailActivity.this,
+                                    safeMessage(error),
+                                    Toast.LENGTH_LONG
+                            ).show();
+                        });
+                    }
 
                 };
 
@@ -652,17 +1076,22 @@ public void onError(Exception error) {
     }
 
     private void updateFavoriteText() {
-        if (!SessionManager.isLoggedIn()) {
-            favoriteButton.setText(
-                    "♡  Login to add Favorite"
-            );
-            return;
-        }
-
-        favoriteButton.setText(
+        favoriteButton.setImageResource(
                 isFavorite
-                        ? "♥  Added to Favorites"
-                        : "♡  Add to Favorites"
+                        ? R.drawable.ic_favorite_filled
+                        : R.drawable.ic_favorite_border
+        );
+
+        favoriteButton.setContentDescription(
+                isFavorite
+                        ? "Remove from favorites"
+                        : "Add to favorites"
+        );
+
+        favoriteButton.setAlpha(
+                favoriteLoading
+                        ? 0.55f
+                        : 1f
         );
     }
 
