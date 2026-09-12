@@ -41,7 +41,7 @@ public class MainActivity extends AppCompatActivity {
 private Button premiumButton;
 
 private static final long PROFILE_CACHE_MS =
-        5L * 60L * 1000L;
+        6L * 60L * 60L * 1000L;
 
 private boolean profileRefreshInFlight = false;
 
@@ -62,8 +62,8 @@ private boolean profileRefreshInFlight = false;
 
     private final String[][] categories = {
             {"Movies", "movies"},
-            {"Series", "series"},
-            {"18+", "lugyi"},
+            {"Free 18+", "series"},
+            {"18+ VIP", "lugyi"},
             {"Favorites", "favorites"}
     };
 
