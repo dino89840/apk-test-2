@@ -16,6 +16,12 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ImageButton;
+import android.app.Dialog;
+import android.graphics.drawable.ColorDrawable;
+import android.view.ViewGroup;
+import java.net.HttpURLConnection;
+import java.net.URL;
+
 
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -274,37 +280,76 @@ public class DetailActivity extends AppCompatActivity {
                     public void onSuccess(
                             JSONObject json
                     ) {
-                        runOnUiThread(() -> {
-                            restoreDownloadButton();
+                        String gatewayUrl =
+                                json.optString(
+                                        "downloadUrl",
+                                        ""
+                                ).trim();
 
-                            String url =
-                                    json.optString(
-                                            "downloadUrl",
-                                            ""
-                                    );
+                        String fileName =
+                                json.optString(
+                                        "fileName",
+                                        buildLocalFileName(
+                                                currentTitleName,
+                                                gatewayUrl
+                                        )
+                                );
 
-                            String fileName =
-                                    json.optString(
-                                            "fileName",
-                                            buildLocalFileName(
-                                                    currentTitleName,
-                                                    url
-                                            )
-                                    );
+                        if (gatewayUrl.isEmpty()) {
+                            runOnUiThread(() -> {
+                                restoreDownloadButton();
 
-                            if (url.trim().isEmpty()) {
                                 Toast.makeText(
                                         DetailActivity.this,
                                         "Download link မရပါ။",
                                         Toast.LENGTH_LONG
                                 ).show();
+                            });
 
-                                return;
-                            }
+                            return;
+                        }
+
+                        /*
+                         * ဒီ Callback က ApiClient ရဲ့ background thread
+                         * ပေါ်မှာ run နေတာဖြစ်လို့ network redirect ကို
+                         * ဒီနေရာမှာ resolve လုပ်နိုင်ပါတယ်။
+                         */
+                        String resolvedUrl;
+
+                        try {
+                            resolvedUrl =
+                                    resolveFinalDownloadUrl(
+                                            gatewayUrl
+                                    );
+                        } catch (Exception error) {
+                            /*
+                             * Redirect resolve မအောင်မြင်ရင်
+                             * API ပြန်ပေးတဲ့ မူရင်း URL ကို fallback သုံးမယ်။
+                             */
+                            resolvedUrl = gatewayUrl;
+                        }
+
+                        final String finalDownloadUrl =
+                                resolvedUrl == null ||
+                                resolvedUrl.trim().isEmpty()
+                                        ? gatewayUrl
+                                        : resolvedUrl.trim();
+
+                        final String finalFileName =
+                                fileName == null ||
+                                fileName.trim().isEmpty()
+                                        ? buildLocalFileName(
+                                                currentTitleName,
+                                                finalDownloadUrl
+                                        )
+                                        : fileName.trim();
+
+                        runOnUiThread(() -> {
+                            restoreDownloadButton();
 
                             showDownloadChooser(
-                                    url,
-                                    fileName
+                                    finalDownloadUrl,
+                                    finalFileName
                             );
                         });
                     }
@@ -351,6 +396,136 @@ public class DetailActivity extends AppCompatActivity {
                 }
         );
     }
+    private String resolveFinalDownloadUrl(
+            String originalUrl
+    ) throws Exception {
+        if (
+                originalUrl == null ||
+                originalUrl.trim().isEmpty()
+        ) {
+            return "";
+        }
+
+        String currentUrl =
+                originalUrl.trim();
+
+        /*
+         * Redirect loop မဖြစ်အောင်
+         * အများဆုံး ၈ ဆင့်ပဲလိုက်မယ်။
+         */
+        for (int redirectCount = 0;
+             redirectCount < 8;
+             redirectCount++) {
+
+            HttpURLConnection connection = null;
+
+            try {
+                connection =
+                        (HttpURLConnection)
+                                new URL(
+                                        currentUrl
+                                ).openConnection();
+
+                /*
+                 * Java က အလိုအလျောက် redirect လိုက်မသွားစေဘဲ
+                 * Location header ကို ကိုယ်တိုင်ဖတ်မယ်။
+                 */
+                connection.setInstanceFollowRedirects(
+                        false
+                );
+
+                connection.setRequestMethod(
+                        "GET"
+                );
+
+                connection.setConnectTimeout(
+                        15000
+                );
+
+                connection.setReadTimeout(
+                        15000
+                );
+
+                connection.setUseCaches(
+                        false
+                );
+
+                connection.setRequestProperty(
+                        "Accept",
+                        "*/*"
+                );
+
+                connection.setRequestProperty(
+                        "User-Agent",
+                        "CMFLIX-Native-Android"
+                );
+
+                /*
+                 * Video file တစ်ခုလုံးမဆွဲဘဲ
+                 * header/redirect သိဖို့ ပထမ byte ပဲတောင်းမယ်။
+                 */
+                connection.setRequestProperty(
+                        "Range",
+                        "bytes=0-0"
+                );
+
+                int statusCode =
+                        connection.getResponseCode();
+
+                boolean redirected =
+                        statusCode ==
+                                HttpURLConnection.HTTP_MOVED_PERM ||
+                        statusCode ==
+                                HttpURLConnection.HTTP_MOVED_TEMP ||
+                        statusCode ==
+                                HttpURLConnection.HTTP_SEE_OTHER ||
+                        statusCode == 307 ||
+                        statusCode == 308;
+
+                if (!redirected) {
+                    /*
+                     * 200/206 ရောက်ပြီဆိုရင်
+                     * လက်ရှိ URL က final URL ဖြစ်တယ်။
+                     */
+                    return currentUrl;
+                }
+
+                String location =
+                        connection.getHeaderField(
+                                "Location"
+                        );
+
+                if (
+                        location == null ||
+                        location.trim().isEmpty()
+                ) {
+                    return currentUrl;
+                }
+
+                /*
+                 * Location က relative URL ဖြစ်နေရင်လည်း
+                 * absolute URL ပြောင်းပေးမယ်။
+                 */
+                URL base =
+                        new URL(
+                                currentUrl
+                        );
+
+                currentUrl =
+                        new URL(
+                                base,
+                                location.trim()
+                        ).toString();
+
+            } finally {
+                if (connection != null) {
+                    connection.disconnect();
+                }
+            }
+        }
+
+        return currentUrl;
+    }
 
     private void restoreDownloadButton() {
         downloadButton.setEnabled(true);
@@ -372,57 +547,203 @@ public class DetailActivity extends AppCompatActivity {
                         "com.dv.adm.pay"
                 );
 
-        androidx.appcompat.app.AlertDialog.Builder builder =
-                new androidx.appcompat.app.AlertDialog.Builder(
+        Dialog dialog =
+                new Dialog(
                         this
                 );
 
-        builder.setTitle(
-                "Premium Download"
+        dialog.setContentView(
+                R.layout.dialog_download_chooser
         );
 
-        builder.setMessage(
-                currentTitleName +
-                "\n\nDownloader ရွေးပါ။"
+        dialog.setCancelable(
+                true
         );
 
-        builder.setNegativeButton(
-                "BROWSER",
-                (dialog, which) ->
-                        openBrowserDownload(
-                                url,
-                                fileName
-                        )
+        dialog.setCanceledOnTouchOutside(
+                true
         );
 
-        if (admInstalled) {
-            builder.setPositiveButton(
-                    "ADM",
-                    (dialog, which) ->
-                            openAdmDownload(
-                                    url,
-                                    fileName
-                            )
+        android.view.Window window =
+                dialog.getWindow();
+
+        if (window != null) {
+            window.setBackgroundDrawable(
+                    new ColorDrawable(
+                            Color.TRANSPARENT
+                    )
             );
-        } else {
-            builder.setPositiveButton(
-                    "ADM မရှိပါ",
-                    (dialog, which) -> {
-                        Toast.makeText(
-                                this,
-                                "ADM app မတွေ့ပါ။",
-                                Toast.LENGTH_SHORT
-                        ).show();
-                    }
+
+            window.addFlags(
+                    android.view.WindowManager
+                            .LayoutParams
+                            .FLAG_DIM_BEHIND
+            );
+
+            android.view.WindowManager.LayoutParams attributes =
+                    window.getAttributes();
+
+            attributes.dimAmount = 0.82f;
+
+            window.setAttributes(
+                    attributes
             );
         }
 
-        builder.setNeutralButton(
-                "CANCEL",
-                null
+        TextView movieTitleView =
+                dialog.findViewById(
+                        R.id.downloadMovieTitle
+                );
+
+        TextView fileNameView =
+                dialog.findViewById(
+                        R.id.downloadFileName
+                );
+
+        TextView downloaderStatusView =
+                dialog.findViewById(
+                        R.id.downloadDownloaderStatus
+                );
+
+        TextView browserButton =
+                dialog.findViewById(
+                        R.id.downloadBrowserButton
+                );
+
+        TextView admButton =
+                dialog.findViewById(
+                        R.id.downloadAdmButton
+                );
+
+        TextView cancelButton =
+                dialog.findViewById(
+                        R.id.downloadCancelButton
+                );
+
+        String safeMovieTitle =
+                currentTitleName == null ||
+                currentTitleName.trim().isEmpty()
+                        ? "CMFLIX Movie"
+                        : currentTitleName.trim();
+
+        String safeFileName =
+                fileName == null ||
+                fileName.trim().isEmpty()
+                        ? buildLocalFileName(
+                                safeMovieTitle,
+                                url
+                        )
+                        : fileName.trim();
+
+        movieTitleView.setText(
+                safeMovieTitle
         );
 
-        builder.show();
+        fileNameView.setText(
+                safeFileName
+        );
+
+        if (admInstalled) {
+            downloaderStatusView.setText(
+                    "ADM အသင့်ရှိပါသည် • Signed link ပြင်ဆင်ပြီး"
+            );
+
+            downloaderStatusView.setTextColor(
+                    Color.parseColor(
+                            "#65D68A"
+                    )
+            );
+
+            admButton.setEnabled(
+                    true
+            );
+
+            admButton.setAlpha(
+                    1f
+            );
+
+            admButton.setText(
+                    "ADM ဖြင့် Download"
+            );
+        } else {
+            downloaderStatusView.setText(
+                    "ADM app မတွေ့ပါ • Browser ကိုအသုံးပြုနိုင်ပါသည်"
+            );
+
+            downloaderStatusView.setTextColor(
+                    Color.parseColor(
+                            "#FFB74D"
+                    )
+            );
+
+            admButton.setEnabled(
+                    false
+            );
+
+            admButton.setAlpha(
+                    0.45f
+            );
+
+            admButton.setText(
+                    "ADM မရှိပါ"
+            );
+        }
+
+        browserButton.setOnClickListener(view -> {
+            dialog.dismiss();
+
+            openBrowserDownload(
+                    url,
+                    safeFileName
+            );
+        });
+
+        admButton.setOnClickListener(view -> {
+            if (!admInstalled) {
+                Toast.makeText(
+                        DetailActivity.this,
+                        "ADM app မတွေ့ပါ။",
+                        Toast.LENGTH_SHORT
+                ).show();
+
+                return;
+            }
+
+            dialog.dismiss();
+
+            openAdmDownload(
+                    url,
+                    safeFileName
+            );
+        });
+
+        cancelButton.setOnClickListener(
+                view -> dialog.dismiss()
+        );
+
+        dialog.show();
+
+        if (window != null) {
+            int screenWidth =
+                    getResources()
+                            .getDisplayMetrics()
+                            .widthPixels;
+
+            int dialogWidth =
+                    Math.min(
+                            (int) (
+                                    screenWidth *
+                                    0.92f
+                            ),
+                            dp(430)
+                    );
+
+            window.setLayout(
+                    dialogWidth,
+                    ViewGroup.LayoutParams
+                            .WRAP_CONTENT
+            );
+        }
     }
 
     private void openBrowserDownload(
@@ -465,6 +786,9 @@ public class DetailActivity extends AppCompatActivity {
                 continue;
             }
 
+            /*
+             * ပထမဆုံး ADM ရဲ့ VIEW intent-filter နဲ့ဖွင့်မယ်။
+             */
             try {
                 Intent intent =
                         createDownloadIntent(
@@ -476,16 +800,45 @@ public class DetailActivity extends AppCompatActivity {
                         packageName
                 );
 
-                startActivity(intent);
+                startActivity(
+                        intent
+                );
+
                 return;
-            } catch (ActivityNotFoundException ignored) {
-                // နောက် package ကိုစမ်းမယ်။
+
+            } catch (Exception ignored) {
+                /*
+                 * ADM version တချို့မှာ VIEW intent-filter
+                 * မတူနိုင်လို့ editor activity ကို fallback စမ်းမယ်။
+                 */
+            }
+
+            try {
+                Intent fallbackIntent =
+                        createDownloadIntent(
+                                url,
+                                fileName
+                        );
+
+                fallbackIntent.setClassName(
+                        packageName,
+                        "com.dv.get.AEditor"
+                );
+
+                startActivity(
+                        fallbackIntent
+                );
+
+                return;
+
+            } catch (Exception ignored) {
+                // နောက် ADM package ကိုဆက်စမ်းမယ်။
             }
         }
 
         Toast.makeText(
                 this,
-                "ADM ဖြင့်ဖွင့်၍မရပါ။",
+                "ADM ကိုဖွင့်၍မရပါ။ ADM ကို update လုပ်ပြီး ပြန်စမ်းပါ။",
                 Toast.LENGTH_LONG
         ).show();
     }
