@@ -15,6 +15,10 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import android.content.SharedPreferences;
+
+import java.security.MessageDigest;
+
 
 public final class ApiClient {
 
@@ -31,10 +35,27 @@ public final class ApiClient {
 
     private ApiClient() {
     }
+    private static final String CACHE_PREFS =
+        "cmflix_public_api_cache";
 
-    public static void initialize(Context context) {
-        SessionManager.initialize(context);
+private static SharedPreferences cachePreferences;
+
+
+    public static synchronized void initialize(
+        Context context
+) {
+    SessionManager.initialize(context);
+
+    if (cachePreferences == null) {
+        cachePreferences =
+                context.getApplicationContext()
+                        .getSharedPreferences(
+                                CACHE_PREFS,
+                                Context.MODE_PRIVATE
+                        );
     }
+}
+
 
     public static void get(
             String path,
@@ -42,6 +63,176 @@ public final class ApiClient {
     ) {
         request("GET", path, null, callback);
     }
+    public static void getCached(
+        String path,
+        long maxAgeMillis,
+        Callback callback
+) {
+    if (
+            cachePreferences == null ||
+            !isPublicCacheablePath(path)
+    ) {
+        get(path, callback);
+        return;
+    }
+
+    EXECUTOR.execute(() -> {
+        String key = cacheKey(path);
+
+        long savedAt =
+                cachePreferences.getLong(
+                        key + "_time",
+                        0L
+                );
+
+        String cachedBody =
+                cachePreferences.getString(
+                        key + "_body",
+                        ""
+                );
+
+        boolean fresh =
+                savedAt > 0L &&
+                !cachedBody.isEmpty() &&
+                System.currentTimeMillis() - savedAt
+                        < maxAgeMillis;
+
+        if (fresh) {
+            try {
+                callback.onSuccess(
+                        new JSONObject(cachedBody)
+                );
+
+                return;
+            } catch (Exception ignored) {
+                cachePreferences
+                        .edit()
+                        .remove(key + "_time")
+                        .remove(key + "_body")
+                        .apply();
+            }
+        }
+
+        get(
+                path,
+                new Callback() {
+                    @Override
+                    public void onSuccess(
+                            JSONObject json
+                    ) {
+                        cachePreferences
+                                .edit()
+                                .putLong(
+                                        key + "_time",
+                                        System.currentTimeMillis()
+                                )
+                                .putString(
+                                        key + "_body",
+                                        json.toString()
+                                )
+                                .apply();
+
+                        callback.onSuccess(json);
+                    }
+
+                    @Override
+                    public void onError(
+                            Exception error
+                    ) {
+                        /*
+                         * Fresh cache မဟုတ်ပေမဲ့
+                         * network ပျက်နေချိန် stale data ရှိရင်
+                         * အသုံးပြုသူကို data ပြထားမယ်။
+                         */
+                        if (!cachedBody.isEmpty()) {
+                            try {
+                                callback.onSuccess(
+                                        new JSONObject(
+                                                cachedBody
+                                        )
+                                );
+
+                                return;
+                            } catch (Exception ignored) {
+                            }
+                        }
+
+                        callback.onError(error);
+                    }
+                }
+        );
+    });
+}
+
+public static void clearPublicCache() {
+    if (cachePreferences != null) {
+        cachePreferences
+                .edit()
+                .clear()
+                .apply();
+    }
+}
+
+private static boolean isPublicCacheablePath(
+        String path
+) {
+    if (path == null) {
+        return false;
+    }
+
+    /*
+     * Detail page ကို cache လုပ်မယ်။
+     */
+    if (path.startsWith("titles/")) {
+        return true;
+    }
+
+    /*
+     * Category ပထမစာမျက်နှာကိုပဲ cache လုပ်မယ်။
+     * Search နဲ့ pagination results ကို မသိမ်းဘူး။
+     */
+    return path.startsWith("titles?") &&
+            path.contains("page=1") &&
+            !path.contains("&q=");
+}
+
+private static String cacheKey(
+        String path
+) {
+    try {
+        MessageDigest digest =
+                MessageDigest.getInstance(
+                        "SHA-256"
+                );
+
+        byte[] bytes =
+                digest.digest(
+                        path.getBytes(
+                                StandardCharsets.UTF_8
+                        )
+                );
+
+        StringBuilder result =
+                new StringBuilder();
+
+        for (byte value : bytes) {
+            result.append(
+                    String.format(
+                            "%02x",
+                            value & 0xff
+                    )
+            );
+        }
+
+        return "api_" + result;
+    } catch (Exception error) {
+        return "api_" +
+                Integer.toHexString(
+                        path.hashCode()
+                );
+    }
+}
+
 
     public static void post(
             String path,
