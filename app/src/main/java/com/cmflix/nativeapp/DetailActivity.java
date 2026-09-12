@@ -195,10 +195,11 @@ public class DetailActivity extends AppCompatActivity {
                         firstEpisodeId
                 )
         );
-    }
-            downloadButton.setOnClickListener(
+
+        downloadButton.setOnClickListener(
                 view -> requestDownload()
         );
+    }
     private void requestDownload() {
         boolean downloadableCategory =
                 "series".equalsIgnoreCase(
