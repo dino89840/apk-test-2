@@ -35,19 +35,21 @@
 
         <TextView
             android:id="@+id/vipRibbon"
-            android:layout_width="82dp"
-            android:layout_height="24dp"
+            android:layout_width="wrap_content"
+            android:layout_height="22dp"
             android:layout_gravity="top|end"
-            android:background="@color/brand_red"
+            android:layout_marginTop="6dp"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/vip_badge_bg"
             android:elevation="7dp"
             android:gravity="center"
-            android:rotation="45"
+            android:minWidth="38dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
             android:text="VIP"
             android:textColor="@color/white"
-            android:textSize="11sp"
+            android:textSize="10sp"
             android:textStyle="bold"
-            android:translationX="18dp"
-            android:translationY="11dp"
             android:visibility="gone" />
 
         <ImageButton
