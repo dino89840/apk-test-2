@@ -704,9 +704,11 @@ private void refreshProfileIfNeeded() {
             }
         }
 
-        ApiClient.get(
-                path,
-                new ApiClient.Callback() {
+        ApiClient.getCached(
+        path,
+        10L * 60L * 1000L,
+        new ApiClient.Callback() {
+
                     @Override
                     public void onSuccess(JSONObject json) {
                         runOnUiThread(() -> {
