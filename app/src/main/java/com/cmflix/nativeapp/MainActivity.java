@@ -129,12 +129,21 @@ protected void onResume() {
 
 
     private void setupRecycler() {
-        int spanCount =
-                getResources()
-                        .getConfiguration()
-                        .screenWidthDp >= 600
-                        ? 5
-                        : 3;
+        int screenWidthDp =
+        getResources()
+                .getConfiguration()
+                .screenWidthDp;
+
+int spanCount;
+
+if (screenWidthDp >= 840) {
+    spanCount = 5;
+} else if (screenWidthDp >= 600) {
+    spanCount = 3;
+} else {
+    spanCount = 2;
+}
+
 
         layoutManager =
                 new GridLayoutManager(
