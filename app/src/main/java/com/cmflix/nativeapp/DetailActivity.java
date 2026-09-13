@@ -165,47 +165,55 @@ public class DetailActivity extends AppCompatActivity {
     }
 
     private void setupClickListeners() {
-        favoriteButton.setOnClickListener(view -> {
-            if (titleId.isEmpty() || favoriteLoading) {
-                return;
-            }
+    TextView backButton =
+            findViewById(R.id.detailBackButton);
 
-            if (!SessionManager.isLoggedIn()) {
-                addFavoriteAfterLogin = true;
+    backButton.setOnClickListener(
+            view -> finish()
+    );
 
-                authLauncher.launch(
-                        new Intent(
-                                DetailActivity.this,
-                                AuthActivity.class
-                        )
-                );
+    favoriteButton.setOnClickListener(view -> {
+        if (titleId.isEmpty() || favoriteLoading) {
+            return;
+        }
 
-                return;
-            }
+        if (!SessionManager.isLoggedIn()) {
+            addFavoriteAfterLogin = true;
 
-            setFavorite(!isFavorite);
-        });
+            authLauncher.launch(
+                    new Intent(
+                            DetailActivity.this,
+                            AuthActivity.class
+                    )
+            );
 
-        shareButton.setOnClickListener(
-                view -> shareCurrentTitle()
-        );
+            return;
+        }
 
-        telegramButton.setOnClickListener(
-                view -> openTelegramContact()
-        );
+        setFavorite(!isFavorite);
+    });
 
-        playButton.setOnClickListener(view ->
-                playVideo(
-                        firstVideoUrl,
-                        firstVideoType,
-                        firstEpisodeId
-                )
-        );
+    shareButton.setOnClickListener(
+            view -> shareCurrentTitle()
+    );
 
-        downloadButton.setOnClickListener(
-                view -> requestDownload()
-        );
-    }
+    telegramButton.setOnClickListener(
+            view -> openTelegramContact()
+    );
+
+    playButton.setOnClickListener(view ->
+            playVideo(
+                    firstVideoUrl,
+                    firstVideoType,
+                    firstEpisodeId
+            )
+    );
+
+    downloadButton.setOnClickListener(
+            view -> requestDownload()
+    );
+}
+
     private void requestDownload() {
         boolean downloadableCategory =
                 "series".equalsIgnoreCase(
