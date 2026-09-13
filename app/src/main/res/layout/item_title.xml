@@ -19,7 +19,8 @@
         android:layout_height="238dp"
         android:background="@drawable/poster_rounded_bg"
         android:clipChildren="true"
-        android:clipToOutline="true">
+        android:clipToOutline="true"
+        android:outlineProvider="background">
 
         <ImageView
             android:id="@+id/poster"
