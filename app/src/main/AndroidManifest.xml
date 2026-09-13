@@ -30,6 +30,8 @@
         android:name="android.permission.INTERNET" />
 
     <application
+        android:name=".CmflixApplication"
+
     android:allowBackup="false"
     android:hardwareAccelerated="true"
     android:networkSecurityConfig="@xml/network_security_config"
