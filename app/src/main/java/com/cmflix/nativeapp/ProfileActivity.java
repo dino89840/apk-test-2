@@ -28,11 +28,11 @@ public class ProfileActivity
         extends AppCompatActivity {
 
     private TextView usernameText;
-    private TextView accountStatusText;
-    private TextView emailText;
-    private TextView pointText;
-    private TextView planText;
-    private TextView expiryText;
+private TextView accountStatusText;
+private TextView emailText;
+private TextView planText;
+private TextView expiryText;
+
 
     private Button changePasswordButton;
     private Button logoutButton;
@@ -67,8 +67,7 @@ public class ProfileActivity
         emailText =
                 findViewById(R.id.profileEmail);
 
-        pointText =
-                findViewById(R.id.profilePoint);
+
 
         planText =
                 findViewById(R.id.profilePlan);
@@ -194,26 +193,7 @@ public class ProfileActivity
                                             : email
                             );
 
-                            /*
-                             * Backend မှာ point သို့မဟုတ်
-                             * points နှစ်မျိုးထဲက ဘာပေးပေးဖတ်မယ်။
-                             */
-                            int point =
-                                    user.has("points")
-                                            ? user.optInt(
-                                                    "points",
-                                                    0
-                                            )
-                                            : user.optInt(
-                                                    "point",
-                                                    0
-                                            );
-
-                            pointText.setText(
-                                    String.valueOf(
-                                            Math.max(0, point)
-                                    )
-                            );
+                            
 
                             bindVipState(vipUntil);
                         });
