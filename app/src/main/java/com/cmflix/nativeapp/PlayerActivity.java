@@ -2,6 +2,8 @@ package com.cmflix.nativeapp;
 
 import android.content.pm.ActivityInfo;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowInsets;
@@ -11,6 +13,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
@@ -21,46 +24,85 @@ import androidx.media3.ui.PlayerView;
 
 public class PlayerActivity extends AppCompatActivity {
 
-    private static final String STATE_RESIZE_MODE =
-            "player_resize_mode";
-
     private ExoPlayer player;
     private PlayerView playerView;
     private ProgressBar playerProgress;
     private TextView resizeButton;
 
-    private boolean playbackFailed = false;
+    private final Handler progressHandler =
+            new Handler(Looper.getMainLooper());
 
-    /*
-     * 0 = FIT
-     * 1 = ZOOM
-     * 2 = FILL
-     */
+    private boolean playbackFailed = false;
+    private boolean playbackEnded = false;
+
     private int resizeModeIndex = 0;
+
+    private String titleId = "";
+    private long resumePosition = 0L;
+
+    private final Runnable saveProgressTask =
+            new Runnable() {
+                @Override
+                public void run() {
+                    saveWatchProgress();
+
+                    progressHandler.postDelayed(
+                            this,
+                            5000L
+                    );
+                }
+            };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        requestWindowFeature(Window.FEATURE_NO_TITLE);
+        requestWindowFeature(
+                Window.FEATURE_NO_TITLE
+        );
+
         setContentView(R.layout.activity_player);
 
-        playerView = findViewById(R.id.playerView);
-        playerProgress = findViewById(R.id.playerProgress);
-        resizeButton = findViewById(R.id.resizeButton);
+        playerView =
+                findViewById(R.id.playerView);
 
-        if (savedInstanceState != null) {
-            resizeModeIndex = savedInstanceState.getInt(
-                    STATE_RESIZE_MODE,
-                    0
-            );
-        }
+        playerProgress =
+                findViewById(R.id.playerProgress);
+
+        resizeButton =
+                findViewById(R.id.resizeButton);
 
         String url =
-                getIntent().getStringExtra("video_url");
+                getIntent().getStringExtra(
+                        "video_url"
+                );
 
         String type =
-                getIntent().getStringExtra("video_type");
+                getIntent().getStringExtra(
+                        "video_type"
+                );
+
+        titleId =
+                safe(
+                        getIntent().getStringExtra(
+                                "title_id"
+                        )
+                );
+
+        resizeModeIndex =
+                LocalStore.getResizeMode();
+
+        if (
+                resizeModeIndex < 0 ||
+                resizeModeIndex > 2
+        ) {
+            resizeModeIndex = 0;
+        }
+
+        resumePosition =
+                LocalStore.getResumePosition(
+                        titleId
+                );
 
         if (url == null || url.trim().isEmpty()) {
             Toast.makeText(
@@ -76,73 +118,71 @@ public class PlayerActivity extends AppCompatActivity {
         enterImmersive();
 
         setRequestedOrientation(
-                ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                ActivityInfo
+                        .SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         );
 
         setupResizeButton();
         applyResizeMode(false);
-        initializePlayer(url.trim(), type);
+
+        initializePlayer(
+                url.trim(),
+                type
+        );
     }
 
     private void setupResizeButton() {
-    /*
-     * Media3 မှာ setControllerVisibilityListener overload
-     * နှစ်မျိုးရှိတဲ့အတွက် PlayerView.ControllerVisibilityListener
-     * ကို အတိအကျသတ်မှတ်ပေးထားပါတယ်။
-     */
-    playerView.setControllerVisibilityListener(
-            new PlayerView.ControllerVisibilityListener() {
-                @Override
-                public void onVisibilityChanged(int visibility) {
-                    if (visibility == View.VISIBLE) {
-                        resizeButton.setVisibility(View.VISIBLE);
-                    } else {
-                        resizeButton.setVisibility(View.GONE);
+        playerView.setControllerVisibilityListener(
+                new PlayerView
+                        .ControllerVisibilityListener() {
+                    @Override
+                    public void onVisibilityChanged(
+                            int visibility
+                    ) {
+                        resizeButton.setVisibility(
+                                visibility == View.VISIBLE
+                                        ? View.VISIBLE
+                                        : View.GONE
+                        );
                     }
                 }
-            }
-    );
+        );
 
-    /*
-     * Listener မခေါ်ရသေးခင် controller ရဲ့
-     * လက်ရှိအခြေအနေကို button မှာ သက်ရောက်စေမယ်။
-     */
-    if (playerView.isControllerFullyVisible()) {
-        resizeButton.setVisibility(View.VISIBLE);
-    } else {
-        resizeButton.setVisibility(View.GONE);
+        resizeButton.setVisibility(
+                playerView.isControllerFullyVisible()
+                        ? View.VISIBLE
+                        : View.GONE
+        );
+
+        resizeButton.setOnClickListener(view -> {
+            resizeModeIndex++;
+
+            if (resizeModeIndex > 2) {
+                resizeModeIndex = 0;
+            }
+
+            LocalStore.saveResizeMode(
+                    resizeModeIndex
+            );
+
+            applyResizeMode(true);
+            playerView.showController();
+            enterImmersive();
+        });
     }
 
-    resizeButton.setOnClickListener(view -> {
-        resizeModeIndex++;
-
-        if (resizeModeIndex > 2) {
-            resizeModeIndex = 0;
-        }
-
-        applyResizeMode(true);
-
-        /*
-         * Resize button နှိပ်တိုင်း controller timeout ကို
-         * ပြန်စပေးမယ်။
-         */
-        playerView.showController();
-
-        enterImmersive();
-    });
-}
-
-
-
-    private void applyResizeMode(boolean showMessage) {
+    private void applyResizeMode(
+            boolean showMessage
+    ) {
+        int resizeMode;
         String label;
         String message;
-        int resizeMode;
 
         switch (resizeModeIndex) {
             case 1:
                 resizeMode =
-                        AspectRatioFrameLayout.RESIZE_MODE_ZOOM;
+                        AspectRatioFrameLayout
+                                .RESIZE_MODE_ZOOM;
 
                 label = "ZOOM";
                 message = "Zoom mode";
@@ -150,16 +190,17 @@ public class PlayerActivity extends AppCompatActivity {
 
             case 2:
                 resizeMode =
-                        AspectRatioFrameLayout.RESIZE_MODE_FILL;
+                        AspectRatioFrameLayout
+                                .RESIZE_MODE_FILL;
 
                 label = "FILL";
                 message = "Fill screen mode";
                 break;
 
-            case 0:
             default:
                 resizeMode =
-                        AspectRatioFrameLayout.RESIZE_MODE_FIT;
+                        AspectRatioFrameLayout
+                                .RESIZE_MODE_FIT;
 
                 label = "FIT";
                 message = "Fit screen mode";
@@ -182,11 +223,15 @@ public class PlayerActivity extends AppCompatActivity {
             String url,
             String type
     ) {
-        playerProgress.setVisibility(View.VISIBLE);
+        playerProgress.setVisibility(
+                View.VISIBLE
+        );
 
-        player = new ExoPlayer.Builder(this).build();
+        player =
+                new ExoPlayer.Builder(this)
+                        .build();
+
         playerView.setPlayer(player);
-
         playerView.setUseController(true);
         playerView.setControllerAutoShow(true);
         playerView.setControllerHideOnTouch(true);
@@ -197,14 +242,17 @@ public class PlayerActivity extends AppCompatActivity {
                         .setUri(url);
 
         boolean isHls =
-                "m3u8".equalsIgnoreCase(type)
-                        || url.toLowerCase().contains(".m3u8");
+                "m3u8".equalsIgnoreCase(type) ||
+                url.toLowerCase()
+                        .contains(".m3u8");
 
         if (isHls) {
             mediaBuilder.setMimeType(
                     MimeTypes.APPLICATION_M3U8
             );
-        } else if ("mp4".equalsIgnoreCase(type)) {
+        } else if (
+                "mp4".equalsIgnoreCase(type)
+        ) {
             mediaBuilder.setMimeType(
                     MimeTypes.VIDEO_MP4
             );
@@ -217,8 +265,8 @@ public class PlayerActivity extends AppCompatActivity {
                             int playbackState
                     ) {
                         if (
-                                playbackState
-                                        == Player.STATE_BUFFERING
+                                playbackState ==
+                                        Player.STATE_BUFFERING
                         ) {
                             if (!playbackFailed) {
                                 playerProgress.setVisibility(
@@ -230,12 +278,45 @@ public class PlayerActivity extends AppCompatActivity {
                         }
 
                         if (
-                                playbackState
-                                        == Player.STATE_READY
-                                        || playbackState
-                                        == Player.STATE_ENDED
-                                        || playbackState
-                                        == Player.STATE_IDLE
+                                playbackState ==
+                                        Player.STATE_READY
+                        ) {
+                            playerProgress.setVisibility(
+                                    View.GONE
+                            );
+
+                            if (resumePosition > 0L) {
+                                long duration =
+                                        player.getDuration();
+
+                                if (
+                                        duration == C.TIME_UNSET ||
+                                        resumePosition < duration
+                                ) {
+                                    player.seekTo(
+                                            resumePosition
+                                    );
+                                }
+
+                                resumePosition = 0L;
+                            }
+                        }
+
+                        if (
+                                playbackState ==
+                                        Player.STATE_ENDED
+                        ) {
+                            playbackEnded = true;
+                            playerProgress.setVisibility(
+                                    View.GONE
+                            );
+
+                            saveWatchProgress();
+                        }
+
+                        if (
+                                playbackState ==
+                                        Player.STATE_IDLE
                         ) {
                             playerProgress.setVisibility(
                                     View.GONE
@@ -260,8 +341,13 @@ public class PlayerActivity extends AppCompatActivity {
                     ) {
                         playbackFailed = true;
 
-                        playerProgress.setVisibility(View.GONE);
-                        playerView.setKeepScreenOn(false);
+                        playerProgress.setVisibility(
+                                View.GONE
+                        );
+
+                        playerView.setKeepScreenOn(
+                                false
+                        );
 
                         String message =
                                 error.getMessage() == null
@@ -270,32 +356,84 @@ public class PlayerActivity extends AppCompatActivity {
 
                         Toast.makeText(
                                 PlayerActivity.this,
-                                "Video ဖွင့်၍မရပါ။\n" + message,
+                                "Video ဖွင့်၍မရပါ။\n" +
+                                        message,
                                 Toast.LENGTH_LONG
                         ).show();
                     }
                 }
         );
 
-        player.setMediaItem(mediaBuilder.build());
+        player.setMediaItem(
+                mediaBuilder.build()
+        );
+
         player.setPlayWhenReady(true);
         player.prepare();
+
+        progressHandler.postDelayed(
+                saveProgressTask,
+                5000L
+        );
+    }
+
+    private void saveWatchProgress() {
+        if (
+                player == null ||
+                titleId.isEmpty() ||
+                playbackFailed
+        ) {
+            return;
+        }
+
+        long position =
+                Math.max(
+                        0L,
+                        player.getCurrentPosition()
+                );
+
+        long duration =
+                player.getDuration();
+
+        if (
+                duration == C.TIME_UNSET ||
+                duration < 0L
+        ) {
+            duration = 0L;
+        }
+
+        if (playbackEnded && duration > 0L) {
+            position = duration;
+        }
+
+        if (
+                position < 5000L &&
+                !playbackEnded
+        ) {
+            return;
+        }
+
+        LocalStore.saveProgress(
+                titleId,
+                position,
+                duration
+        );
     }
 
     private void enterImmersive() {
         Window window = getWindow();
 
         if (
-                android.os.Build.VERSION.SDK_INT
-                        >= android.os.Build.VERSION_CODES.R
+                android.os.Build.VERSION.SDK_INT >=
+                        android.os.Build.VERSION_CODES.R
         ) {
             WindowInsetsController controller =
                     window.getInsetsController();
 
             if (controller != null) {
                 controller.hide(
-                        WindowInsets.Type.statusBars()
-                                | WindowInsets.Type.navigationBars()
+                        WindowInsets.Type.statusBars() |
+                        WindowInsets.Type.navigationBars()
                 );
 
                 controller.setSystemBarsBehavior(
@@ -304,27 +442,22 @@ public class PlayerActivity extends AppCompatActivity {
                 );
             }
         } else {
-            window.getDecorView().setSystemUiVisibility(
-                    View.SYSTEM_UI_FLAG_FULLSCREEN
-                            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                            | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-            );
+            window.getDecorView()
+                    .setSystemUiVisibility(
+                            View.SYSTEM_UI_FLAG_FULLSCREEN |
+                            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+                            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
+                            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                            View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
+                            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    );
         }
     }
 
-    @Override
-    protected void onSaveInstanceState(
-            Bundle outState
-    ) {
-        outState.putInt(
-                STATE_RESIZE_MODE,
-                resizeModeIndex
-        );
-
-        super.onSaveInstanceState(outState);
+    private String safe(String value) {
+        return value == null
+                ? ""
+                : value.trim();
     }
 
     @Override
@@ -334,16 +467,30 @@ public class PlayerActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onPause() {
+        saveWatchProgress();
+        super.onPause();
+    }
+
+    @Override
     protected void onStop() {
-        super.onStop();
+        saveWatchProgress();
 
         if (player != null) {
             player.pause();
         }
+
+        super.onStop();
     }
 
     @Override
     protected void onDestroy() {
+        progressHandler.removeCallbacks(
+                saveProgressTask
+        );
+
+        saveWatchProgress();
+
         if (playerView != null) {
             playerView.setPlayer(null);
         }
