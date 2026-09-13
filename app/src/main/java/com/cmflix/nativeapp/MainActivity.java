@@ -983,45 +983,132 @@ private void refreshProfileIfNeeded() {
                     }
 
                     @Override
-                    public void onError(Exception error) {
-                        runOnUiThread(() -> {
-                            if (
-                                    generation !=
-                                            requestGeneration
-                            ) {
-                                return;
-                            }
+public void onError(Exception error) {
+    runOnUiThread(() -> {
+        if (
+                generation !=
+                        requestGeneration
+        ) {
+            return;
+        }
 
-                            isLoading = false;
-                            progress.setVisibility(
-                                    View.GONE
-                            );
+        isLoading = false;
 
-                            errorText.setText(
-                                    safeMessage(error) +
-                                            "\n\nပြန်စမ်းရန်နှိပ်ပါ။"
-                            );
+        progress.setVisibility(
+                View.GONE
+        );
 
-                            errorText.setVisibility(
-                                    View.VISIBLE
-                            );
-                        });
-                    }
+        String message =
+                safeMessage(error);
+
+        /*
+         * ပထမ page/movie တွေရှိနေပြီး pagination
+         * request ပဲမအောင်မြင်ရင် cards ကြားမှာ
+         * error TextView မပြပါ။
+         */
+        if (!allItems.isEmpty()) {
+            hasMore = false;
+
+            errorText.setVisibility(
+                    View.GONE
+            );
+
+            Toast.makeText(
+                    MainActivity.this,
+                    message,
+                    Toast.LENGTH_SHORT
+            ).show();
+
+            return;
+        }
+
+        /*
+         * ဘာ item မှမရှိသေးတဲ့ initial request
+         * မအောင်မြင်မှသာ retry message ပြမယ်။
+         */
+        errorText.setText(
+                message +
+                        "\n\nပြန်စမ်းရန်နှိပ်ပါ။"
+        );
+
+        errorText.setVisibility(
+                View.VISIBLE
+        );
+    });
+}
+
                 }
         );
     }
 
-    private String safeMessage(Exception error) {
+    private String safeMessage(
+        Exception error
+) {
+    if (isNetworkError(error)) {
+        return "အင်တာနက်ချိတ်ဆက်မှု မရှိပါ။";
+    }
+
+    if (
+            error == null ||
+            error.getMessage() == null ||
+            error.getMessage()
+                    .trim()
+                    .isEmpty()
+    ) {
+        return "Request မအောင်မြင်ပါ။";
+    }
+
+    String message =
+            error.getMessage().trim();
+
+    /*
+     * Server URL/domain ပါလာနိုင်သော raw messages
+     * ကို UI ပေါ် တိုက်ရိုက်မတင်ပါ။
+     */
+    String lower =
+            message.toLowerCase(
+                    java.util.Locale.US
+            );
+
+    if (
+            lower.contains("unable to resolve host") ||
+            lower.contains("no address associated") ||
+            lower.contains("failed to connect") ||
+            lower.contains("connection refused")
+    ) {
+        return "အင်တာနက်ချိတ်ဆက်မှု မရှိပါ။";
+    }
+
+    return message;
+}
+
+private boolean isNetworkError(
+        Throwable error
+) {
+    Throwable current = error;
+
+    while (current != null) {
         if (
-                error == null ||
-                error.getMessage() == null ||
-                error.getMessage().trim().isEmpty()
+                current instanceof
+                        java.net.UnknownHostException ||
+                current instanceof
+                        java.net.SocketTimeoutException ||
+                current instanceof
+                        java.net.ConnectException ||
+                current instanceof
+                        java.net.NoRouteToHostException ||
+                current instanceof
+                        javax.net.ssl.SSLException
         ) {
-            return "Request မအောင်မြင်ပါ။";
+            return true;
         }
 
-        return error.getMessage();
+        current = current.getCause();
     }
+
+    return false;
+}
+
 
     private void hideKeyboard() {
         View current = getCurrentFocus();
