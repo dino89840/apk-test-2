@@ -752,25 +752,22 @@ private void refreshProfileIfNeeded() {
     hasMore = true;
     isLoading = false;
 
+    allItems.clear();
 
-        allItems.clear();
+    adapter.submitList(
+            new ArrayList<>()
+    );
 
-        adapter.submitList(
-                new ArrayList<>()
-        );
+    errorText.setVisibility(View.GONE);
 
-        errorText.setVisibility(View.GONE);
+    if (isLocalCategory(category)) {
+        loadLocalCategory();
+        return;
+    }
 
-if (isLocalCategory(category)) {
-    loadLocalCategory();
-} else {
     loadNextPage();
 }
 
-if (isLocalCategory(category)) {
-    loadLocalCategory();
-    return;
-}
 
     private void loadNextPage() {
         if (isLoading || !hasMore) {
