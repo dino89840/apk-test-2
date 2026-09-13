@@ -119,12 +119,6 @@ public class DetailActivity extends AppCompatActivity {
         bindViews();
         setupClickListeners();
 
-        findViewById(
-                R.id.detailBackButton
-        ).setOnClickListener(
-                view -> finish()
-        );
-
         String slug = getIntent().getStringExtra("slug");
 
         if (slug == null || slug.trim().isEmpty()) {
@@ -558,215 +552,135 @@ currentUrl = redirectedUrl;
     }
 
     private void showDownloadChooser(
-            String url,
-            String fileName
-    ) {
-        boolean admInstalled =
-                isPackageInstalled(
-                        "com.dv.adm"
-                ) ||
-                isPackageInstalled(
-                        "com.dv.adm.pay"
-                );
+        String url,
+        String fileName
+) {
+    boolean admInstalled =
+            isPackageInstalled(
+                    "com.dv.adm"
+            ) ||
+            isPackageInstalled(
+                    "com.dv.adm.pay"
+            );
 
-        Dialog dialog =
-                new Dialog(
-                        this
-                );
+    Dialog dialog =
+            new Dialog(this);
 
-        dialog.setContentView(
-                R.layout.dialog_download_chooser
+    dialog.setContentView(
+            R.layout.dialog_download_chooser
+    );
+
+    dialog.setCancelable(true);
+    dialog.setCanceledOnTouchOutside(true);
+
+    android.view.Window window =
+            dialog.getWindow();
+
+    if (window != null) {
+        window.setBackgroundDrawable(
+                new ColorDrawable(
+                        Color.TRANSPARENT
+                )
         );
 
-        dialog.setCancelable(
-                true
+        window.addFlags(
+                android.view.WindowManager
+                        .LayoutParams
+                        .FLAG_DIM_BEHIND
         );
 
-        dialog.setCanceledOnTouchOutside(
-                true
-        );
+        android.view.WindowManager.LayoutParams attributes =
+                window.getAttributes();
 
-        android.view.Window window =
-                dialog.getWindow();
+        attributes.dimAmount = 0.82f;
+        window.setAttributes(attributes);
+    }
 
-        if (window != null) {
-            window.setBackgroundDrawable(
-                    new ColorDrawable(
-                            Color.TRANSPARENT
+    TextView browserButton =
+            dialog.findViewById(
+                    R.id.downloadBrowserButton
+            );
+
+    TextView admButton =
+            dialog.findViewById(
+                    R.id.downloadAdmButton
+            );
+
+    TextView cancelButton =
+            dialog.findViewById(
+                    R.id.downloadCancelButton
+            );
+
+    String safeMovieTitle =
+            currentTitleName == null ||
+            currentTitleName.trim().isEmpty()
+                    ? "CMFLIX Movie"
+                    : currentTitleName.trim();
+
+    String safeFileName =
+            fileName == null ||
+            fileName.trim().isEmpty()
+                    ? buildLocalFileName(
+                            safeMovieTitle,
+                            url
                     )
-            );
+                    : fileName.trim();
 
-            window.addFlags(
-                    android.view.WindowManager
-                            .LayoutParams
-                            .FLAG_DIM_BEHIND
-            );
+    /*
+     * ADM မရှိလျှင် အသုံးမဝင်သော disabled box
+     * မပြဘဲ ADM button ကို ဖျောက်ထားမည်။
+     */
+    admButton.setVisibility(
+            admInstalled
+                    ? View.VISIBLE
+                    : View.GONE
+    );
 
-            android.view.WindowManager.LayoutParams attributes =
-                    window.getAttributes();
+    browserButton.setOnClickListener(view -> {
+        dialog.dismiss();
 
-            attributes.dimAmount = 0.82f;
-
-            window.setAttributes(
-                    attributes
-            );
-        }
-
-        TextView movieTitleView =
-                dialog.findViewById(
-                        R.id.downloadMovieTitle
-                );
-
-        TextView fileNameView =
-                dialog.findViewById(
-                        R.id.downloadFileName
-                );
-
-        TextView downloaderStatusView =
-                dialog.findViewById(
-                        R.id.downloadDownloaderStatus
-                );
-
-        TextView browserButton =
-                dialog.findViewById(
-                        R.id.downloadBrowserButton
-                );
-
-        TextView admButton =
-                dialog.findViewById(
-                        R.id.downloadAdmButton
-                );
-
-        TextView cancelButton =
-                dialog.findViewById(
-                        R.id.downloadCancelButton
-                );
-
-        String safeMovieTitle =
-                currentTitleName == null ||
-                currentTitleName.trim().isEmpty()
-                        ? "CMFLIX Movie"
-                        : currentTitleName.trim();
-
-        String safeFileName =
-                fileName == null ||
-                fileName.trim().isEmpty()
-                        ? buildLocalFileName(
-                                safeMovieTitle,
-                                url
-                        )
-                        : fileName.trim();
-
-        movieTitleView.setText(
-                safeMovieTitle
-        );
-
-        fileNameView.setText(
+        openBrowserDownload(
+                url,
                 safeFileName
         );
+    });
 
-        if (admInstalled) {
-            downloaderStatusView.setText(
-                    "ADM အသင့်ရှိပါသည် • Signed link ပြင်ဆင်ပြီး"
-            );
+    admButton.setOnClickListener(view -> {
+        dialog.dismiss();
 
-            downloaderStatusView.setTextColor(
-                    Color.parseColor(
-                            "#65D68A"
-                    )
-            );
-
-            admButton.setEnabled(
-                    true
-            );
-
-            admButton.setAlpha(
-                    1f
-            );
-
-            admButton.setText(
-                    "ADM ဖြင့် Download"
-            );
-        } else {
-            downloaderStatusView.setText(
-                    "ADM app မတွေ့ပါ • Browser ကိုအသုံးပြုနိုင်ပါသည်"
-            );
-
-            downloaderStatusView.setTextColor(
-                    Color.parseColor(
-                            "#FFB74D"
-                    )
-            );
-
-            admButton.setEnabled(
-                    false
-            );
-
-            admButton.setAlpha(
-                    0.45f
-            );
-
-            admButton.setText(
-                    "ADM မရှိပါ"
-            );
-        }
-
-        browserButton.setOnClickListener(view -> {
-            dialog.dismiss();
-
-            openBrowserDownload(
-                    url,
-                    safeFileName
-            );
-        });
-
-        admButton.setOnClickListener(view -> {
-            if (!admInstalled) {
-                Toast.makeText(
-                        DetailActivity.this,
-                        "ADM app မတွေ့ပါ။",
-                        Toast.LENGTH_SHORT
-                ).show();
-
-                return;
-            }
-
-            dialog.dismiss();
-
-            openAdmDownload(
-                    url,
-                    safeFileName
-            );
-        });
-
-        cancelButton.setOnClickListener(
-                view -> dialog.dismiss()
+        openAdmDownload(
+                url,
+                safeFileName
         );
+    });
 
-        dialog.show();
+    cancelButton.setOnClickListener(
+            view -> dialog.dismiss()
+    );
 
-        if (window != null) {
-            int screenWidth =
-                    getResources()
-                            .getDisplayMetrics()
-                            .widthPixels;
+    dialog.show();
 
-            int dialogWidth =
-                    Math.min(
-                            (int) (
-                                    screenWidth *
-                                    0.92f
-                            ),
-                            dp(430)
-                    );
+    if (window != null) {
+        int screenWidth =
+                getResources()
+                        .getDisplayMetrics()
+                        .widthPixels;
 
-            window.setLayout(
-                    dialogWidth,
-                    ViewGroup.LayoutParams
-                            .WRAP_CONTENT
-            );
-        }
+        int dialogWidth =
+                Math.min(
+                        (int) (
+                                screenWidth * 0.90f
+                        ),
+                        dp(420)
+                );
+
+        window.setLayout(
+                dialogWidth,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
     }
+}
+
 
     private void openBrowserDownload(
             String url,
