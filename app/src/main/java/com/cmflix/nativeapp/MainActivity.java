@@ -15,6 +15,8 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.graphics.Typeface;
+
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -37,8 +39,18 @@ public class MainActivity extends AppCompatActivity {
     private TextView errorText;
     private EditText searchInput;
     private LinearLayout categoryBar;
-    private Button accountButton;
+private LinearLayout searchHistoryContainer;
+
+private View searchHistoryRow;
+
+private TextView sectionTitle;
+private TextView localClearButton;
+private TextView clearSearchHistoryButton;
+
+private Button accountButton;
 private Button premiumButton;
+private Button themeButton;
+
 
 private static final long PROFILE_CACHE_MS =
         6L * 60L * 60L * 1000L;
@@ -61,11 +73,15 @@ private boolean profileRefreshInFlight = false;
     private int requestGeneration = 0;
 
     private final String[][] categories = {
-            {"Movies", "movies"},
-            {"Free 18+", "series"},
-            {"18+ VIP", "lugyi"},
-            {"Favorites", "favorites"}
-    };
+        {"Movies", "movies"},
+        {"Free 18+", "series"},
+        {"18+ VIP", "lugyi"},
+        {"Continue", "continue"},
+        {"Recent", "recent"},
+        {"Downloads", "downloads"},
+        {"Favorites", "favorites"}
+};
+
 
     private final ActivityResultLauncher<Intent>
             authLauncher =
@@ -97,15 +113,48 @@ private boolean profileRefreshInFlight = false;
         progress = findViewById(R.id.progress);
         errorText = findViewById(R.id.errorText);
         searchInput = findViewById(R.id.searchInput);
-        categoryBar = findViewById(R.id.categoryBar);
-        accountButton = findViewById(R.id.accountButton);
-premiumButton = findViewById(R.id.premiumButton);
+        categoryBar =
+        findViewById(R.id.categoryBar);
+
+searchHistoryContainer =
+        findViewById(
+                R.id.searchHistoryContainer
+        );
+
+searchHistoryRow =
+        findViewById(
+                R.id.searchHistoryRow
+        );
+
+clearSearchHistoryButton =
+        findViewById(
+                R.id.clearSearchHistoryButton
+        );
+
+sectionTitle =
+        findViewById(R.id.sectionTitle);
+
+localClearButton =
+        findViewById(R.id.localClearButton);
+
+accountButton =
+        findViewById(R.id.accountButton);
+
+premiumButton =
+        findViewById(R.id.premiumButton);
+
+themeButton =
+        findViewById(R.id.themeButton);
+
 
 
         setupRecycler();
         setupCategories();
         setupSearch();
         setupAccountButtons();
+        setupLocalFeatureControls();
+refreshSearchHistory();
+
 
         errorText.setOnClickListener(view -> {
             if (!isLoading) {
@@ -125,6 +174,17 @@ protected void onResume() {
 
     updateAccountButtons();
     refreshProfileIfNeeded();
+    refreshSearchHistory();
+
+    if (isLocalCategory(category)) {
+        loadLocalCategory();
+    } else if (adapter != null) {
+        /*
+         * Online list ထဲက poster progress line ကို
+         * player ပြန်လာချိန် update လုပ်ရန်။
+         */
+        adapter.notifyDataSetChanged();
+    }
 }
 
 
@@ -177,12 +237,25 @@ if (screenWidthDp >= 840) {
                             DetailActivity.class
                     );
 
-            intent.putExtra(
-                    "slug",
-                    item.optString("slug")
-            );
+            String slug =
+        item.optString(
+                "slug",
+                ""
+        ).trim();
 
-            startActivity(intent);
+if (slug.isEmpty()) {
+    Toast.makeText(
+            MainActivity.this,
+            "ဒီ local item မှာ slug မရှိပါ။",
+            Toast.LENGTH_SHORT
+    ).show();
+
+    return;
+}
+
+intent.putExtra("slug", slug);
+startActivity(intent);
+
         },
         this::removeFavoriteFromList
 );
@@ -260,15 +333,22 @@ if (screenWidthDp >= 840) {
 
 LinearLayout.LayoutParams params =
         new LinearLayout.LayoutParams(
-                0,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
-                1f
+                dp(38)
         );
 
 params.setMarginStart(dp(3));
 params.setMarginEnd(dp(3));
 
+button.setPadding(
+        dp(14),
+        0,
+        dp(14),
+        0
+);
+
 button.setLayoutParams(params);
+
 
             button.setTag(value);
 
@@ -286,18 +366,33 @@ button.setLayoutParams(params);
                 }
 
                 category = value;
-                search = "";
-                searchInput.setText("");
+search = "";
+searchInput.setText("");
 
-                searchInput.setVisibility(
-                        "favorites".equals(category)
-                                ? View.GONE
-                                : View.VISIBLE
-                );
+boolean local =
+        isLocalCategory(category);
 
-                updateCategoryButtons();
-                recycler.scrollToPosition(0);
-                resetAndLoad();
+searchInput.setVisibility(
+        local ||
+        "favorites".equals(category)
+                ? View.GONE
+                : View.VISIBLE
+);
+
+sectionTitle.setText(label);
+
+localClearButton.setVisibility(
+        local
+                ? View.VISIBLE
+                : View.GONE
+);
+
+refreshSearchHistory();
+updateCategoryButtons();
+
+recycler.scrollToPosition(0);
+resetAndLoad();
+
             });
 
             categoryBar.addView(button);
@@ -377,11 +472,17 @@ button.setLayoutParams(params);
                     }
 
                     search = searchInput
-                            .getText()
-                            .toString()
-                            .trim();
+        .getText()
+        .toString()
+        .trim();
 
-                    hideKeyboard();
+if (!search.isEmpty()) {
+    LocalStore.addSearch(search);
+    refreshSearchHistory();
+}
+
+hideKeyboard();
+
                     recycler.scrollToPosition(0);
                     resetAndLoad();
 
@@ -659,8 +760,17 @@ private void refreshProfileIfNeeded() {
         );
 
         errorText.setVisibility(View.GONE);
-        loadNextPage();
-    }
+
+if (isLocalCategory(category)) {
+    loadLocalCategory();
+} else {
+    loadNextPage();
+}
+
+if (isLocalCategory(category)) {
+    loadLocalCategory();
+    return;
+}
 
     private void loadNextPage() {
         if (isLoading || !hasMore) {
@@ -846,6 +956,257 @@ private void refreshProfileIfNeeded() {
 
         current.clearFocus();
     }
+private boolean isLocalCategory(
+        String value
+) {
+    return "continue".equals(value) ||
+            "recent".equals(value) ||
+            "downloads".equals(value);
+}
+
+private void loadLocalCategory() {
+    progress.setVisibility(View.GONE);
+    isLoading = false;
+    hasMore = false;
+
+    List<JSONObject> items;
+
+    switch (category) {
+        case "continue":
+            items =
+                    LocalStore
+                            .getContinueWatching();
+
+            sectionTitle.setText(
+                    "Continue Watching"
+            );
+            break;
+
+        case "downloads":
+            items =
+                    LocalStore
+                            .getDownloadHistory();
+
+            sectionTitle.setText(
+                    "Download History"
+            );
+            break;
+
+        case "recent":
+        default:
+            items =
+                    LocalStore
+                            .getRecentlyViewed();
+
+            sectionTitle.setText(
+                    "Recently Viewed"
+            );
+            break;
+    }
+
+    allItems.clear();
+    allItems.addAll(items);
+
+    adapter.setFavoriteMode(false);
+
+    adapter.submitList(
+            new ArrayList<>(allItems)
+    );
+
+    if (allItems.isEmpty()) {
+        String message;
+
+        if ("continue".equals(category)) {
+            message =
+                    "Continue Watching မရှိသေးပါ။";
+        } else if (
+                "downloads".equals(category)
+        ) {
+            message =
+                    "Download history မရှိသေးပါ။";
+        } else {
+            message =
+                    "Recently Viewed မရှိသေးပါ။";
+        }
+
+        errorText.setText(message);
+        errorText.setVisibility(View.VISIBLE);
+    } else {
+        errorText.setVisibility(View.GONE);
+    }
+}
+
+private void setupLocalFeatureControls() {
+    themeButton.setText(
+            LocalStore.isAmoledTheme()
+                    ? "AMOLED"
+                    : "DARK"
+    );
+
+    themeButton.setOnClickListener(view -> {
+        boolean amoled =
+                LocalStore.toggleAmoledTheme();
+
+        themeButton.setText(
+                amoled
+                        ? "AMOLED"
+                        : "DARK"
+        );
+
+        recreate();
+    });
+
+    clearSearchHistoryButton
+            .setOnClickListener(view -> {
+                LocalStore.clearSearchHistory();
+                refreshSearchHistory();
+            });
+
+    localClearButton.setOnClickListener(view -> {
+        if (!isLocalCategory(category)) {
+            return;
+        }
+
+        String message;
+
+        if ("continue".equals(category)) {
+            message =
+                    "Continue Watching ကို ရှင်းမလား?";
+        } else if (
+                "downloads".equals(category)
+        ) {
+            message =
+                    "Download history ကို ရှင်းမလား?";
+        } else {
+            message =
+                    "Recently Viewed နဲ့ watch progress အားလုံးကို ရှင်းမလား?";
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle("Clear local history")
+                .setMessage(message)
+                .setNegativeButton(
+                        "Cancel",
+                        null
+                )
+                .setPositiveButton(
+                        "Clear",
+                        (dialog, which) -> {
+                            if (
+                                    "continue".equals(
+                                            category
+                                    )
+                            ) {
+                                LocalStore
+                                        .clearContinueWatching();
+                            } else if (
+                                    "downloads".equals(
+                                            category
+                                    )
+                            ) {
+                                LocalStore
+                                        .clearDownloadHistory();
+                            } else {
+                                LocalStore
+                                        .clearRecentlyViewed();
+                            }
+
+                            loadLocalCategory();
+                        }
+                )
+                .show();
+    });
+}
+
+private void refreshSearchHistory() {
+    if (
+            searchHistoryContainer == null ||
+            searchHistoryRow == null
+    ) {
+        return;
+    }
+
+    searchHistoryContainer.removeAllViews();
+
+    List<String> history =
+            LocalStore.getSearchHistory();
+
+    boolean show =
+            !history.isEmpty() &&
+            !isLocalCategory(category) &&
+            !"favorites".equals(category);
+
+    searchHistoryRow.setVisibility(
+            show
+                    ? View.VISIBLE
+                    : View.GONE
+    );
+
+    if (!show) {
+        return;
+    }
+
+    for (String query : history) {
+        TextView chip =
+                new TextView(this);
+
+        chip.setText(query);
+        chip.setSingleLine(true);
+        chip.setTextSize(12);
+        chip.setTextColor(Color.WHITE);
+
+        chip.setPadding(
+                dp(13),
+                dp(8),
+                dp(13),
+                dp(8)
+        );
+
+        GradientDrawable background =
+                new GradientDrawable();
+
+        background.setColor(
+                Color.parseColor("#1A1D24")
+        );
+
+        background.setCornerRadius(
+                dp(50)
+        );
+
+        background.setStroke(
+                dp(1),
+                Color.parseColor("#353A45")
+        );
+
+        chip.setBackground(background);
+
+        LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams
+                                .WRAP_CONTENT,
+                        LinearLayout.LayoutParams
+                                .WRAP_CONTENT
+                );
+
+        params.setMarginEnd(dp(7));
+
+        chip.setLayoutParams(params);
+
+        chip.setOnClickListener(view -> {
+            search = query;
+            searchInput.setText(query);
+            searchInput.setSelection(
+                    query.length()
+            );
+
+            hideKeyboard();
+            recycler.scrollToPosition(0);
+            resetAndLoad();
+        });
+
+        searchHistoryContainer.addView(chip);
+    }
+}
 
     private int dp(int value) {
         return Math.round(
