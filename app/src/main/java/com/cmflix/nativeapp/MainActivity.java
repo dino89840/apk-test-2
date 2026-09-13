@@ -20,7 +20,6 @@ import android.graphics.Typeface;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.splashscreen.SplashScreen;
 import androidx.recyclerview.widget.GridLayoutManager;
@@ -49,7 +48,6 @@ private TextView clearSearchHistoryButton;
 
 private Button accountButton;
 private Button premiumButton;
-private Button themeButton;
 
 
 private static final long PROFILE_CACHE_MS =
@@ -142,9 +140,6 @@ accountButton =
 
 premiumButton =
         findViewById(R.id.premiumButton);
-
-themeButton =
-        findViewById(R.id.themeButton);
 
 
 
@@ -372,12 +367,11 @@ searchInput.setText("");
 boolean local =
         isLocalCategory(category);
 
-searchInput.setVisibility(
-        local ||
-        "favorites".equals(category)
-                ? View.GONE
-                : View.VISIBLE
-);
+/*
+ * Search bar ကို online, local နှင့် Favorites
+ * category အားလုံးမှာ အမြဲပြမည်။
+ */
+searchInput.setVisibility(View.VISIBLE);
 
 sectionTitle.setText(label);
 
@@ -843,9 +837,13 @@ private void refreshProfileIfNeeded() {
                                     JSONObject item =
                                             items.optJSONObject(index);
 
-                                    if (item != null) {
-                                        allItems.add(item);
-                                    }
+                                    if (
+        item != null &&
+        matchesSearch(item)
+) {
+    allItems.add(item);
+}
+
                                 }
                             }
 
@@ -1001,6 +999,22 @@ private void loadLocalCategory() {
             break;
     }
 
+    if (
+            search != null &&
+            !search.trim().isEmpty()
+    ) {
+        List<JSONObject> filteredItems =
+                new ArrayList<>();
+
+        for (JSONObject item : items) {
+            if (matchesSearch(item)) {
+                filteredItems.add(item);
+            }
+        }
+
+        items = filteredItems;
+    }
+
     allItems.clear();
     allItems.addAll(items);
 
@@ -1034,86 +1048,133 @@ private void loadLocalCategory() {
 }
 
 private void setupLocalFeatureControls() {
-    themeButton.setText(
-            LocalStore.isAmoledTheme()
-                    ? "AMOLED"
-                    : "DARK"
-    );
-
-    themeButton.setOnClickListener(view -> {
-        boolean amoled =
-                LocalStore.toggleAmoledTheme();
-
-        themeButton.setText(
-                amoled
-                        ? "AMOLED"
-                        : "DARK"
-        );
-
-        recreate();
-    });
-
     clearSearchHistoryButton
             .setOnClickListener(view -> {
                 LocalStore.clearSearchHistory();
                 refreshSearchHistory();
             });
 
-    localClearButton.setOnClickListener(view -> {
-        if (!isLocalCategory(category)) {
-            return;
-        }
-
-        String message;
-
-        if ("continue".equals(category)) {
-            message =
-                    "Continue Watching ကို ရှင်းမလား?";
-        } else if (
-                "downloads".equals(category)
-        ) {
-            message =
-                    "Download history ကို ရှင်းမလား?";
-        } else {
-            message =
-                    "Recently Viewed နဲ့ watch progress အားလုံးကို ရှင်းမလား?";
-        }
-
-        new AlertDialog.Builder(this)
-                .setTitle("Clear local history")
-                .setMessage(message)
-                .setNegativeButton(
-                        "Cancel",
-                        null
-                )
-                .setPositiveButton(
-                        "Clear",
-                        (dialog, which) -> {
-                            if (
-                                    "continue".equals(
-                                            category
-                                    )
-                            ) {
-                                LocalStore
-                                        .clearContinueWatching();
-                            } else if (
-                                    "downloads".equals(
-                                            category
-                                    )
-                            ) {
-                                LocalStore
-                                        .clearDownloadHistory();
-                            } else {
-                                LocalStore
-                                        .clearRecentlyViewed();
-                            }
-
-                            loadLocalCategory();
-                        }
-                )
-                .show();
-    });
+    localClearButton.setOnClickListener(
+            view -> showClearHistoryDialog()
+    );
 }
+
+private void showClearHistoryDialog() {
+    if (!isLocalCategory(category)) {
+        return;
+    }
+
+    String title;
+    String message;
+
+    if ("continue".equals(category)) {
+        title = "Clear Continue Watching";
+        message =
+                "ကြည့်လက်စ progress များကို ရှင်းမှာ သေချာပါသလား?";
+    } else if ("downloads".equals(category)) {
+        title = "Clear Download History";
+        message =
+                "Download history အားလုံးကို ရှင်းမှာ သေချာပါသလား?";
+    } else {
+        title = "Clear Recently Viewed";
+        message =
+                "ကြည့်ရှုခဲ့သော history နှင့် watch progress များကို ရှင်းမှာ သေချာပါသလား?";
+    }
+
+    android.app.Dialog dialog =
+            new android.app.Dialog(this);
+
+    dialog.setContentView(
+            R.layout.dialog_clear_history
+    );
+
+    dialog.setCancelable(true);
+    dialog.setCanceledOnTouchOutside(true);
+
+    android.view.Window window =
+            dialog.getWindow();
+
+    if (window != null) {
+        window.setBackgroundDrawable(
+                new android.graphics.drawable.ColorDrawable(
+                        Color.TRANSPARENT
+                )
+        );
+
+        window.addFlags(
+                android.view.WindowManager.LayoutParams
+                        .FLAG_DIM_BEHIND
+        );
+
+        android.view.WindowManager.LayoutParams attributes =
+                window.getAttributes();
+
+        attributes.dimAmount = 0.80f;
+        window.setAttributes(attributes);
+    }
+
+    TextView titleView =
+            dialog.findViewById(
+                    R.id.clearDialogTitle
+            );
+
+    TextView messageView =
+            dialog.findViewById(
+                    R.id.clearDialogMessage
+            );
+
+    TextView confirmButton =
+            dialog.findViewById(
+                    R.id.clearDialogConfirm
+            );
+
+    TextView cancelButton =
+            dialog.findViewById(
+                    R.id.clearDialogCancel
+            );
+
+    titleView.setText(title);
+    messageView.setText(message);
+
+    cancelButton.setOnClickListener(
+            view -> dialog.dismiss()
+    );
+
+    confirmButton.setOnClickListener(view -> {
+        if ("continue".equals(category)) {
+            LocalStore.clearContinueWatching();
+        } else if ("downloads".equals(category)) {
+            LocalStore.clearDownloadHistory();
+        } else {
+            LocalStore.clearRecentlyViewed();
+        }
+
+        dialog.dismiss();
+        loadLocalCategory();
+    });
+
+    dialog.show();
+
+    if (window != null) {
+        int screenWidth =
+                getResources()
+                        .getDisplayMetrics()
+                        .widthPixels;
+
+        int dialogWidth =
+                Math.min(
+                        (int) (screenWidth * 0.88f),
+                        dp(400)
+                );
+
+        window.setLayout(
+                dialogWidth,
+                android.view.ViewGroup.LayoutParams
+                        .WRAP_CONTENT
+        );
+    }
+}
+
 
 private void refreshSearchHistory() {
     if (
@@ -1129,9 +1190,8 @@ private void refreshSearchHistory() {
             LocalStore.getSearchHistory();
 
     boolean show =
-            !history.isEmpty() &&
-            !isLocalCategory(category) &&
-            !"favorites".equals(category);
+        !history.isEmpty();
+
 
     searchHistoryRow.setVisibility(
             show
@@ -1203,6 +1263,38 @@ private void refreshSearchHistory() {
 
         searchHistoryContainer.addView(chip);
     }
+}
+private boolean matchesSearch(
+        JSONObject item
+) {
+    if (item == null) {
+        return false;
+    }
+
+    String query =
+            search == null
+                    ? ""
+                    : search.trim()
+                    .toLowerCase(
+                            java.util.Locale.US
+                    );
+
+    if (query.isEmpty()) {
+        return true;
+    }
+
+    String searchableText =
+            (
+                    item.optString("title", "") + " " +
+                    item.optString("year", "") + " " +
+                    item.optString("rating", "") + " " +
+                    item.optString("category", "") + " " +
+                    item.optString("genres", "")
+            ).toLowerCase(
+                    java.util.Locale.US
+            );
+
+    return searchableText.contains(query);
 }
 
     private int dp(int value) {
