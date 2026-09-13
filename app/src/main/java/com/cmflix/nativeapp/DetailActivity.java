@@ -774,11 +774,18 @@ currentUrl = redirectedUrl;
                     );
 
             startActivity(
-                    Intent.createChooser(
-                            intent,
-                            "Browser ရွေးပါ"
-                    )
-            );
+        Intent.createChooser(
+                intent,
+                "Browser ရွေးပါ"
+        )
+);
+
+/*
+ * External browser/downloader chooser ကို
+ * အောင်မြင်စွာဖွင့်ပြီးမှ local history မှတ်မယ်။
+ */
+LocalStore.recordDownload(titleId);
+
         } catch (Exception error) {
             Toast.makeText(
                     this,
@@ -816,11 +823,10 @@ currentUrl = redirectedUrl;
                         packageName
                 );
 
-                startActivity(
-                        intent
-                );
+                startActivity(intent);
+LocalStore.recordDownload(titleId);
+return;
 
-                return;
 
             } catch (Exception ignored) {
                 /*
@@ -841,11 +847,10 @@ currentUrl = redirectedUrl;
                         "com.dv.get.AEditor"
                 );
 
-                startActivity(
-                        fallbackIntent
-                );
+                startActivity(fallbackIntent);
+LocalStore.recordDownload(titleId);
+return;
 
-                return;
 
             } catch (Exception ignored) {
                 // နောက် ADM package ကိုဆက်စမ်းမယ်။
