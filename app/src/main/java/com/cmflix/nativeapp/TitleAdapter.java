@@ -5,6 +5,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -13,8 +14,12 @@ import androidx.recyclerview.widget.ListAdapter;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.RequestBuilder;
 
 import org.json.JSONObject;
+
+import java.text.DateFormat;
+import java.util.Date;
 
 public class TitleAdapter
         extends ListAdapter<JSONObject, TitleAdapter.Holder> {
@@ -28,7 +33,8 @@ public class TitleAdapter
     }
 
     private final Listener listener;
-    private final RemoveFavoriteListener removeFavoriteListener;
+    private final RemoveFavoriteListener
+            removeFavoriteListener;
 
     private boolean favoriteMode = false;
 
@@ -43,13 +49,19 @@ public class TitleAdapter
                     String oldId =
                             oldItem.optString(
                                     "id",
-                                    oldItem.optString("slug", "")
+                                    oldItem.optString(
+                                            "slug",
+                                            ""
+                                    )
                             );
 
                     String newId =
                             newItem.optString(
                                     "id",
-                                    newItem.optString("slug", "")
+                                    newItem.optString(
+                                            "slug",
+                                            ""
+                                    )
                             );
 
                     return oldId.equals(newId);
@@ -76,7 +88,8 @@ public class TitleAdapter
                 removeFavoriteListener;
 
         setStateRestorationPolicy(
-                StateRestorationPolicy.PREVENT_WHEN_EMPTY
+                StateRestorationPolicy
+                        .PREVENT_WHEN_EMPTY
         );
     }
 
@@ -118,32 +131,16 @@ public class TitleAdapter
                 item.optString("title", "")
         );
 
-        String year =
-                item.optString("year", "");
-
-        String rating =
-                item.optString("rating", "");
-
-        StringBuilder metadata =
-                new StringBuilder();
-
-        if (!year.isEmpty()) {
-            metadata.append(year);
-        }
-
-        if (!rating.isEmpty()) {
-            if (metadata.length() > 0) {
-                metadata.append("  •  ");
-            }
-
-            metadata
-                    .append("★ ")
-                    .append(rating);
-        }
+        String localKind =
+                item.optString(
+                        "_local_kind",
+                        ""
+                );
 
         holder.meta.setText(
-                metadata.toString()
+                buildMetadata(item, localKind)
         );
+
         boolean vipTitle =
                 "lugyi".equalsIgnoreCase(
                         item.optString(
@@ -158,19 +155,39 @@ public class TitleAdapter
                         : View.GONE
         );
 
-        Glide.with(holder.poster)
-                .load(item.optString("poster_url", ""))
-                .centerCrop()
-                .dontAnimate()
-                .placeholder(
-                        android.R.drawable
-                                .ic_menu_report_image
-                )
-                .error(
-                        android.R.drawable
-                                .ic_menu_report_image
-                )
-                .into(holder.poster);
+        String posterUrl =
+                item.optString(
+                        "poster_url",
+                        ""
+                );
+
+        RequestBuilder<?> posterRequest =
+                Glide.with(holder.poster)
+                        .load(posterUrl)
+                        .centerCrop()
+                        .dontAnimate()
+                        .placeholder(
+                                android.R.drawable
+                                        .ic_menu_report_image
+                        )
+                        .error(
+                                android.R.drawable
+                                        .ic_menu_report_image
+                        );
+
+        /*
+         * Local list ကိုဖွင့်ရုံနဲ့ poster network request
+         * အသစ်မတိုးစေရန် disk/memory cache ထဲမှာရှိမှသာ load။
+         */
+        if (!localKind.isEmpty()) {
+            posterRequest =
+                    posterRequest
+                            .onlyRetrieveFromCache(true);
+        }
+
+        posterRequest.into(holder.poster);
+
+        bindProgress(holder, item);
 
         holder.favoriteRemove.setVisibility(
                 favoriteMode
@@ -186,14 +203,162 @@ public class TitleAdapter
                     view.setEnabled(false);
                     view.setAlpha(0.55f);
 
-                    if (removeFavoriteListener != null) {
-                        removeFavoriteListener.onRemove(item);
+                    if (
+                            removeFavoriteListener !=
+                                    null
+                    ) {
+                        removeFavoriteListener
+                                .onRemove(item);
                     }
                 }
         );
 
         holder.itemView.setOnClickListener(
                 view -> listener.onClick(item)
+        );
+    }
+
+    private void bindProgress(
+            Holder holder,
+            JSONObject item
+    ) {
+        long position =
+                item.optLong(
+                        "_position",
+                        -1L
+                );
+
+        long duration =
+                item.optLong(
+                        "_duration",
+                        -1L
+                );
+
+        if (position < 0L || duration < 0L) {
+            String id =
+                    item.optString("id", "");
+
+            long[] stored =
+                    LocalStore.getProgress(id);
+
+            position = stored[0];
+            duration = stored[1];
+        }
+
+        boolean show =
+                position >= 10_000L &&
+                duration > 0L &&
+                position < duration * 0.95d;
+
+        if (!show) {
+            holder.watchProgress.setVisibility(
+                    View.GONE
+            );
+
+            holder.watchProgress.setProgress(0);
+            return;
+        }
+
+        int progress =
+                (int) Math.min(
+                        1000L,
+                        Math.max(
+                                0L,
+                                position * 1000L /
+                                        duration
+                        )
+                );
+
+        holder.watchProgress.setProgress(progress);
+        holder.watchProgress.setVisibility(
+                View.VISIBLE
+        );
+    }
+
+    private String buildMetadata(
+            JSONObject item,
+            String localKind
+    ) {
+        if ("continue".equals(localKind)) {
+            long position =
+                    item.optLong(
+                            "_position",
+                            0L
+                    );
+
+            return "RESUME • " +
+                    formatTime(position);
+        }
+
+        if ("download".equals(localKind)) {
+            long timestamp =
+                    item.optLong(
+                            "_downloaded_at",
+                            0L
+                    );
+
+            if (timestamp > 0L) {
+                return "Downloaded • " +
+                        DateFormat
+                                .getDateInstance(
+                                        DateFormat.SHORT
+                                )
+                                .format(
+                                        new Date(timestamp)
+                                );
+            }
+
+            return "Downloaded";
+        }
+
+        String year =
+                item.optString("year", "");
+
+        String rating =
+                item.optString("rating", "");
+
+        StringBuilder result =
+                new StringBuilder();
+
+        if (!year.isEmpty()) {
+            result.append(year);
+        }
+
+        if (!rating.isEmpty()) {
+            if (result.length() > 0) {
+                result.append("  •  ");
+            }
+
+            result.append("★ ")
+                    .append(rating);
+        }
+
+        return result.toString();
+    }
+
+    private String formatTime(long value) {
+        long seconds =
+                Math.max(0L, value / 1000L);
+
+        long hours = seconds / 3600L;
+        long minutes = (seconds % 3600L) / 60L;
+        long remaining = seconds % 60L;
+
+        if (hours > 0L) {
+            return String.format(
+                    java.util.Locale.US,
+                    "%d:%02d:%02d",
+                    hours,
+                    minutes,
+                    remaining
+            );
+        }
+
+        return String.format(
+                java.util.Locale.US,
+                "%02d:%02d",
+                minutes,
+                remaining
         );
     }
 
@@ -204,12 +369,15 @@ public class TitleAdapter
         Glide.with(holder.poster)
                 .clear(holder.poster);
 
-        holder.favoriteRemove.setOnClickListener(
-                null
-        );
+        holder.favoriteRemove
+                .setOnClickListener(null);
 
-        holder.itemView.setOnClickListener(
-                null
+        holder.itemView
+                .setOnClickListener(null);
+
+        holder.watchProgress.setProgress(0);
+        holder.watchProgress.setVisibility(
+                View.GONE
         );
 
         super.onViewRecycled(holder);
@@ -223,29 +391,40 @@ public class TitleAdapter
         final TextView title;
         final TextView meta;
         final TextView vipRibbon;
-
+        final ProgressBar watchProgress;
 
         Holder(@NonNull View itemView) {
             super(itemView);
 
-            poster = itemView.findViewById(
-                    R.id.poster
-            );
+            poster =
+                    itemView.findViewById(
+                            R.id.poster
+                    );
 
-            favoriteRemove = itemView.findViewById(
-                    R.id.favoriteRemove
-            );
-vipRibbon = itemView.findViewById(
-        R.id.vipRibbon
-);
+            favoriteRemove =
+                    itemView.findViewById(
+                            R.id.favoriteRemove
+                    );
 
-            title = itemView.findViewById(
-                    R.id.movieTitle
-            );
+            vipRibbon =
+                    itemView.findViewById(
+                            R.id.vipRibbon
+                    );
 
-            meta = itemView.findViewById(
-                    R.id.meta
-            );
+            title =
+                    itemView.findViewById(
+                            R.id.movieTitle
+                    );
+
+            meta =
+                    itemView.findViewById(
+                            R.id.meta
+                    );
+
+            watchProgress =
+                    itemView.findViewById(
+                            R.id.watchProgress
+                    );
         }
     }
 }
