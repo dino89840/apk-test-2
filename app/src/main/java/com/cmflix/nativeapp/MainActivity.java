@@ -5,8 +5,10 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.animation.DecelerateInterpolator;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
@@ -32,6 +34,17 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
+
+    /*
+     * Splash ကို အနည်းဆုံးပြထားမည့်အချိန်။
+     * 900L = 0.9 second
+     */
+    private static final long MIN_SPLASH_MS = 900L;
+
+    /*
+     * Splash ပျောက်သွားချိန် fade/zoom animation ကြာချိန်။
+     */
+    private static final long SPLASH_EXIT_MS = 320L;
 
     private RecyclerView recycler;
     private ProgressBar progress;
@@ -100,14 +113,95 @@ private boolean profileRefreshInFlight = false;
             );
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        SplashScreen.installSplashScreen(this);
-        super.onCreate(savedInstanceState);
+protected void onCreate(Bundle savedInstanceState) {
+    SplashScreen splashScreen =
+            SplashScreen.installSplashScreen(this);
 
-        ApiClient.initialize(this);
-        setContentView(R.layout.activity_main);
+    super.onCreate(savedInstanceState);
 
-        recycler = findViewById(R.id.recycler);
+    /*
+     * Screen rotation ဖြစ်ချိန် splash ကို ထပ်မစောင့်စေရန်
+     * savedInstanceState ရှိရင် delay မပေးပါ။
+     */
+    final long keepSplashUntil =
+            SystemClock.uptimeMillis() +
+                    (
+                            savedInstanceState == null
+                                    ? MIN_SPLASH_MS
+                                    : 0L
+                    );
+
+    splashScreen.setKeepOnScreenCondition(
+            () -> SystemClock.uptimeMillis()
+                    < keepSplashUntil
+    );
+
+    /*
+     * မည်သည့် PNG/vector logo ကိုသုံးထားသည်ဖြစ်စေ
+     * splash ပျောက်ချိန်မှာ logo zoom-out နှင့်
+     * screen cross-fade animation ရပါမည်။
+     */
+    splashScreen.setOnExitAnimationListener(
+            splashScreenView -> {
+                View splashView =
+                        splashScreenView.getView();
+
+                View iconView =
+                        splashScreenView.getIconView();
+
+                View contentView =
+                        findViewById(android.R.id.content);
+
+                DecelerateInterpolator interpolator =
+                        new DecelerateInterpolator();
+
+                /*
+                 * Main screen ကို ဖြည်းဖြည်းပေါ်လာစေမည်။
+                 */
+                contentView.setAlpha(0f);
+                contentView.setScaleX(0.985f);
+                contentView.setScaleY(0.985f);
+
+                contentView.animate()
+                        .alpha(1f)
+                        .scaleX(1f)
+                        .scaleY(1f)
+                        .setDuration(SPLASH_EXIT_MS + 80L)
+                        .setInterpolator(interpolator)
+                        .start();
+
+                /*
+                 * Splash logo ကို အနည်းငယ်ချဲ့ပြီး
+                 * ပျောက်သွားစေမည်။
+                 */
+                iconView.animate()
+                        .scaleX(1.15f)
+                        .scaleY(1.15f)
+                        .alpha(0f)
+                        .setDuration(SPLASH_EXIT_MS)
+                        .setInterpolator(interpolator)
+                        .start();
+
+                /*
+                 * Splash background ကို fade-out လုပ်ပြီး
+                 * animation ပြီးသွားလျှင် splash view ဖယ်မည်။
+                 */
+                splashView.animate()
+                        .alpha(0f)
+                        .setDuration(SPLASH_EXIT_MS)
+                        .setInterpolator(interpolator)
+                        .withEndAction(
+                                () -> splashScreenView.remove()
+                        )
+                        .start();
+            }
+    );
+
+    ApiClient.initialize(this);
+    setContentView(R.layout.activity_main);
+
+    recycler = findViewById(R.id.recycler);
+
         progress = findViewById(R.id.progress);
         errorText = findViewById(R.id.errorText);
         searchInput = findViewById(R.id.searchInput);
