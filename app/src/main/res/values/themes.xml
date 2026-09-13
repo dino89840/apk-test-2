@@ -23,8 +23,9 @@
         </item>
 
         <item name="windowSplashScreenAnimatedIcon">
-            @drawable/ic_cmflix_logo
-        </item>
+    @drawable/app_logo
+</item>
+
 
         <item name="windowSplashScreenIconBackgroundColor">
             @color/dark_bg
