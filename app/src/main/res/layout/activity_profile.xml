@@ -161,7 +161,7 @@
                         android:layout_marginStart="50dp"
                         android:background="#292C35" />
 
-                    <!-- Point -->
+                    <!-- Account security -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="48dp"
@@ -173,9 +173,10 @@
                             android:layout_height="38dp"
                             android:background="@drawable/profile_info_icon_bg"
                             android:gravity="center"
-                            android:text="★"
-                            android:textColor="#FFFFFF"
-                            android:textSize="17sp" />
+                            android:text="✓"
+                            android:textColor="#7EE2A8"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
 
                         <LinearLayout
                             android:layout_width="0dp"
@@ -187,16 +188,15 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Point"
+                                android:text="Account Security"
                                 android:textColor="@color/gray_text"
                                 android:textSize="11sp" />
 
                             <TextView
-                                android:id="@+id/profilePoint"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="1dp"
-                                android:text="0"
+                                android:text="Password Protected"
                                 android:textColor="#FFFFFF"
                                 android:textSize="14sp"
                                 android:textStyle="bold" />
