@@ -1018,7 +1018,14 @@ currentUrl = redirectedUrl;
         );
 
         currentTitleName = currentTitle;
-        title.setText(currentTitle);
+title.setText(currentTitle);
+
+/*
+ * Detail API ကရပြီးသား item ကို device ထဲမှာပဲ
+ * Recently Viewed အဖြစ်သိမ်းမယ်။
+ */
+LocalStore.rememberRecentlyViewed(item);
+
 
         String year = item.optString(
                 "year",
@@ -1133,17 +1140,13 @@ currentUrl = redirectedUrl;
         );
 
         if (hasVideo) {
-            if ("lugyi".equalsIgnoreCase(titleCategory)) {
-                playButton.setText("VIP PLAY");
-            } else {
-                playButton.setText("PLAY");
-            }
+    playButton.setEnabled(true);
+    playButton.setVisibility(View.VISIBLE);
+    updatePlayButtonText();
+} else {
+    playButton.setVisibility(View.GONE);
+}
 
-            playButton.setEnabled(true);
-            playButton.setVisibility(View.VISIBLE);
-        } else {
-            playButton.setVisibility(View.GONE);
-        }
     }
 
     private void bindSeries(JSONObject item) {
@@ -1781,27 +1784,87 @@ playButton.setAlpha(0.65f);
     }
 
     private void restorePlayButtonText() {
-        playButton.setEnabled(true);
-playButton.setAlpha(1f);
+    playButton.setEnabled(true);
+    playButton.setAlpha(1f);
+    updatePlayButtonText();
+}
 
-
-        boolean isSeries =
-                episodesContainer.getVisibility() == View.VISIBLE;
-
-        if ("lugyi".equalsIgnoreCase(titleCategory)) {
-            playButton.setText(
-                    isSeries
-                            ? "VIP PLAY FIRST EPISODE"
-                            : "VIP PLAY"
-            );
-        } else {
-            playButton.setText(
-                    isSeries
-                            ? "PLAY FIRST EPISODE"
-                            : "PLAY"
-            );
-        }
+private void updatePlayButtonText() {
+    if (
+            playButton == null ||
+            titleId == null ||
+            titleId.isEmpty()
+    ) {
+        return;
     }
+
+    boolean vip =
+            "lugyi".equalsIgnoreCase(
+                    titleCategory
+            );
+
+    boolean isSeries =
+            episodesContainer.getVisibility() ==
+                    View.VISIBLE;
+
+    long resumePosition =
+            LocalStore.getResumePosition(
+                    titleId
+            );
+
+    if (resumePosition > 0L) {
+        playButton.setText(
+                (vip ? "VIP " : "") +
+                        "RESUME • " +
+                        formatWatchTime(
+                                resumePosition
+                        )
+        );
+
+        return;
+    }
+
+    if (vip) {
+        playButton.setText(
+                isSeries
+                        ? "VIP PLAY FIRST EPISODE"
+                        : "VIP PLAY"
+        );
+    } else {
+        playButton.setText(
+                isSeries
+                        ? "PLAY FIRST EPISODE"
+                        : "PLAY"
+        );
+    }
+}
+
+private String formatWatchTime(long value) {
+    long seconds =
+            Math.max(0L, value / 1000L);
+
+    long hours = seconds / 3600L;
+    long minutes = (seconds % 3600L) / 60L;
+    long remaining = seconds % 60L;
+
+    if (hours > 0L) {
+        return String.format(
+                java.util.Locale.US,
+                "%d:%02d:%02d",
+                hours,
+                minutes,
+                remaining
+        );
+    }
+
+    return String.format(
+            java.util.Locale.US,
+            "%02d:%02d",
+            minutes,
+            remaining
+    );
+}
+
 
     private void openPlayer(
             String url,
@@ -1836,12 +1899,30 @@ playButton.setAlpha(1f);
         );
 
         intent.putExtra(
-                "title",
-                title.getText().toString()
-        );
+        "title",
+        title.getText().toString()
+);
 
-        startActivity(intent);
+intent.putExtra(
+        "title_id",
+        titleId
+);
+
+startActivity(intent);
+
     }
+@Override
+protected void onResume() {
+    super.onResume();
+
+    if (
+            playButton != null &&
+            playButton.getVisibility() ==
+                    View.VISIBLE
+    ) {
+        updatePlayButtonText();
+    }
+}
 
     private String safeMessage(Exception error) {
         if (
