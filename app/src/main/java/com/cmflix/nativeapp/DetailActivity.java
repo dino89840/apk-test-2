@@ -224,16 +224,27 @@ public class DetailActivity extends AppCompatActivity {
                 );
 
         if (!downloadableCategory) {
-            Toast.makeText(
-                    this,
-                    "ဒီဇာတ်ကားမှာ Download မရပါ။",
-                    Toast.LENGTH_SHORT
-            ).show();
+    Toast.makeText(
+            this,
+            "ဒီဇာတ်ကားမှာ Download မရပါ။",
+            Toast.LENGTH_SHORT
+    ).show();
 
-            return;
-        }
+    return;
+}
 
-        if (!SessionManager.isLoggedIn()) {
+if (!NetworkUtils.isOnline(this)) {
+    Toast.makeText(
+            this,
+            "Download link ထုတ်ရန် အင်တာနက်ချိတ်ဆက်ပါ။",
+            Toast.LENGTH_LONG
+    ).show();
+
+    return;
+}
+
+if (!SessionManager.isLoggedIn()) {
+
             authLauncher.launch(
                     new Intent(
                             this,
@@ -318,48 +329,71 @@ public class DetailActivity extends AppCompatActivity {
                         }
 
                         /*
-                         * ဒီ Callback က ApiClient ရဲ့ background thread
-                         * ပေါ်မှာ run နေတာဖြစ်လို့ network redirect ကို
-                         * ဒီနေရာမှာ resolve လုပ်နိုင်ပါတယ်။
-                         */
-                        String resolvedUrl;
+ * Download API ကပြန်ပေးသော gateway/signed URL ကို
+ * redirect လိုက်ပြီး final URL ကိုရယူမယ်။
+ *
+ * Resolve မအောင်မြင်လျှင် gateway URL သို့မဟုတ်
+ * video_url ကို fallback မလုပ်ဘဲ fail closed လုပ်မယ်။
+ */
+final String finalDownloadUrl;
 
-                        try {
-                            resolvedUrl =
-                                    resolveFinalDownloadUrl(
-                                            gatewayUrl
-                                    );
-                        } catch (Exception error) {
-                            /*
-                             * Redirect resolve မအောင်မြင်ရင်
-                             * API ပြန်ပေးတဲ့ မူရင်း URL ကို fallback သုံးမယ်။
-                             */
-                            resolvedUrl = gatewayUrl;
-                        }
+try {
+    String resolvedUrl =
+            resolveFinalDownloadUrl(
+                    gatewayUrl
+            );
 
-                        final String finalDownloadUrl =
-                                resolvedUrl == null ||
-                                resolvedUrl.trim().isEmpty()
-                                        ? gatewayUrl
-                                        : resolvedUrl.trim();
+    if (
+            resolvedUrl == null ||
+            resolvedUrl.trim().isEmpty() ||
+            !isSafeDownloadUrl(
+                    resolvedUrl.trim()
+            )
+    ) {
+        throw new SecurityException(
+                "Invalid download URL"
+        );
+    }
 
-                        final String finalFileName =
-                                fileName == null ||
-                                fileName.trim().isEmpty()
-                                        ? buildLocalFileName(
-                                                currentTitleName,
-                                                finalDownloadUrl
-                                        )
-                                        : fileName.trim();
+    finalDownloadUrl =
+            resolvedUrl.trim();
 
-                        runOnUiThread(() -> {
-                            restoreDownloadButton();
+} catch (Exception error) {
+    runOnUiThread(() -> {
+        restoreDownloadButton();
 
-                            showDownloadChooser(
-                                    finalDownloadUrl,
-                                    finalFileName
-                            );
-                        });
+        Toast.makeText(
+                DetailActivity.this,
+                NetworkUtils.isOnline(
+                        DetailActivity.this
+                )
+                        ? "Download link ပြင်ဆင်၍မရပါ။ ပြန်စမ်းပါ။"
+                        : "အင်တာနက်ချိတ်ဆက်မှု ပြတ်တောက်သွားပါသည်။",
+                Toast.LENGTH_LONG
+        ).show();
+    });
+
+    return;
+}
+
+final String finalFileName =
+        fileName == null ||
+        fileName.trim().isEmpty()
+                ? buildLocalFileName(
+                        currentTitleName,
+                        finalDownloadUrl
+                )
+                : fileName.trim();
+
+runOnUiThread(() -> {
+    restoreDownloadButton();
+
+    showDownloadChooser(
+            finalDownloadUrl,
+            finalFileName
+    );
+});
+
                     }
 
                     @Override
@@ -1857,15 +1891,57 @@ protected void onResume() {
     }
 }
 
-    private String safeMessage(Exception error) {
+    private String safeMessage(
+        Exception error
+) {
+    Throwable current = error;
+
+    while (current != null) {
         if (
-                error == null ||
-                error.getMessage() == null ||
-                error.getMessage().trim().isEmpty()
+                current instanceof
+                        java.net.UnknownHostException ||
+                current instanceof
+                        java.net.SocketTimeoutException ||
+                current instanceof
+                        java.net.ConnectException ||
+                current instanceof
+                        java.net.NoRouteToHostException ||
+                current instanceof
+                        javax.net.ssl.SSLException
         ) {
-            return "Request မအောင်မြင်ပါ။";
+            return "အင်တာနက်ချိတ်ဆက်မှု မရှိပါ။";
         }
 
-        return error.getMessage();
+        current = current.getCause();
     }
+
+    if (
+            error == null ||
+            error.getMessage() == null ||
+            error.getMessage()
+                    .trim()
+                    .isEmpty()
+    ) {
+        return "Request မအောင်မြင်ပါ။";
+    }
+
+    String message =
+            error.getMessage().trim();
+
+    String lower =
+            message.toLowerCase(
+                    java.util.Locale.US
+            );
+
+    if (
+            lower.contains("unable to resolve host") ||
+            lower.contains("no address associated") ||
+            lower.contains("failed to connect")
+    ) {
+        return "အင်တာနက်ချိတ်ဆက်မှု မရှိပါ။";
+    }
+
+    return message;
+}
+
 }
