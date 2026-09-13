@@ -122,17 +122,96 @@
     android:textColorHint="@color/gray_text"
     android:textSize="14sp" />
 
-
-    <LinearLayout
-    android:id="@+id/categoryBar"
+<LinearLayout
+    android:id="@+id/searchHistoryRow"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:gravity="center"
+    android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:paddingStart="10dp"
-    android:paddingTop="5dp"
-    android:paddingEnd="10dp"
-    android:paddingBottom="10dp" />
+    android:paddingStart="16dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="6dp"
+    android:visibility="gone">
+
+    <HorizontalScrollView
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:id="@+id/searchHistoryContainer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" />
+
+    </HorizontalScrollView>
+
+    <TextView
+        android:id="@+id/clearSearchHistoryButton"
+        android:layout_width="wrap_content"
+        android:layout_height="36dp"
+        android:gravity="center"
+        android:paddingStart="10dp"
+        android:paddingEnd="4dp"
+        android:text="CLEAR"
+        android:textColor="@color/brand_red"
+        android:textSize="11sp"
+        android:textStyle="bold" />
+
+</LinearLayout>
+
+    
+    <HorizontalScrollView
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:fillViewport="false"
+    android:scrollbars="none">
+
+    <LinearLayout
+        android:id="@+id/categoryBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="10dp"
+        android:paddingTop="5dp"
+        android:paddingEnd="10dp"
+        android:paddingBottom="7dp" />
+
+</HorizontalScrollView>
+
+<LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="38dp"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp">
+
+    <TextView
+        android:id="@+id/sectionTitle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:text="Movies"
+        android:textColor="@color/white"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/localClearButton"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:paddingStart="12dp"
+        android:text="CLEAR"
+        android:textColor="@color/brand_red"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
+</LinearLayout>
 
 
     <FrameLayout
