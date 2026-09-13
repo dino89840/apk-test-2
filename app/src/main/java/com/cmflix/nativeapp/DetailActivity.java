@@ -407,7 +407,14 @@ public class DetailActivity extends AppCompatActivity {
         }
 
         String currentUrl =
-                originalUrl.trim();
+        originalUrl.trim();
+
+if (!isSafeDownloadUrl(currentUrl)) {
+    throw new SecurityException(
+            "Unsafe download URL"
+    );
+}
+
 
         /*
          * Redirect loop မဖြစ်အောင်
@@ -511,11 +518,20 @@ public class DetailActivity extends AppCompatActivity {
                                 currentUrl
                         );
 
-                currentUrl =
-                        new URL(
-                                base,
-                                location.trim()
-                        ).toString();
+                String redirectedUrl =
+        new URL(
+                base,
+                location.trim()
+        ).toString();
+
+if (!isSafeDownloadUrl(redirectedUrl)) {
+    throw new SecurityException(
+            "Unsafe redirect URL"
+    );
+}
+
+currentUrl = redirectedUrl;
+
 
             } finally {
                 if (connection != null) {
@@ -1288,70 +1304,107 @@ public class DetailActivity extends AppCompatActivity {
     }
 
     private void checkFavorite() {
-        if (!SessionManager.isLoggedIn() || titleId.isEmpty()) {
-            isFavorite = false;
-            updateFavoriteText();
-            return;
+    if (
+            !SessionManager.isLoggedIn() ||
+            titleId.isEmpty()
+    ) {
+        isFavorite = false;
+        updateFavoriteText();
+        return;
+    }
+
+    favoriteLoading = true;
+    favoriteButton.setEnabled(false);
+    favoriteButton.setAlpha(0.55f);
+
+    ApiClient.get(
+            "favorites/" +
+                    ApiClient.encode(titleId),
+            new ApiClient.Callback() {
+                @Override
+                public void onSuccess(
+                        JSONObject json
+                ) {
+                    runOnUiThread(() -> {
+                        favoriteLoading = false;
+                        favoriteButton.setEnabled(true);
+
+                        isFavorite =
+                                json.optBoolean(
+                                        "favorite",
+                                        false
+                                );
+
+                        updateFavoriteText();
+                    });
+                }
+
+                @Override
+                public void onError(
+                        Exception error
+                ) {
+                    runOnUiThread(() -> {
+                        favoriteLoading = false;
+                        favoriteButton.setEnabled(true);
+                        updateFavoriteText();
+                    });
+                }
+            }
+    );
+}
+
+private boolean isSafeDownloadUrl(
+        String value
+) {
+    try {
+        Uri uri = Uri.parse(value);
+
+        String scheme =
+                uri.getScheme();
+
+        String host =
+                uri.getHost();
+
+        if (
+                !"https".equalsIgnoreCase(
+                        scheme
+                ) ||
+                host == null ||
+                host.trim().isEmpty()
+        ) {
+            return false;
         }
 
-        favoriteLoading = true;
-        favoriteButton.setEnabled(false);
-        favoriteButton.setAlpha(0.55f);
+        String normalizedHost =
+                host.toLowerCase(
+                        java.util.Locale.US
+                );
 
-        ApiClient.get(
-                "favorites",
-                new ApiClient.Callback() {
-                    @Override
-                    public void onSuccess(JSONObject json) {
-                        runOnUiThread(() -> {
-                            favoriteLoading = false;
-                            favoriteButton.setEnabled(true);
+        if (
+                "localhost".equals(
+                        normalizedHost
+                ) ||
+                normalizedHost.endsWith(
+                        ".localhost"
+                ) ||
+                normalizedHost.startsWith(
+                        "127."
+                ) ||
+                "0.0.0.0".equals(
+                        normalizedHost
+                ) ||
+                "::1".equals(
+                        normalizedHost
+                )
+        ) {
+            return false;
+        }
 
-                            isFavorite = false;
-
-                            JSONArray items = json.optJSONArray("items");
-
-                            if (items != null) {
-                                for (
-                                        int index = 0;
-                                        index < items.length();
-                                        index++
-                                ) {
-                                    JSONObject favoriteItem =
-                                            items.optJSONObject(index);
-
-                                    if (favoriteItem == null) {
-                                        continue;
-                                    }
-
-                                    String favoriteTitleId =
-                                            favoriteItem.optString(
-                                                    "id",
-                                                    ""
-                                            );
-
-                                    if (titleId.equals(favoriteTitleId)) {
-                                        isFavorite = true;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            updateFavoriteText();
-                        });
-                    }
-
-                    @Override
-                    public void onError(Exception error) {
-                        runOnUiThread(() -> {
-                            favoriteLoading = false;
-                            favoriteButton.setEnabled(true);
-                            updateFavoriteText();
-                        });
-                    }
-                }
-        );
+        return true;
+    } catch (Exception error) {
+        return false;
     }
+}
 
     private void setFavorite(boolean shouldFavorite) {
         if (favoriteLoading || titleId.isEmpty()) {
