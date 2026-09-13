@@ -26,8 +26,7 @@ public final class LocalStore {
     private static final String KEY_RESIZE_MODE =
             "resize_mode";
 
-    private static final String KEY_AMOLED =
-            "amoled_theme";
+    
 
     private static final int MAX_RECENT = 20;
     private static final int MAX_DOWNLOADS = 50;
@@ -709,21 +708,4 @@ public final class LocalStore {
                 .apply();
     }
 
-    public static boolean isAmoledTheme() {
-        return prefs().getBoolean(
-                KEY_AMOLED,
-                false
-        );
-    }
-
-    public static boolean toggleAmoledTheme() {
-        boolean value = !isAmoledTheme();
-
-        prefs()
-                .edit()
-                .putBoolean(KEY_AMOLED, value)
-                .apply();
-
-        return value;
-    }
 }
