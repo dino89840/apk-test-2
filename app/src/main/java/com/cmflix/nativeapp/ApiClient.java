@@ -40,15 +40,22 @@ public final class ApiClient {
 
 private static SharedPreferences cachePreferences;
 
+private static Context applicationContext;
+
 
     public static synchronized void initialize(
         Context context
 ) {
-    SessionManager.initialize(context);
+    applicationContext =
+            context.getApplicationContext();
+
+    SessionManager.initialize(
+            applicationContext
+    );
 
     if (cachePreferences == null) {
         cachePreferences =
-                context.getApplicationContext()
+                applicationContext
                         .getSharedPreferences(
                                 CACHE_PREFS,
                                 Context.MODE_PRIVATE
@@ -97,7 +104,21 @@ private static SharedPreferences cachePreferences;
                 System.currentTimeMillis() - savedAt
                         < maxAgeMillis;
 
-        if (fresh) {
+        boolean online =
+                NetworkUtils.isOnline(
+                        applicationContext
+                );
+
+        /*
+         * Cache က fresh ဖြစ်နေရင် cache ကိုသုံးမယ်။
+         *
+         * Internet မရှိရင် cache ဟောင်းဖြစ်နေသော်လည်း
+         * ရှိပြီးသား data ကို ချက်ချင်းပြမယ်။
+         */
+        if (
+                !cachedBody.isEmpty() &&
+                (fresh || !online)
+        ) {
             try {
                 callback.onSuccess(
                         new JSONObject(cachedBody)
@@ -111,6 +132,21 @@ private static SharedPreferences cachePreferences;
                         .remove(key + "_body")
                         .apply();
             }
+        }
+
+        /*
+         * Cache မရှိဘဲ internet လည်းမရှိရင်
+         * host/domain စာတန်းပါတဲ့ system exception
+         * မပြဘဲ callback error ပို့မယ်။
+         */
+        if (!online) {
+            callback.onError(
+                    new java.net.UnknownHostException(
+                            "No internet connection"
+                    )
+            );
+
+            return;
         }
 
         get(
@@ -140,9 +176,8 @@ private static SharedPreferences cachePreferences;
                             Exception error
                     ) {
                         /*
-                         * Fresh cache မဟုတ်ပေမဲ့
-                         * network ပျက်နေချိန် stale data ရှိရင်
-                         * အသုံးပြုသူကို data ပြထားမယ်။
+                         * Request အချိန်မှာ network ပြတ်သွားရင်
+                         * stale cache ရှိသမျှ ဆက်ပြမယ်။
                          */
                         if (!cachedBody.isEmpty()) {
                             try {
@@ -163,6 +198,7 @@ private static SharedPreferences cachePreferences;
         );
     });
 }
+
 
 public static void clearPublicCache() {
     if (cachePreferences != null) {
