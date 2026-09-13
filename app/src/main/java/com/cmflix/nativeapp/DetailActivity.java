@@ -119,6 +119,12 @@ public class DetailActivity extends AppCompatActivity {
         bindViews();
         setupClickListeners();
 
+        findViewById(
+                R.id.detailBackButton
+        ).setOnClickListener(
+                view -> finish()
+        );
+
         String slug = getIntent().getStringExtra("slug");
 
         if (slug == null || slug.trim().isEmpty()) {
