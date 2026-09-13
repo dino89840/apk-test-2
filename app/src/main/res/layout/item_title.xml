@@ -14,17 +14,12 @@
     android:orientation="vertical"
     android:paddingBottom="7dp">
 
-    <!--
-        clipToOutline နဲ့ poster image ရဲ့
-        အပေါ်ဘက်ထောင့်နှစ်ခုကို ကွေးထားသည်။
-    -->
     <FrameLayout
-    android:layout_width="match_parent"
-    android:layout_height="238dp"
-    android:background="@drawable/poster_rounded_bg"
-    android:clipChildren="true"
-    android:clipToOutline="true">
-
+        android:layout_width="match_parent"
+        android:layout_height="238dp"
+        android:background="@drawable/poster_rounded_bg"
+        android:clipChildren="true"
+        android:clipToOutline="true">
 
         <ImageView
             android:id="@+id/poster"
@@ -65,6 +60,19 @@
             android:padding="8dp"
             android:src="@android:drawable/ic_menu_close_clear_cancel"
             android:tint="@color/white"
+            android:visibility="gone" />
+
+        <ProgressBar
+            android:id="@+id/watchProgress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:layout_gravity="bottom"
+            android:indeterminate="false"
+            android:max="1000"
+            android:progress="0"
+            android:progressBackgroundTint="#66000000"
+            android:progressTint="@color/brand_red"
             android:visibility="gone" />
 
     </FrameLayout>
