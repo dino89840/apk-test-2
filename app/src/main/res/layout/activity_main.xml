@@ -63,7 +63,23 @@
     android:textSize="10sp"
     android:textStyle="bold" />
 
+<Button
+    android:id="@+id/themeButton"
+    android:layout_width="wrap_content"
+    android:layout_height="34dp"
+    android:layout_marginEnd="5dp"
+    android:background="@drawable/account_badge_bg"
+    android:minHeight="0dp"
+    android:minWidth="0dp"
+    android:paddingStart="10dp"
+    android:paddingEnd="10dp"
+    android:text="DARK"
+    android:textAllCaps="false"
+    android:textColor="@color/white"
+    android:textSize="9sp"
+    android:textStyle="bold" />
 
+        
         <Button
     android:id="@+id/premiumButton"
     android:layout_width="wrap_content"
