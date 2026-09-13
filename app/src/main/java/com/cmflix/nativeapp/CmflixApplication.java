@@ -4,12 +4,13 @@ import android.app.Activity;
 import android.app.Application;
 import android.graphics.Color;
 import android.os.Bundle;
-import android.view.View;
-import android.view.ViewGroup;
 
 public class CmflixApplication
         extends Application
         implements Application.ActivityLifecycleCallbacks {
+
+    private static final int APP_BACKGROUND =
+            Color.parseColor("#090B10");
 
     @Override
     public void onCreate() {
@@ -22,34 +23,19 @@ public class CmflixApplication
     public static void applyTheme(
             Activity activity
     ) {
-        boolean amoled =
-                LocalStore.isAmoledTheme();
-
-        int background =
-                amoled
-                        ? Color.BLACK
-                        : Color.parseColor("#090B10");
+        if (activity == null) {
+            return;
+        }
 
         activity.getWindow()
-                .setStatusBarColor(background);
-
-        activity.getWindow()
-                .setNavigationBarColor(background);
-
-        View content =
-                activity.findViewById(
-                        android.R.id.content
+                .setStatusBarColor(
+                        APP_BACKGROUND
                 );
 
-        if (content instanceof ViewGroup) {
-            ViewGroup group =
-                    (ViewGroup) content;
-
-            if (group.getChildCount() > 0) {
-                group.getChildAt(0)
-                        .setBackgroundColor(background);
-            }
-        }
+        activity.getWindow()
+                .setNavigationBarColor(
+                        APP_BACKGROUND
+                );
     }
 
     @Override
@@ -63,20 +49,28 @@ public class CmflixApplication
     }
 
     @Override
-    public void onActivityResumed(Activity activity) {
+    public void onActivityResumed(
+            Activity activity
+    ) {
         applyTheme(activity);
     }
 
     @Override
-    public void onActivityStarted(Activity activity) {
+    public void onActivityStarted(
+            Activity activity
+    ) {
     }
 
     @Override
-    public void onActivityPaused(Activity activity) {
+    public void onActivityPaused(
+            Activity activity
+    ) {
     }
 
     @Override
-    public void onActivityStopped(Activity activity) {
+    public void onActivityStopped(
+            Activity activity
+    ) {
     }
 
     @Override
@@ -87,6 +81,8 @@ public class CmflixApplication
     }
 
     @Override
-    public void onActivityDestroyed(Activity activity) {
+    public void onActivityDestroyed(
+            Activity activity
+    ) {
     }
 }
