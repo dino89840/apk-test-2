@@ -19,7 +19,10 @@ import com.bumptech.glide.RequestBuilder;
 import org.json.JSONObject;
 
 import java.text.DateFormat;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 public class TitleAdapter
         extends ListAdapter<JSONObject, TitleAdapter.Holder> {
@@ -37,6 +40,13 @@ public class TitleAdapter
             removeFavoriteListener;
 
     private boolean favoriteMode = false;
+private static final Object
+        PAYLOAD_PROGRESS =
+        new Object();
+
+private Map<String, long[]>
+        progressSnapshot =
+        Collections.emptyMap();
 
     private static final DiffUtil.ItemCallback<JSONObject>
             DIFF_CALLBACK =
@@ -78,20 +88,38 @@ public class TitleAdapter
             };
 
     public TitleAdapter(
-            Listener listener,
-            RemoveFavoriteListener removeFavoriteListener
-    ) {
-        super(DIFF_CALLBACK);
+        Listener listener,
+        RemoveFavoriteListener removeFavoriteListener
+) {
+    super(DIFF_CALLBACK);
 
-        this.listener = listener;
-        this.removeFavoriteListener =
-                removeFavoriteListener;
+    this.listener = listener;
+    this.removeFavoriteListener =
+            removeFavoriteListener;
 
-        setStateRestorationPolicy(
-                StateRestorationPolicy
-                        .PREVENT_WHEN_EMPTY
+    progressSnapshot =
+            LocalStore.getProgressSnapshot();
+
+    setStateRestorationPolicy(
+            StateRestorationPolicy
+                    .PREVENT_WHEN_EMPTY
+    );
+}
+public void refreshProgressSnapshot() {
+    progressSnapshot =
+            LocalStore.getProgressSnapshot();
+
+    int count = getItemCount();
+
+    if (count > 0) {
+        notifyItemRangeChanged(
+                0,
+                count,
+                PAYLOAD_PROGRESS
         );
     }
+}
+
 
     public void setFavoriteMode(boolean value) {
         if (favoriteMode == value) {
@@ -119,6 +147,32 @@ public class TitleAdapter
 
         return new Holder(view);
     }
+@Override
+public void onBindViewHolder(
+        @NonNull Holder holder,
+        int position,
+        @NonNull List<Object> payloads
+) {
+    if (
+            !payloads.isEmpty() &&
+            payloads.contains(
+                    PAYLOAD_PROGRESS
+            )
+    ) {
+        bindProgress(
+                holder,
+                getItem(position)
+        );
+
+        return;
+    }
+
+    super.onBindViewHolder(
+            holder,
+            position,
+            payloads
+    );
+}
 
     @Override
     public void onBindViewHolder(
@@ -235,15 +289,27 @@ public class TitleAdapter
                 );
 
         if (position < 0L || duration < 0L) {
-            String id =
-                    item.optString("id", "");
+    String id =
+            item.optString(
+                    "id",
+                    item.optString(
+                            "slug",
+                            ""
+                    )
+            ).trim();
 
-            long[] stored =
-                    LocalStore.getProgress(id);
+    long[] stored =
+            progressSnapshot.get(id);
 
-            position = stored[0];
-            duration = stored[1];
-        }
+    if (stored != null) {
+        position = stored[0];
+        duration = stored[1];
+    } else {
+        position = 0L;
+        duration = 0L;
+    }
+}
+
 
         boolean show =
                 position >= 10_000L &&
