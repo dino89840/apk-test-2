@@ -31,7 +31,11 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -74,6 +78,22 @@ private boolean profileRefreshInFlight = false;
 
     private final List<JSONObject> allItems =
             new ArrayList<>();
+/*
+ * Category တစ်ခုချင်းစီ၏ သိထားပြီးသား count။
+ * API request အသစ် မခေါ်ဘဲ ရရှိထားသော response
+ * နှင့် local data မှသာ update လုပ်မည်။
+ */
+private final Map<String, Integer>
+        categoryCounts =
+        new HashMap<>();
+
+/*
+ * Exact total သိသော categories များ။
+ * Exact မသိသေးပါက UI တွင် 20+ လိုပြမည်။
+ */
+private final Set<String>
+        exactCategoryCounts =
+        new HashSet<>();
 
     private String category = "movies";
     private String search = "";
@@ -265,281 +285,622 @@ protected void onResume() {
     refreshProfileIfNeeded();
     refreshSearchHistory();
 
-    if (isLocalCategory(category)) {
-        loadLocalCategory();
-    } else if (adapter != null) {
-        /*
-         * Online list ထဲက poster progress line ကို
-         * player ပြန်လာချိန် update လုပ်ရန်။
-         */
-        adapter.notifyDataSetChanged();
-    }
+    refreshLocalCategoryCounts();
+refreshCategoryLabels();
+
+if (isLocalCategory(category)) {
+    loadLocalCategory();
+} else if (adapter != null) {
+    /*
+     * Poster အားလုံးကို ပြန် bind မလုပ်ဘဲ
+     * progress bar များကိုသာ update လုပ်မည်။
+     */
+    adapter.refreshProgressSnapshot();
+}
+
 }
 
 
     private void setupRecycler() {
-        int screenWidthDp =
-        getResources()
-                .getConfiguration()
-                .screenWidthDp;
+    int screenWidthDp =
+            getResources()
+                    .getConfiguration()
+                    .screenWidthDp;
 
-int spanCount;
+    int spanCount;
 
-if (screenWidthDp >= 840) {
-    spanCount = 5;
-} else if (screenWidthDp >= 600) {
-    spanCount = 3;
-} else {
-    spanCount = 2;
-}
+    /*
+     * Phone မှာ title/meta ပါသော card ဖြစ်သောကြောင့်
+     * 2 columns က ဖတ်ရလွယ်ပြီး poster size ကောင်းသည်။
+     */
+    if (screenWidthDp >= 840) {
+        spanCount = 5;
+    } else if (screenWidthDp >= 600) {
+        spanCount = 3;
+    } else {
+        spanCount = 2;
+    }
 
+    layoutManager =
+            new GridLayoutManager(
+                    this,
+                    spanCount
+            );
 
-        layoutManager =
-                new GridLayoutManager(
-                        this,
-                        spanCount
-                );
+    recycler.setLayoutManager(
+            layoutManager
+    );
 
-        recycler.setLayoutManager(layoutManager);
+    recycler.setHasFixedSize(true);
 
-        /*
-         * Card height တည်ငြိမ်နေသောကြောင့်
-         * layout calculation လျှော့နိုင်သည်။
-         */
-        recycler.setHasFixedSize(true);
+    /*
+     * Pagination append လုပ်ချိန် default animation
+     * ကြောင့် grid လှုပ်ခြင်းကို ပိတ်ထားမည်။
+     */
+    recycler.setItemAnimator(null);
 
-        /*
-         * Pagination တိုင်း item animation ကြောင့်
-         * grid လှုပ်ခြင်းမဖြစ်စေရန်။
-         */
-        recycler.setItemAnimator(null);
-        recycler.setItemViewCacheSize(12);
+    /*
+     * မူရင်း 12 က poster bitmap များကို
+     * အများကြီးထိန်းထားနိုင်သဖြင့် low-memory phone
+     * များတွင် memory pressure ဖြစ်နိုင်သည်။
+     */
+    recycler.setItemViewCacheSize(4);
 
-        recycler.getRecycledViewPool()
-                .setMaxRecycledViews(0, 30);
+    recycler.getRecycledViewPool()
+            .setMaxRecycledViews(
+                    0,
+                    12
+            );
 
-        adapter = new TitleAdapter(
-        item -> {
-            Intent intent =
-                    new Intent(
-                            MainActivity.this,
-                            DetailActivity.class
-                    );
-
-            String slug =
-        item.optString(
-                "slug",
-                ""
-        ).trim();
-
-if (slug.isEmpty()) {
-    Toast.makeText(
-            MainActivity.this,
-            "ဒီ local item မှာ slug မရှိပါ။",
-            Toast.LENGTH_SHORT
-    ).show();
-
-    return;
-}
-
-intent.putExtra("slug", slug);
-startActivity(intent);
-
-        },
-        this::removeFavoriteFromList
-);
-
-
-        recycler.setAdapter(adapter);
-
-        recycler.addOnScrollListener(
-                new RecyclerView.OnScrollListener() {
-                    @Override
-                    public void onScrolled(
-                            RecyclerView recyclerView,
-                            int dx,
-                            int dy
-                    ) {
-                        super.onScrolled(
-                                recyclerView,
-                                dx,
-                                dy
+    adapter = new TitleAdapter(
+            item -> {
+                Intent intent =
+                        new Intent(
+                                MainActivity.this,
+                                DetailActivity.class
                         );
 
-                        if (
-                                dy <= 0 ||
-                                isLoading ||
-                                !hasMore ||
-                                "favorites".equals(category)
-                        ) {
-                            return;
-                        }
+                String slug =
+                        item.optString(
+                                "slug",
+                                ""
+                        ).trim();
 
-                        int visibleCount =
-                                layoutManager.getChildCount();
+                if (slug.isEmpty()) {
+                    Toast.makeText(
+                            MainActivity.this,
+                            "ဒီ local item မှာ slug မရှိပါ။",
+                            Toast.LENGTH_SHORT
+                    ).show();
 
-                        int totalCount =
-                                layoutManager.getItemCount();
-
-                        int firstVisible =
-                                layoutManager
-                                        .findFirstVisibleItemPosition();
-
-                        if (
-                                firstVisible + visibleCount
-                                        >= totalCount - 9
-                        ) {
-                            loadNextPage();
-                        }
-                    }
+                    return;
                 }
-        );
-    }
 
-    private void setupCategories() {
-        categoryBar.removeAllViews();
+                intent.putExtra(
+                        "slug",
+                        slug
+                );
 
-        for (String[] item : categories) {
-            String label = item[0];
-            String value = item[1];
+                startActivity(intent);
+            },
+            this::removeFavoriteFromList
+    );
 
-            Button button = new Button(this);
+    recycler.setAdapter(adapter);
 
-            button.setText(label);
-            button.setAllCaps(false);
-            button.setTextSize(13);
-            button.setMinHeight(0);
-            button.setMinimumHeight(0);
-            button.setMinWidth(0);
-            button.setMinimumWidth(0);
-
-            button.setPadding(
-        dp(6),
-        dp(9),
-        dp(6),
-        dp(9)
-);
-
-LinearLayout.LayoutParams params =
-        new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                dp(38)
-        );
-
-params.setMarginStart(dp(3));
-params.setMarginEnd(dp(3));
-
-button.setPadding(
-        dp(14),
-        0,
-        dp(14),
-        0
-);
-
-button.setLayoutParams(params);
-
-
-            button.setTag(value);
-
-            button.setOnClickListener(view -> {
-                if (
-                        "favorites".equals(value) &&
-                        !SessionManager.isLoggedIn()
+    recycler.addOnScrollListener(
+            new RecyclerView.OnScrollListener() {
+                @Override
+                public void onScrolled(
+                        RecyclerView recyclerView,
+                        int dx,
+                        int dy
                 ) {
-                    openLogin();
-                    return;
-                }
-
-                if (value.equals(category)) {
-                    return;
-                }
-
-                category = value;
-search = "";
-searchInput.setText("");
-
-boolean local =
-        isLocalCategory(category);
-
-/*
- * Search bar ကို online, local နှင့် Favorites
- * category အားလုံးမှာ အမြဲပြမည်။
- */
-searchInput.setVisibility(View.VISIBLE);
-
-sectionTitle.setText(label);
-
-localClearButton.setVisibility(
-        local
-                ? View.VISIBLE
-                : View.GONE
-);
-
-refreshSearchHistory();
-updateCategoryButtons();
-
-recycler.scrollToPosition(0);
-resetAndLoad();
-
-            });
-
-            categoryBar.addView(button);
-        }
-
-        updateCategoryButtons();
-    }
-
-    private void updateCategoryButtons() {
-        for (
-                int index = 0;
-                index < categoryBar.getChildCount();
-                index++
-        ) {
-            View child =
-                    categoryBar.getChildAt(index);
-
-            if (!(child instanceof Button)) {
-                continue;
-            }
-
-            Button button = (Button) child;
-
-            boolean selected =
-                    category.equals(
-                            String.valueOf(button.getTag())
+                    super.onScrolled(
+                            recyclerView,
+                            dx,
+                            dy
                     );
 
-            button.setTextColor(
-                    selected
-                            ? Color.WHITE
-                            : Color.parseColor("#A8ADB8")
-            );
+                    if (
+                            dy <= 0 ||
+                            isLoading ||
+                            !hasMore ||
+                            isLocalCategory(category) ||
+                            "favorites".equals(category)
+                    ) {
+                        return;
+                    }
 
-            GradientDrawable background =
-                    new GradientDrawable();
+                    int totalCount =
+                            layoutManager
+                                    .getItemCount();
 
-            background.setShape(
-                    GradientDrawable.RECTANGLE
-            );
+                    int lastVisible =
+                            layoutManager
+                                    .findLastVisibleItemPosition();
 
-            background.setCornerRadius(dp(50));
+                    if (
+                            totalCount <= 0 ||
+                            lastVisible ==
+                                    RecyclerView.NO_POSITION
+                    ) {
+                        return;
+                    }
 
-            background.setColor(
-                    selected
-                            ? Color.parseColor("#E50914")
-                            : Color.parseColor("#1A1D24")
-            );
+                    /*
+                     * နောက်ဆုံး ၂ တန်းနားရောက်မှသာ
+                     * next page ကိုကြို load လုပ်မည်။
+                     *
+                     * မူရင်း totalCount - 9 ကြောင့်
+                     * ပထမ screen ကို စဆွဲတာနဲ့ request
+                     * ဝင်နိုင်သည်။
+                     */
+                    int prefetchDistance =
+                            Math.max(
+                                    layoutManager
+                                            .getSpanCount() * 2,
+                                    4
+                            );
 
-            if (!selected) {
-                background.setStroke(
-                        dp(1),
-                        Color.parseColor("#303540")
+                    if (
+                            lastVisible >=
+                                    totalCount -
+                                            1 -
+                                            prefetchDistance
+                    ) {
+                        loadNextPage();
+                    }
+                }
+            }
+    );
+}
+
+
+    private void setupCategories() {
+    categoryBar.removeAllViews();
+
+    /*
+     * Local categories များကို network request
+     * မလိုဘဲ count အရင်တွက်နိုင်သည်။
+     */
+    refreshLocalCategoryCounts();
+
+    for (String[] item : categories) {
+        String label = item[0];
+        String value = item[1];
+
+        Button button =
+                new Button(this);
+
+        button.setAllCaps(false);
+        button.setTextSize(13);
+        button.setMinHeight(0);
+        button.setMinimumHeight(0);
+        button.setMinWidth(0);
+        button.setMinimumWidth(0);
+
+        LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams
+                                .WRAP_CONTENT,
+                        dp(38)
                 );
+
+        params.setMarginStart(dp(3));
+        params.setMarginEnd(dp(3));
+
+        button.setPadding(
+                dp(14),
+                0,
+                dp(14),
+                0
+        );
+
+        button.setLayoutParams(params);
+        button.setTag(value);
+
+        updateCategoryButtonText(
+                button,
+                label,
+                value
+        );
+
+        button.setOnClickListener(view -> {
+            if (
+                    "favorites".equals(value) &&
+                    !SessionManager.isLoggedIn()
+            ) {
+                openLogin();
+                return;
             }
 
-            button.setBackground(background);
+            if (value.equals(category)) {
+                return;
+            }
+
+            category = value;
+            search = "";
+
+            searchInput.setText("");
+
+            boolean local =
+                    isLocalCategory(category);
+
+            searchInput.setVisibility(
+                    View.VISIBLE
+            );
+
+            sectionTitle.setText(label);
+
+            localClearButton.setVisibility(
+                    local
+                            ? View.VISIBLE
+                            : View.GONE
+            );
+
+            refreshSearchHistory();
+            updateCategoryButtons();
+
+            recycler.scrollToPosition(0);
+            resetAndLoad();
+        });
+
+        categoryBar.addView(button);
+    }
+
+    updateCategoryButtons();
+}
+
+
+    private void updateCategoryButtons() {
+    for (
+            int index = 0;
+            index < categoryBar.getChildCount();
+            index++
+    ) {
+        View child =
+                categoryBar.getChildAt(index);
+
+        if (!(child instanceof Button)) {
+            continue;
+        }
+
+        Button button =
+                (Button) child;
+
+        String value =
+                String.valueOf(
+                        button.getTag()
+                );
+
+        boolean selected =
+                category.equals(value);
+
+        updateCategoryButtonText(
+                button,
+                categoryLabel(value),
+                value
+        );
+
+        button.setTextColor(
+                selected
+                        ? Color.WHITE
+                        : Color.parseColor(
+                                "#A8ADB8"
+                        )
+        );
+
+        GradientDrawable background =
+                new GradientDrawable();
+
+        background.setShape(
+                GradientDrawable.RECTANGLE
+        );
+
+        background.setCornerRadius(
+                dp(50)
+        );
+
+        background.setColor(
+                selected
+                        ? Color.parseColor(
+                                "#E50914"
+                        )
+                        : Color.parseColor(
+                                "#1A1D24"
+                        )
+        );
+
+        if (!selected) {
+            background.setStroke(
+                    dp(1),
+                    Color.parseColor(
+                            "#303540"
+                    )
+            );
+        }
+
+        button.setBackground(background);
+    }
+}
+
+private String categoryLabel(
+        String value
+) {
+    for (String[] item : categories) {
+        if (item[1].equals(value)) {
+            return item[0];
         }
     }
+
+    return value;
+}
+
+private void updateCategoryButtonText(
+        Button button,
+        String label,
+        String value
+) {
+    Integer count =
+            categoryCounts.get(value);
+
+    if (count == null) {
+        button.setText(label);
+        return;
+    }
+
+    boolean exact =
+            exactCategoryCounts
+                    .contains(value);
+
+    String countText =
+            String.valueOf(
+                    Math.max(0, count)
+            );
+
+    if (!exact) {
+        countText += "+";
+    }
+
+    button.setText(
+            label +
+                    " (" +
+                    countText +
+                    ")"
+    );
+}
+
+private void refreshCategoryLabels() {
+    if (categoryBar == null) {
+        return;
+    }
+
+    for (
+            int index = 0;
+            index < categoryBar.getChildCount();
+            index++
+    ) {
+        View child =
+                categoryBar.getChildAt(index);
+
+        if (!(child instanceof Button)) {
+            continue;
+        }
+
+        Button button =
+                (Button) child;
+
+        String value =
+                String.valueOf(
+                        button.getTag()
+                );
+
+        updateCategoryButtonText(
+                button,
+                categoryLabel(value),
+                value
+        );
+    }
+}
+
+private void refreshLocalCategoryCounts() {
+    int continueCount =
+            LocalStore
+                    .getContinueWatching()
+                    .size();
+
+    int recentCount =
+            LocalStore
+                    .getRecentlyViewed()
+                    .size();
+
+    int downloadCount =
+            LocalStore
+                    .getDownloadHistory()
+                    .size();
+
+    categoryCounts.put(
+            "continue",
+            continueCount
+    );
+
+    categoryCounts.put(
+            "recent",
+            recentCount
+    );
+
+    categoryCounts.put(
+            "downloads",
+            downloadCount
+    );
+
+    exactCategoryCounts.add(
+            "continue"
+    );
+
+    exactCategoryCounts.add(
+            "recent"
+    );
+
+    exactCategoryCounts.add(
+            "downloads"
+    );
+}
+
+/*
+ * API response ထဲမှာ total ပါပြီးသားဆို
+ * request အသစ်မခေါ်ဘဲ ယူသုံးမည်။
+ */
+private int extractTotalCount(
+        JSONObject json
+) {
+    if (json == null) {
+        return -1;
+    }
+
+    int direct =
+            readNonNegativeInt(
+                    json,
+                    "total"
+            );
+
+    if (direct >= 0) {
+        return direct;
+    }
+
+    direct =
+            readNonNegativeInt(
+                    json,
+                    "totalCount"
+            );
+
+    if (direct >= 0) {
+        return direct;
+    }
+
+    direct =
+            readNonNegativeInt(
+                    json,
+                    "total_count"
+            );
+
+    if (direct >= 0) {
+        return direct;
+    }
+
+    JSONObject pagination =
+            json.optJSONObject(
+                    "pagination"
+            );
+
+    direct =
+            readNonNegativeInt(
+                    pagination,
+                    "total"
+            );
+
+    if (direct >= 0) {
+        return direct;
+    }
+
+    direct =
+            readNonNegativeInt(
+                    pagination,
+                    "totalCount"
+            );
+
+    if (direct >= 0) {
+        return direct;
+    }
+
+    JSONObject meta =
+            json.optJSONObject("meta");
+
+    direct =
+            readNonNegativeInt(
+                    meta,
+                    "total"
+            );
+
+    if (direct >= 0) {
+        return direct;
+    }
+
+    return readNonNegativeInt(
+            meta,
+            "totalCount"
+    );
+}
+
+private int readNonNegativeInt(
+        JSONObject object,
+        String key
+) {
+    if (
+            object == null ||
+            !object.has(key) ||
+            object.isNull(key)
+    ) {
+        return -1;
+    }
+
+    int value =
+            object.optInt(
+                    key,
+                    -1
+            );
+
+    return value >= 0
+            ? value
+            : -1;
+}
+
+private void updateOnlineCategoryCount(
+        JSONObject response
+) {
+    /*
+     * Search result count ကို category total
+     * အဖြစ် မသတ်မှတ်ပါ။
+     */
+    if (
+            search != null &&
+            !search.trim().isEmpty()
+    ) {
+        return;
+    }
+
+    int total =
+            extractTotalCount(response);
+
+    if (total >= 0) {
+        categoryCounts.put(
+                category,
+                total
+        );
+
+        exactCategoryCounts.add(
+                category
+        );
+    } else {
+        categoryCounts.put(
+                category,
+                allItems.size()
+        );
+
+        if (hasMore) {
+            exactCategoryCounts.remove(
+                    category
+            );
+        } else {
+            exactCategoryCounts.add(
+                    category
+            );
+        }
+    }
+
+    refreshCategoryLabels();
+}
 
     private void setupSearch() {
         searchInput.setOnEditorActionListener(
@@ -787,8 +1148,20 @@ private void refreshProfileIfNeeded() {
                             }
 
                             adapter.submitList(
-                                    new ArrayList<>(allItems)
-                            );
+        new ArrayList<>(allItems)
+);
+
+categoryCounts.put(
+        "favorites",
+        allItems.size()
+);
+
+exactCategoryCounts.add(
+        "favorites"
+);
+
+refreshCategoryLabels();
+
 
                             if (allItems.isEmpty()) {
                                 errorText.setText(
@@ -942,29 +1315,37 @@ private void refreshProfileIfNeeded() {
                             }
 
                             if ("favorites".equals(category)) {
-                                currentPage = 1;
-                                hasMore = false;
-                            } else {
-                                currentPage =
-                                        json.optInt(
-                                                "page",
-                                                requestedPage
-                                        );
+    currentPage = 1;
+    hasMore = false;
+} else {
+    currentPage =
+            json.optInt(
+                    "page",
+                    requestedPage
+            );
 
-                                hasMore =
-                                        json.optBoolean(
-                                                "hasMore",
-                                                false
-                                        );
-                            }
+    hasMore =
+            json.optBoolean(
+                    "hasMore",
+                    false
+            );
+}
 
-                            /*
-                             * Mutable list ကိုတိုက်ရိုက်မပို့ရ။
-                             * ListAdapter အတွက် list copy အသစ်ပို့ပါ။
-                             */
-                            adapter.submitList(
-                                    new ArrayList<>(allItems)
-                            );
+/*
+ * လက်ရှိ response ထဲက total သို့မဟုတ်
+ * load ပြီးသား item count ကို tab မှာပြမည်။
+ * ဒီနေရာမှာ API request အသစ်မခေါ်ပါ။
+ */
+updateOnlineCategoryCount(json);
+
+/*
+ * Mutable list ကိုတိုက်ရိုက်မပို့ရ။
+ * ListAdapter အတွက် list copy အသစ်ပို့ပါ။
+ */
+adapter.submitList(
+        new ArrayList<>(allItems)
+);
+
 
                             if (allItems.isEmpty()) {
                                 errorText.setText(
@@ -1179,6 +1560,20 @@ private void loadLocalCategory() {
             );
             break;
     }
+/*
+ * Search filter မလုပ်မီ category အပြည့်၏
+ * local count ကိုသိမ်းမည်။
+ */
+categoryCounts.put(
+        category,
+        items.size()
+);
+
+exactCategoryCounts.add(
+        category
+);
+
+refreshCategoryLabels();
 
     if (
             search != null &&
