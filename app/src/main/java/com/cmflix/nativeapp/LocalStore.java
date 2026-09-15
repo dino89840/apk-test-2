@@ -7,7 +7,9 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class LocalStore {
 
@@ -378,6 +380,49 @@ public final class LocalStore {
                 item.optLong("_duration", 0L)
         };
     }
+public static synchronized Map<String, long[]>
+getProgressSnapshot() {
+    JSONArray history =
+            readArray(KEY_HISTORY);
+
+    Map<String, long[]> result =
+            new HashMap<>();
+
+    for (
+            int index = 0;
+            index < history.length();
+            index++
+    ) {
+        JSONObject item =
+                history.optJSONObject(index);
+
+        if (item == null) {
+            continue;
+        }
+
+        String id = itemId(item);
+
+        if (id.isEmpty()) {
+            continue;
+        }
+
+        result.put(
+                id,
+                new long[]{
+                        item.optLong(
+                                "_position",
+                                0L
+                        ),
+                        item.optLong(
+                                "_duration",
+                                0L
+                        )
+                }
+        );
+    }
+
+    return result;
+}
 
     public static long getResumePosition(
             String titleId
