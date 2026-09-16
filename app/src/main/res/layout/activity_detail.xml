@@ -10,80 +10,91 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:clipChildren="false"
+        android:clipToPadding="false"
         android:orientation="vertical">
 
-        <FrameLayout
-    android:layout_width="match_parent"
-    android:layout_height="280dp"
-    android:clipChildren="false">
+              <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="280dp"
+            android:clipChildren="false"
+            android:clipToPadding="false">
 
-    <ImageView
-        android:id="@+id/backdrop"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="#20232A"
-        android:contentDescription="Movie backdrop"
-        android:scaleType="centerCrop" />
+            <ImageView
+                android:id="@+id/backdrop"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="#20232A"
+                android:contentDescription="Movie backdrop"
+                android:scaleType="centerCrop" />
 
-    <!--
-        Backdrop အောက်ခြေမှာ gradient ထည့်ထားတာပါ။
-        Poster နဲ့ နောက်ခံပုံကြား contrast ပိုကောင်းစေပါတယ်။
-    -->
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="150dp"
-        android:layout_gravity="bottom"
-        android:background="@drawable/detail_backdrop_gradient"
-        android:importantForAccessibility="no" />
+            <!--
+                Cover ပုံအောက်ခြေ gradient။
+                Poster နဲ့ cover ပုံကြား contrast ပိုကောင်းစေပါတယ်။
+            -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="150dp"
+                android:layout_gravity="bottom"
+                android:background="@drawable/detail_backdrop_gradient"
+                android:importantForAccessibility="no" />
 
-    <ImageView
-        android:id="@+id/detailPoster"
-        android:layout_width="112dp"
-        android:layout_height="168dp"
-        android:layout_gravity="bottom|start"
-        android:layout_marginStart="16dp"
-        android:layout_marginBottom="14dp"
-        android:background="@drawable/detail_poster_bg"
-        android:clipToOutline="true"
-        android:contentDescription="Movie poster"
-        android:elevation="12dp"
-        android:scaleType="centerCrop"
-        android:visibility="gone" />
+            <!--
+                Poster အမြင့် 168dp ဖြစ်ပါတယ်။
 
-    <TextView
-        android:id="@+id/detailBackButton"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_gravity="top|start"
-        android:layout_marginStart="14dp"
-        android:layout_marginTop="14dp"
-        android:background="@drawable/detail_favorite_bg"
-        android:clickable="true"
-        android:contentDescription="Back"
-        android:elevation="14dp"
-        android:focusable="true"
-        android:gravity="center"
-        android:paddingBottom="4dp"
-        android:text="‹"
-        android:textColor="#FFFFFF"
-        android:textSize="34sp"
-        android:textStyle="bold" />
+                translationY="72dp" ကြောင့် poster ရဲ့ 96dp လောက်က
+                cover ထဲမှာရှိပြီး ကျန်တဲ့ 72dp က cover အောက်ကို
+                ထွက်လာပါမယ်။
+            -->
+            <ImageView
+                android:id="@+id/detailPoster"
+                android:layout_width="112dp"
+                android:layout_height="168dp"
+                android:layout_gravity="bottom|start"
+                android:layout_marginStart="16dp"
+                android:background="@drawable/detail_poster_bg"
+                android:clipToOutline="true"
+                android:contentDescription="Movie poster"
+                android:elevation="12dp"
+                android:scaleType="centerCrop"
+                android:translationY="72dp"
+                android:visibility="gone" />
 
-    <ImageButton
-        android:id="@+id/favoriteButton"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_gravity="top|end"
-        android:layout_marginTop="14dp"
-        android:layout_marginEnd="14dp"
-        android:background="@drawable/detail_favorite_bg"
-        android:contentDescription="Add to favorites"
-        android:elevation="14dp"
-        android:padding="12dp"
-        android:src="@drawable/ic_favorite_border"
-        android:tint="@null" />
+            <TextView
+                android:id="@+id/detailBackButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="top|start"
+                android:layout_marginStart="14dp"
+                android:layout_marginTop="14dp"
+                android:background="@drawable/detail_favorite_bg"
+                android:clickable="true"
+                android:contentDescription="Back"
+                android:elevation="14dp"
+                android:focusable="true"
+                android:gravity="center"
+                android:paddingBottom="4dp"
+                android:text="‹"
+                android:textColor="#FFFFFF"
+                android:textSize="34sp"
+                android:textStyle="bold" />
 
-</FrameLayout>
+            <ImageButton
+                android:id="@+id/favoriteButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="top|end"
+                android:layout_marginTop="14dp"
+                android:layout_marginEnd="14dp"
+                android:background="@drawable/detail_favorite_bg"
+                android:contentDescription="Add to favorites"
+                android:elevation="14dp"
+                android:padding="12dp"
+                android:src="@drawable/ic_favorite_border"
+                android:tint="@null" />
+
+        </FrameLayout>
+
 
 
         <LinearLayout
@@ -91,7 +102,7 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:paddingStart="16dp"
-            android:paddingTop="16dp"
+            android:paddingTop="88dp"
             android:paddingEnd="16dp"
             android:paddingBottom="32dp">
 
