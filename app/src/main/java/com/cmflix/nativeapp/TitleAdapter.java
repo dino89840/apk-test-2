@@ -15,6 +15,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.RequestBuilder;
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
 
 import org.json.JSONObject;
 
@@ -216,18 +217,16 @@ public void onBindViewHolder(
                 );
 
         RequestBuilder<?> posterRequest =
-                Glide.with(holder.poster)
-                        .load(posterUrl)
-                        .centerCrop()
-                        .dontAnimate()
-                        .placeholder(
-                                android.R.drawable
-                                        .ic_menu_report_image
-                        )
-                        .error(
-                                android.R.drawable
-                                        .ic_menu_report_image
-                        );
+        Glide.with(holder.poster)
+                .load(posterUrl)
+                .centerCrop()
+                .placeholder(R.color.card_bg)
+                .error(R.color.card_bg)
+                .transition(
+                        DrawableTransitionOptions
+                                .withCrossFade(650)
+                );
+
 
         /*
          * Local list ကိုဖွင့်ရုံနဲ့ poster network request
