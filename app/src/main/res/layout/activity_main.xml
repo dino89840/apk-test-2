@@ -67,25 +67,30 @@
             android:textStyle="bold" />
 
         <Button
-            android:id="@+id/premiumButton"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:layout_marginStart="8dp"
-            android:background="@drawable/vip_badge_bg"
-            android:backgroundTint="@null"
-            android:clickable="true"
-            android:focusable="true"
-            android:minHeight="0dp"
-            android:minWidth="72dp"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:singleLine="true"
-            android:text="♛ Buy VIP"
-            android:textAllCaps="false"
-            android:textColor="#FFF4C5"
-            android:textSize="10sp"
-            android:textStyle="bold"
-            android:visibility="gone" />
+    android:id="@+id/premiumButton"
+    android:layout_width="wrap_content"
+    android:layout_height="38dp"
+    android:layout_marginStart="8dp"
+    android:background="@drawable/vip_badge_bg"
+    android:backgroundTint="@null"
+    android:clickable="true"
+    android:drawableStart="@drawable/ic_vip_crown"
+    android:drawablePadding="7dp"
+    android:focusable="true"
+    android:gravity="center"
+    android:includeFontPadding="false"
+    android:minHeight="0dp"
+    android:minWidth="88dp"
+    android:paddingStart="12dp"
+    android:paddingEnd="14dp"
+    android:singleLine="true"
+    android:text="Buy VIP"
+    android:textAllCaps="false"
+    android:textColor="#FFE135"
+    android:textSize="11sp"
+    android:textStyle="bold"
+    android:visibility="gone" />
+
 
     </LinearLayout>
 
