@@ -24,30 +24,30 @@
     android:src="@drawable/app_logo" />
 
 
-        <EditText
-    android:id="@+id/searchInput"
-    android:layout_width="0dp"
-    android:layout_height="38dp"
-    android:layout_marginStart="8dp"
-    android:layout_marginEnd="8dp"
-    android:layout_weight="1"
-    android:background="@drawable/search_bg"
-    android:drawableStart="@drawable/search_icon"
-    android:drawablePadding="7dp"
-    android:drawableTint="@color/gray_text"
-    android:gravity="center_vertical"
-    android:hint="Search"
-    android:imeOptions="actionSearch"
-    android:inputType="text"
-    android:maxLength="50"
-    android:maxLines="1"
-    android:paddingStart="11dp"
-    android:paddingEnd="11dp"
-    android:singleLine="true"
-    android:textColor="@color/white"
-    android:textColorHint="@color/gray_text"
-    android:textSize="12sp" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
 
+            <TextView
+                android:id="@+id/titleText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="CMFLIX"
+                android:textColor="@color/brand_red"
+                android:textSize="23sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Movies &amp; Series"
+                android:textColor="@color/gray_text"
+                android:textSize="10sp" />
+
+        </LinearLayout>
 
         <Button
             android:id="@+id/accountButton"
@@ -92,23 +92,44 @@
 
     </LinearLayout>
     <ImageView
-        android:id="@+id/vipPlanBanner"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
-        android:layout_marginTop="2dp"
-        android:layout_marginEnd="12dp"
-        android:layout_marginBottom="10dp"
-        android:adjustViewBounds="true"
-        android:background="#FFFFFF"
-        android:clickable="true"
-        android:contentDescription="VIP plans"
-        android:focusable="true"
-        android:maxHeight="190dp"
-        android:scaleType="fitCenter"
-        android:src="@drawable/vip_plan_banner" />
+    android:id="@+id/vipPlanBanner"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="12dp"
+    android:layout_marginTop="2dp"
+    android:layout_marginEnd="12dp"
+    android:layout_marginBottom="10dp"
+    android:adjustViewBounds="true"
+    android:background="@drawable/vip_banner_rounded_bg"
+    android:clickable="true"
+    android:clipToOutline="true"
+    android:contentDescription="Open Telegram to buy VIP"
+    android:focusable="true"
+    android:maxHeight="190dp"
+    android:scaleType="fitCenter"
+    android:src="@drawable/vip_plan_banner" />
 
-    
+
+    <EditText
+    android:id="@+id/searchInput"
+    android:layout_width="match_parent"
+    android:layout_height="44dp"
+    android:layout_marginStart="16dp"
+    android:layout_marginEnd="16dp"
+    android:layout_marginBottom="6dp"
+    android:background="@drawable/search_bg"
+    android:hint="Search movies"
+    android:imeOptions="actionSearch"
+    android:inputType="text"
+    android:maxLength="50"
+    android:maxLines="1"
+    android:paddingStart="14dp"
+    android:paddingEnd="14dp"
+    android:singleLine="true"
+    android:textColor="@color/white"
+    android:textColorHint="@color/gray_text"
+    android:textSize="14sp" />
+
 <LinearLayout
     android:id="@+id/searchHistoryRow"
     android:layout_width="match_parent"
