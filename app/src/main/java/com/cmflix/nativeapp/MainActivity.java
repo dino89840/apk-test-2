@@ -18,6 +18,9 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.graphics.Typeface;
+import android.widget.ImageView;
+import androidx.activity.OnBackPressedCallback;
+
 
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -65,6 +68,12 @@ private TextView clearSearchHistoryButton;
 
 private Button accountButton;
 private Button premiumButton;
+private ImageView vipPlanBanner;
+
+private long lastBackPressedAt = 0L;
+
+private static final long BACK_EXIT_INTERVAL_MS =
+        2000L;
 
 
 private static final long PROFILE_CACHE_MS =
@@ -254,6 +263,8 @@ accountButton =
 
 premiumButton =
         findViewById(R.id.premiumButton);
+vipPlanBanner =
+        findViewById(R.id.vipPlanBanner);
 
 
 
@@ -261,7 +272,10 @@ premiumButton =
         setupCategories();
         setupSearch();
         setupAccountButtons();
-        setupLocalFeatureControls();
+setupVipBanner();
+setupDoubleBackExit();
+setupLocalFeatureControls();
+
 refreshSearchHistory();
 
 
@@ -978,6 +992,60 @@ hideKeyboard();
 
 }
 
+private void setupVipBanner() {
+    if (vipPlanBanner == null) {
+        return;
+    }
+
+    vipPlanBanner.setOnClickListener(view -> {
+        if (!SessionManager.isLoggedIn()) {
+            openLogin();
+            return;
+        }
+
+        PremiumDialog.show(this);
+    });
+}
+
+private void setupDoubleBackExit() {
+    getOnBackPressedDispatcher()
+            .addCallback(
+                    this,
+                    new OnBackPressedCallback(true) {
+                        @Override
+                        public void handleOnBackPressed() {
+                            long now =
+                                    SystemClock.uptimeMillis();
+
+                            if (
+                                    now - lastBackPressedAt
+                                            <= BACK_EXIT_INTERVAL_MS
+                            ) {
+                                setEnabled(false);
+
+                                if (
+                                        android.os.Build.VERSION.SDK_INT
+                                                >= android.os.Build.VERSION_CODES.LOLLIPOP
+                                ) {
+                                    finishAndRemoveTask();
+                                } else {
+                                    finishAffinity();
+                                }
+
+                                return;
+                            }
+
+                            lastBackPressedAt = now;
+
+                            Toast.makeText(
+                                    MainActivity.this,
+                                    "App မှထွက်ရန် Back ကို ထပ်နှိပ်ပါ။",
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                        }
+                    }
+            );
+}
 
 
 
@@ -992,19 +1060,21 @@ hideKeyboard();
                     : "LOGIN"
     );
 
-    if (loggedIn) {
-        premiumButton.setText(
-                SessionManager.getPremiumLabel()
-        );
-
-        premiumButton.setVisibility(
-                View.VISIBLE
-        );
-    } else {
+    if (!loggedIn) {
         premiumButton.setVisibility(
                 View.GONE
         );
+
+        return;
     }
+
+    premiumButton.setText(
+            SessionManager.getPremiumLabel()
+    );
+
+    premiumButton.setVisibility(
+            View.VISIBLE
+    );
 }
 
 private void openLogin() {
@@ -1059,20 +1129,25 @@ private void refreshProfileIfNeeded() {
                                 );
 
                         SessionManager.saveAuth(
-                                csrf,
-                                user.optString(
-                                        "username",
-                                        SessionManager.getUsername()
-                                ),
-                                user.optString(
-                                        "email",
-                                        SessionManager.getEmail()
-                                ),
-                                user.optLong(
-                                        "vipUntil",
-                                        0L
-                                )
-                        );
+        csrf,
+        user.optString(
+                "username",
+                SessionManager.getUsername()
+        ),
+        user.optString(
+                "email",
+                SessionManager.getEmail()
+        ),
+        user.optLong(
+                "vipUntil",
+                0L
+        ),
+        user.optInt(
+                "planMonths",
+                0
+        )
+);
+
 
                         updateAccountButtons();
                     });
