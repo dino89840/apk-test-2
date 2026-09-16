@@ -36,8 +36,10 @@ import org.json.JSONObject;
 public class DetailActivity extends AppCompatActivity {
 
     private ImageView backdrop;
+private ImageView poster;
 
-    private TextView title;
+private TextView title;
+
     private TextView meta;
     private TextView overview;
     private TextView episodesLabel;
@@ -143,26 +145,28 @@ public class DetailActivity extends AppCompatActivity {
     }
 
     private void bindViews() {
-        backdrop = findViewById(R.id.backdrop);
+    backdrop = findViewById(R.id.backdrop);
+    poster = findViewById(R.id.detailPoster);
 
-        title = findViewById(R.id.detailTitle);
-        meta = findViewById(R.id.detailMeta);
-        overview = findViewById(R.id.detailOverview);
+    title = findViewById(R.id.detailTitle);
+    meta = findViewById(R.id.detailMeta);
+    overview = findViewById(R.id.detailOverview);
 
-        episodesLabel = findViewById(R.id.episodesLabel);
-        genresLabel = findViewById(R.id.genresLabel);
+    episodesLabel = findViewById(R.id.episodesLabel);
+    genresLabel = findViewById(R.id.genresLabel);
 
-        playButton = findViewById(R.id.playButton);
-        downloadButton = findViewById(R.id.downloadButton);
-        favoriteButton = findViewById(R.id.favoriteButton);
-        shareButton = findViewById(R.id.shareButton);
-        telegramButton = findViewById(R.id.telegramButton);
+    playButton = findViewById(R.id.playButton);
+    downloadButton = findViewById(R.id.downloadButton);
+    favoriteButton = findViewById(R.id.favoriteButton);
+    shareButton = findViewById(R.id.shareButton);
+    telegramButton = findViewById(R.id.telegramButton);
 
-        genresScroll = findViewById(R.id.genresScroll);
+    genresScroll = findViewById(R.id.genresScroll);
 
-        genresContainer = findViewById(R.id.genresContainer);
-        episodesContainer = findViewById(R.id.episodesContainer);
-    }
+    genresContainer = findViewById(R.id.genresContainer);
+    episodesContainer = findViewById(R.id.episodesContainer);
+}
+
 
     private void setupClickListeners() {
     TextView backButton =
@@ -1043,22 +1047,64 @@ LocalStore.rememberRecentlyViewed(item);
                 )
         );
 
-        Glide.with(this)
-                .load(
-                        item.optString(
-                                "backdrop_url",
-                                ""
-                        )
-                )
-                .centerCrop()
-                               .dontAnimate()
-                .placeholder(
-                        android.R.drawable.ic_menu_report_image
-                )
-                .error(
-                        android.R.drawable.ic_menu_report_image
-                )
-                .into(backdrop);
+        String backdropUrl =
+        item.optString(
+                "backdrop_url",
+                ""
+        ).trim();
+
+String posterUrl =
+        item.optString(
+                "poster_url",
+                ""
+        ).trim();
+
+/*
+ * Backdrop မရှိဘဲ poster ရှိရင်
+ * poster ကို backdrop fallback အဖြစ်သုံးမယ်။
+ */
+String backdropImageUrl =
+        backdropUrl.isEmpty()
+                ? posterUrl
+                : backdropUrl;
+
+Glide.with(this)
+        .load(backdropImageUrl)
+        .centerCrop()
+        .dontAnimate()
+        .placeholder(
+                android.R.drawable.ic_menu_report_image
+        )
+        .error(
+                android.R.drawable.ic_menu_report_image
+        )
+        .into(backdrop);
+
+/*
+ * Detail API response ထဲက poster_url ကိုပဲသုံးတာကြောင့်
+ * titles/{slug} API request အသစ်ထပ်မပို့ပါ။
+ */
+if (posterUrl.isEmpty()) {
+    poster.setVisibility(View.GONE);
+
+    Glide.with(this)
+            .clear(poster);
+} else {
+    poster.setVisibility(View.VISIBLE);
+
+    Glide.with(this)
+            .load(posterUrl)
+            .centerCrop()
+            .dontAnimate()
+            .placeholder(
+                    android.R.drawable.ic_menu_report_image
+            )
+            .error(
+                    android.R.drawable.ic_menu_report_image
+            )
+            .into(poster);
+}
+
 
         episodesContainer.removeAllViews();
 
