@@ -40,11 +40,13 @@ public class DetailActivity extends AppCompatActivity {
 private ImageView poster;
 
 private TextView title;
+private TextView detailVipBadge;
 
-    private TextView meta;
-    private TextView overview;
-    private TextView episodesLabel;
-    private TextView genresLabel;
+private TextView meta;
+private TextView overview;
+private TextView episodesLabel;
+private TextView genresLabel;
+
 
     private Button playButton;
     private Button downloadButton;
@@ -150,6 +152,10 @@ private TextView title;
     poster = findViewById(R.id.detailPoster);
 
     title = findViewById(R.id.detailTitle);
+    detailVipBadge = findViewById(
+            R.id.detailVipBadge
+    );
+
     meta = findViewById(R.id.detailMeta);
     overview = findViewById(R.id.detailOverview);
 
@@ -167,6 +173,7 @@ private TextView title;
     genresContainer = findViewById(R.id.genresContainer);
     episodesContainer = findViewById(R.id.episodesContainer);
 }
+
 
 
     private void setupClickListeners() {
@@ -980,23 +987,42 @@ return;
         titleId = item.optString("id", "");
 
         titleCategory = item.optString(
-                "category",
-                ""
-        );
+        "category",
+        ""
+);
 
-        String currentTitle = item.optString(
-                "title",
-                ""
-        );
+String currentTitle = item.optString(
+        "title",
+        ""
+);
 
-        currentTitleName = currentTitle;
+currentTitleName = currentTitle;
 title.setText(currentTitle);
+
+/*
+ * 18+ VIP category ဖြစ်သော "lugyi" ဇာတ်ကားမှာသာ
+ * ဇာတ်ကားနာမည်ဘေးက VIP badge ကိုပြမယ်။
+ *
+ * Movie card မှာအသုံးပြုထားသော condition နဲ့
+ * တူညီအောင်ထားပါတယ်။
+ */
+boolean vipTitle =
+        "lugyi".equalsIgnoreCase(
+                titleCategory
+        );
+
+detailVipBadge.setVisibility(
+        vipTitle
+                ? View.VISIBLE
+                : View.GONE
+);
 
 /*
  * Detail API ကရပြီးသား item ကို device ထဲမှာပဲ
  * Recently Viewed အဖြစ်သိမ်းမယ်။
  */
 LocalStore.rememberRecentlyViewed(item);
+
 
 
         String year = item.optString(
