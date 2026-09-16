@@ -998,12 +998,28 @@ private void setupVipBanner() {
     }
 
     vipPlanBanner.setOnClickListener(view -> {
-        if (!SessionManager.isLoggedIn()) {
-            openLogin();
-            return;
-        }
+        String telegramUrl =
+                "https://t.me/iqowoq";
 
-        PremiumDialog.show(this);
+        Intent telegramIntent =
+                new Intent(
+                        Intent.ACTION_VIEW,
+                        android.net.Uri.parse(
+                                telegramUrl
+                        )
+                );
+
+        try {
+            startActivity(telegramIntent);
+        } catch (
+                android.content.ActivityNotFoundException error
+        ) {
+            Toast.makeText(
+                    MainActivity.this,
+                    "Telegram link ကိုဖွင့်နိုင်သော app မရှိပါ။",
+                    Toast.LENGTH_SHORT
+            ).show();
+        }
     });
 }
 
