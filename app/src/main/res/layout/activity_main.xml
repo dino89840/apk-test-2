@@ -82,7 +82,7 @@
             android:paddingStart="12dp"
             android:paddingEnd="12dp"
             android:singleLine="true"
-            android:text="P-0Day"
+            android:text="♛ Buy VIP"
             android:textAllCaps="false"
             android:textColor="#FFF4C5"
             android:textSize="10sp"
@@ -91,6 +91,22 @@
 
 
     </LinearLayout>
+    <ImageView
+        android:id="@+id/vipPlanBanner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="2dp"
+        android:layout_marginEnd="12dp"
+        android:layout_marginBottom="10dp"
+        android:adjustViewBounds="true"
+        android:background="#FFFFFF"
+        android:clickable="true"
+        android:contentDescription="VIP plans"
+        android:focusable="true"
+        android:maxHeight="190dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/vip_plan_banner" />
 
     <EditText
     android:id="@+id/searchInput"
