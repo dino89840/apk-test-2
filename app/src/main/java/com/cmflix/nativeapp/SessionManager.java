@@ -28,6 +28,9 @@ public final class SessionManager {
     private static final String KEY_VIP_UNTIL =
             "vip_until";
 
+    private static final String KEY_VIP_PLAN_MONTHS =
+            "vip_plan_months";
+
     private static final String KEY_PROFILE_SYNCED_AT =
             "profile_synced_at";
 
@@ -151,26 +154,66 @@ public final class SessionManager {
         );
     }
 
+    public static int getVipPlanMonths() {
+        return prefs().getInt(
+                KEY_VIP_PLAN_MONTHS,
+                0
+        );
+    }
+
+    public static boolean isVipActive() {
+        return getVipUntil() >
+                System.currentTimeMillis();
+    }
+
     public static long getPremiumDaysRemaining() {
         long remaining =
-                getVipUntil() - System.currentTimeMillis();
+                getVipUntil() -
+                        System.currentTimeMillis();
 
         if (remaining <= 0L) {
             return 0L;
         }
 
-        /*
-         * 2 ရက် 1 နာရီကျန်လျှင် P-3Day ပြရန်
-         * အပေါ်ဘက်သို့ round တက်ထားသည်။
-         */
         return (remaining + ONE_DAY_MS - 1L)
                 / ONE_DAY_MS;
     }
 
+    /*
+     * Main screen အပေါ်ညာဘက် button အတွက်။
+     * VIP မရှိသေးလျှင် P-0Day မပြဘဲ Buy VIP ပြမည်။
+     */
     public static String getPremiumLabel() {
-        return "P-" +
-                getPremiumDaysRemaining() +
-                "Day";
+        if (!isVipActive()) {
+            return "♛ Buy VIP";
+        }
+
+        long days =
+                getPremiumDaysRemaining();
+
+        return "P-" + days + "Day";
+    }
+
+    /*
+     * Profile Current Plan အတွက်။
+     */
+    public static String getPlanLabel() {
+        if (!isVipActive()) {
+            return "Free Plan";
+        }
+
+        int months =
+                getVipPlanMonths();
+
+        if (months <= 0) {
+            return "Premium Plan";
+        }
+
+        if (months == 1) {
+            return "1 Month";
+        }
+
+        return months + " Months";
     }
 
     public static boolean isProfileRefreshDue(
@@ -201,8 +244,13 @@ public final class SessionManager {
             String csrf,
             String username,
             String email,
-            long vipUntil
+            long vipUntil,
+            int vipPlanMonths
     ) {
+        boolean active =
+                vipUntil >
+                        System.currentTimeMillis();
+
         prefs()
                 .edit()
                 .putString(
@@ -221,19 +269,11 @@ public final class SessionManager {
                         KEY_VIP_UNTIL,
                         Math.max(0L, vipUntil)
                 )
-                .putLong(
-                        KEY_PROFILE_SYNCED_AT,
-                        System.currentTimeMillis()
-                )
-                .apply();
-    }
-
-    public static void saveVipState(long vipUntil) {
-        prefs()
-                .edit()
-                .putLong(
-                        KEY_VIP_UNTIL,
-                        Math.max(0L, vipUntil)
+                .putInt(
+                        KEY_VIP_PLAN_MONTHS,
+                        active
+                                ? Math.max(0, vipPlanMonths)
+                                : 0
                 )
                 .putLong(
                         KEY_PROFILE_SYNCED_AT,
@@ -243,10 +283,65 @@ public final class SessionManager {
     }
 
     /*
-     * Account session ပဲရှင်းမယ်။
+     * အဟောင်း call ကျန်နေလျှင် build မပျက်အောင်ထားသည်။
+     */
+    public static void saveAuth(
+            String csrf,
+            String username,
+            String email,
+            long vipUntil
+    ) {
+        saveAuth(
+                csrf,
+                username,
+                email,
+                vipUntil,
+                getVipPlanMonths()
+        );
+    }
+
+    public static void saveVipState(
+            long vipUntil,
+            int vipPlanMonths
+    ) {
+        boolean active =
+                vipUntil >
+                        System.currentTimeMillis();
+
+        prefs()
+                .edit()
+                .putLong(
+                        KEY_VIP_UNTIL,
+                        Math.max(0L, vipUntil)
+                )
+                .putInt(
+                        KEY_VIP_PLAN_MONTHS,
+                        active
+                                ? Math.max(0, vipPlanMonths)
+                                : 0
+                )
+                .putLong(
+                        KEY_PROFILE_SYNCED_AT,
+                        System.currentTimeMillis()
+                )
+                .apply();
+    }
+
+    public static void saveVipState(long vipUntil) {
+        saveVipState(
+                vipUntil,
+                getVipPlanMonths()
+        );
+    }
+
+    /*
+     * Account data ပဲရှင်းမည်။
      * Device ID ကို မရှင်းပါ။
      */
     public static void clear() {
-        prefs().edit().clear().apply();
+        prefs()
+                .edit()
+                .clear()
+                .apply();
     }
 }
