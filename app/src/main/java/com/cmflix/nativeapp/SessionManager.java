@@ -185,7 +185,7 @@ public final class SessionManager {
      */
     public static String getPremiumLabel() {
         if (!isVipActive()) {
-            return "♛ Buy VIP";
+            return "Buy VIP";
         }
 
         long days =
