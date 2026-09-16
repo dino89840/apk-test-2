@@ -212,14 +212,7 @@
 
             </LinearLayout>
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center"
-                android:paddingTop="7dp"
-                android:text="Contact: @iqowoq"
-                android:textColor="@color/gray_text"
-                android:textSize="11sp" />
+            
 
             <TextView
                 android:id="@+id/overviewLabel"
