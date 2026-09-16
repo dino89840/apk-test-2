@@ -199,10 +199,26 @@ public class AuthActivity extends AppCompatActivity {
                             }
 
                             SessionManager.saveAuth(
-        json.optString("csrf", ""),
-        user.optString("username", ""),
-        user.optString("email", ""),
-        user.optLong("vipUntil", 0L)
+        json.optString(
+                "csrf",
+                ""
+        ),
+        user.optString(
+                "username",
+                ""
+        ),
+        user.optString(
+                "email",
+                ""
+        ),
+        user.optLong(
+                "vipUntil",
+                0L
+        ),
+        user.optInt(
+                "planMonths",
+                0
+        )
 );
 
 
