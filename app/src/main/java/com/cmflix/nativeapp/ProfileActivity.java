@@ -32,6 +32,10 @@ private TextView accountStatusText;
 private TextView emailText;
 private TextView planText;
 private TextView expiryText;
+private EditText promoCodeInput;
+private Button promoRedeemButton;
+private boolean promoLoading = false;
+
 
 
     private Button changePasswordButton;
@@ -74,6 +78,11 @@ private TextView expiryText;
 
         expiryText =
                 findViewById(R.id.profileExpiry);
+promoCodeInput =
+        findViewById(R.id.promoCodeInput);
+
+promoRedeemButton =
+        findViewById(R.id.promoRedeemButton);
 
         changePasswordButton =
                 findViewById(R.id.changePasswordButton);
@@ -93,14 +102,19 @@ private TextView expiryText;
     }
 
     private void setupClickListeners() {
-        changePasswordButton.setOnClickListener(
-                view -> showChangePasswordDialog()
-        );
+    promoRedeemButton.setOnClickListener(
+            view -> redeemPromoCode()
+    );
 
-        logoutButton.setOnClickListener(
-                view -> showLogoutDialog()
-        );
-    }
+    changePasswordButton.setOnClickListener(
+            view -> showChangePasswordDialog()
+    );
+
+    logoutButton.setOnClickListener(
+            view -> showLogoutDialog()
+    );
+}
+
 
     private void bindCachedProfile() {
         String username =
@@ -170,16 +184,23 @@ private TextView expiryText;
                                                     .getEmail()
                                     );
 
-                            SessionManager.saveAuth(
-                                    json.optString(
-                                            "csrf",
-                                            SessionManager
-                                                    .getCsrf()
-                                    ),
-                                    username,
-                                    email,
-                                    vipUntil
-                            );
+                            int planMonths =
+        user.optInt(
+                "planMonths",
+                0
+        );
+
+SessionManager.saveAuth(
+        json.optString(
+                "csrf",
+                SessionManager.getCsrf()
+        ),
+        username,
+        email,
+        vipUntil,
+        planMonths
+);
+
 
                             usernameText.setText(
                                     username.trim().isEmpty()
@@ -227,8 +248,9 @@ private TextView expiryText;
             );
 
             planText.setText(
-                    SessionManager.getPremiumLabel()
-            );
+        SessionManager.getPlanLabel()
+);
+
 
             expiryText.setText(
                     DateFormat
@@ -255,6 +277,128 @@ private TextView expiryText;
             );
         }
     }
+private void redeemPromoCode() {
+    if (promoLoading) {
+        return;
+    }
+
+    String code =
+            promoCodeInput
+                    .getText()
+                    .toString()
+                    .trim()
+                    .toUpperCase(
+                            java.util.Locale.US
+                    );
+
+    if (code.length() < 6) {
+        promoCodeInput.setError(
+                "Promo Code မှန်မှန်ထည့်ပါ။"
+        );
+
+        promoCodeInput.requestFocus();
+        return;
+    }
+
+    JSONObject body =
+            new JSONObject();
+
+    try {
+        body.put("code", code);
+    } catch (Exception error) {
+        Toast.makeText(
+                this,
+                safeMessage(error),
+                Toast.LENGTH_LONG
+        ).show();
+
+        return;
+    }
+
+    promoLoading = true;
+
+    promoRedeemButton.setEnabled(false);
+    promoCodeInput.setEnabled(false);
+    promoRedeemButton.setText("WAIT…");
+    progress.setVisibility(View.VISIBLE);
+
+    ApiClient.post(
+            "account/promo/redeem",
+            body,
+            new ApiClient.Callback() {
+                @Override
+                public void onSuccess(
+                        JSONObject json
+                ) {
+                    runOnUiThread(() -> {
+                        promoLoading = false;
+
+                        promoRedeemButton.setEnabled(true);
+                        promoCodeInput.setEnabled(true);
+                        promoRedeemButton.setText("REDEEM");
+
+                        progress.setVisibility(View.GONE);
+
+                        JSONObject user =
+                                json.optJSONObject("user");
+
+                        if (user != null) {
+                            long vipUntil =
+                                    user.optLong(
+                                            "vipUntil",
+                                            0L
+                                    );
+
+                            int planMonths =
+                                    user.optInt(
+                                            "planMonths",
+                                            0
+                                    );
+
+                            SessionManager.saveVipState(
+                                    vipUntil,
+                                    planMonths
+                            );
+
+                            bindVipState(vipUntil);
+                        }
+
+                        promoCodeInput.setText("");
+
+                        Toast.makeText(
+                                ProfileActivity.this,
+                                json.optString(
+                                        "message",
+                                        "Promo Code အသုံးပြုပြီးပါပြီ။"
+                                ),
+                                Toast.LENGTH_LONG
+                        ).show();
+                    });
+                }
+
+                @Override
+                public void onError(
+                        Exception error
+                ) {
+                    runOnUiThread(() -> {
+                        promoLoading = false;
+
+                        promoRedeemButton.setEnabled(true);
+                        promoCodeInput.setEnabled(true);
+                        promoRedeemButton.setText("REDEEM");
+
+                        progress.setVisibility(View.GONE);
+
+                        Toast.makeText(
+                                ProfileActivity.this,
+                                safeMessage(error),
+                                Toast.LENGTH_LONG
+                        ).show();
+                    });
+                }
+            }
+    );
+}
 
     private void showChangePasswordDialog() {
         if (passwordLoading) {
