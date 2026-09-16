@@ -11,12 +11,12 @@
     android:clickable="true"
     android:focusable="true"
     android:foreground="?android:attr/selectableItemBackground"
-    android:orientation="vertical"
-    android:paddingBottom="7dp">
+    android:orientation="vertical">
 
+    <!-- Poster ကို မူရင်း 238dp မှ 225dp သို့ အနည်းငယ်တိုထားသည် -->
     <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="238dp"
+        android:layout_height="225dp"
         android:background="@drawable/poster_rounded_bg"
         android:clipChildren="true"
         android:clipToOutline="true"
@@ -78,30 +78,29 @@
 
     </FrameLayout>
 
+    <!-- Movie name သီးသန့်သာ ပြမည် -->
     <TextView
         android:id="@+id/movieTitle"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="42dp"
         android:ellipsize="end"
+        android:gravity="center_vertical"
         android:maxLines="2"
-        android:minLines="2"
-        android:paddingStart="7dp"
-        android:paddingTop="7dp"
-        android:paddingEnd="7dp"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
         android:textColor="@color/white"
         android:textSize="12sp"
         android:textStyle="bold" />
 
+    <!--
+        TitleAdapter.java က meta ID ကိုအသုံးပြုထားဆဲဖြစ်သောကြောင့်
+        View ကို မဖျက်ဘဲ GONE လုပ်ထားသည်။
+        Year/rating စာလည်း မပေါ်ဘဲ နေရာလည်း မယူပါ။
+    -->
     <TextView
         android:id="@+id/meta"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:paddingStart="7dp"
-        android:paddingTop="2dp"
-        android:paddingEnd="7dp"
-        android:textColor="@color/gray_text"
-        android:textSize="10sp" />
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="gone" />
 
 </LinearLayout>
