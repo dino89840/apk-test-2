@@ -187,39 +187,34 @@
 
             </LinearLayout>
 
+            <!--
+                Java code က shareButton နဲ့ telegramButton ID တွေကို
+                အသုံးပြုနေသေးတဲ့အတွက် Views တွေကို မဖျက်ဘဲ
+                parent container တစ်ခုလုံး GONE လုပ်ထားပါတယ်။
+
+                Screen ပေါ်တွင် button နှင့် နေရာလွတ် လုံးဝမပေါ်ပါ။
+            -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:visibility="gone">
 
                 <Button
                     android:id="@+id/shareButton"
                     android:layout_width="0dp"
-                    android:layout_height="48dp"
+                    android:layout_height="0dp"
                     android:layout_weight="1"
-                    android:backgroundTint="@color/card_bg"
                     android:enabled="false"
-                    android:minHeight="0dp"
-                    android:text="↗  Share"
-                    android:textAllCaps="false"
-                    android:textColor="@color/white"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
+                    android:text="Share" />
 
                 <Button
                     android:id="@+id/telegramButton"
                     android:layout_width="0dp"
-                    android:layout_height="48dp"
-                    android:layout_marginStart="8dp"
+                    android:layout_height="0dp"
                     android:layout_weight="1"
-                    android:backgroundTint="#229ED9"
-                    android:minHeight="0dp"
-                    android:text="Telegram"
-                    android:textAllCaps="false"
-                    android:textColor="@color/white"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
+                    android:enabled="false"
+                    android:text="Telegram" />
 
             </LinearLayout>
 
