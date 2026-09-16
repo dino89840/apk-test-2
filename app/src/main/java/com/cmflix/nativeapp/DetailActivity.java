@@ -29,6 +29,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -1060,29 +1061,32 @@ String posterUrl =
         ).trim();
 
 /*
- * Backdrop မရှိဘဲ poster ရှိရင်
- * poster ကို backdrop fallback အဖြစ်သုံးမယ်။
+ * Backdrop URL မရှိလျှင် poster URL ကို
+ * backdrop အဖြစ် fallback သုံးပါမယ်။
  */
 String backdropImageUrl =
         backdropUrl.isEmpty()
                 ? posterUrl
                 : backdropUrl;
 
+/*
+ * Backdrop ကို dark placeholder ကနေ
+ * 650ms အတွင်း နူးညံ့စွာပေါ်လာစေပါမယ်။
+ */
 Glide.with(this)
         .load(backdropImageUrl)
         .centerCrop()
-        .dontAnimate()
-        .placeholder(
-                android.R.drawable.ic_menu_report_image
-        )
-        .error(
-                android.R.drawable.ic_menu_report_image
+        .placeholder(R.color.card_bg)
+        .error(R.color.card_bg)
+        .transition(
+                DrawableTransitionOptions
+                        .withCrossFade(650)
         )
         .into(backdrop);
 
 /*
- * Detail API response ထဲက poster_url ကိုပဲသုံးတာကြောင့်
- * titles/{slug} API request အသစ်ထပ်မပို့ပါ။
+ * Detail poster ကိုလည်း dark placeholder ကနေ
+ * 650ms အတွင်း fade-in ပုံစံနဲ့ပေါ်လာစေပါမယ်။
  */
 if (posterUrl.isEmpty()) {
     poster.setVisibility(View.GONE);
@@ -1095,15 +1099,15 @@ if (posterUrl.isEmpty()) {
     Glide.with(this)
             .load(posterUrl)
             .centerCrop()
-            .dontAnimate()
-            .placeholder(
-                    android.R.drawable.ic_menu_report_image
-            )
-            .error(
-                    android.R.drawable.ic_menu_report_image
+            .placeholder(R.color.card_bg)
+            .error(R.color.card_bg)
+            .transition(
+                    DrawableTransitionOptions
+                            .withCrossFade(650)
             )
             .into(poster);
 }
+
 
 
         episodesContainer.removeAllViews();
