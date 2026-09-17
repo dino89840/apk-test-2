@@ -83,7 +83,29 @@ private static Context applicationContext;
         return;
     }
 
+    private static void request(
+        String method,
+        String path,
+        JSONObject requestBody,
+        Callback callback
+) {
+    if (
+            BuildConfig.CMFLIX_APP_KEY == null ||
+            BuildConfig.CMFLIX_APP_KEY
+                    .trim()
+                    .isEmpty()
+    ) {
+        callback.onError(
+                new IllegalStateException(
+                        "App configuration is missing."
+                )
+        );
+
+        return;
+    }
+
     EXECUTOR.execute(() -> {
+
         String key = cacheKey(path);
 
         long savedAt =
@@ -212,25 +234,72 @@ public static void clearPublicCache() {
 private static boolean isPublicCacheablePath(
         String path
 ) {
-    if (path == null) {
+    if (
+            path == null ||
+            path.trim().isEmpty()
+    ) {
         return false;
     }
 
+    String normalized = path.trim();
+
     /*
-     * Detail page ကို cache လုပ်မယ်။
+     * Movie detail response ကို cache လုပ်မည်။
      */
-    if (path.startsWith("titles/")) {
+    if (
+            normalized.startsWith("titles/") &&
+            normalized.length() >
+                    "titles/".length()
+    ) {
         return true;
     }
 
+    if (!normalized.startsWith("titles?")) {
+        return false;
+    }
+
+    String query =
+            normalized.substring(
+                    "titles?".length()
+            );
+
+    String page = "";
+    String search = "";
+
+    for (String part : query.split("&")) {
+        int separator =
+                part.indexOf("=");
+
+        String name =
+                separator >= 0
+                        ? part.substring(
+                                0,
+                                separator
+                        )
+                        : part;
+
+        String value =
+                separator >= 0
+                        ? part.substring(
+                                separator + 1
+                        )
+                        : "";
+
+        if ("page".equals(name)) {
+            page = value;
+        } else if ("q".equals(name)) {
+            search = value;
+        }
+    }
+
     /*
-     * Category ပထမစာမျက်နှာကိုပဲ cache လုပ်မယ်။
-     * Search နဲ့ pagination results ကို မသိမ်းဘူး။
+     * Category ပထမ page နှင့် search မပါသည့်
+     * request ကိုသာ cache လုပ်မည်။
      */
-    return path.startsWith("titles?") &&
-            path.contains("page=1") &&
-            !path.contains("&q=");
+    return "1".equals(page) &&
+            search.trim().isEmpty();
 }
+
 
 private static String cacheKey(
         String path
