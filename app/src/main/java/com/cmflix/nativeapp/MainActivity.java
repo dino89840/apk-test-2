@@ -129,9 +129,14 @@ private final Set<String>
                     new ActivityResultContracts
                             .StartActivityForResult(),
                     result -> {
-                        updateAccountButtons();
+    updateAccountButtons();
 
-                        if (
+    PremiumExpiryDialog.showIfNeeded(
+            MainActivity.this
+    );
+
+    if (
+
                                 result.getResultCode()
                                         == RESULT_OK &&
                                 "favorites".equals(category)
@@ -289,6 +294,19 @@ refreshSearchHistory();
 refreshProfileIfNeeded();
 resetAndLoad();
 
+/*
+ * Cached vipUntil ကိုပဲဖတ်သောကြောင့်
+ * ဒီစစ်ဆေးမှုမှာ API request အသစ်မရှိပါ။
+ *
+ * Splash view ပျောက်ပြီး main layout attach ဖြစ်မှ
+ * warning dialog ကိုပြပါမယ်။
+ */
+recycler.post(
+        () -> PremiumExpiryDialog.showIfNeeded(
+                MainActivity.this
+        )
+);
+
     }
 
     @Override
@@ -296,6 +314,10 @@ protected void onResume() {
     super.onResume();
 
     updateAccountButtons();
+
+PremiumExpiryDialog.showIfNeeded(
+        MainActivity.this
+);
     refreshProfileIfNeeded();
     refreshSearchHistory();
 
