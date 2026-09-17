@@ -949,9 +949,11 @@ return;
 
     private void loadTitle(String slug) {
         ApiClient.getCached(
-        "titles/" + ApiClient.encode(slug),
-        30L * 60L * 1000L,
+        "titles/" +
+                ApiClient.encode(slug),
+        6L * 60L * 60L * 1000L,
         new ApiClient.Callback() {
+
 
                     @Override
                     public void onSuccess(JSONObject json) {
