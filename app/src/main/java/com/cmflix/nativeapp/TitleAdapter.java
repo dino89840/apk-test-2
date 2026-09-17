@@ -15,7 +15,8 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.RequestBuilder;
-import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
+import com.bumptech.glide.load.DecodeFormat;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
 
 import org.json.JSONObject;
 
@@ -220,12 +221,34 @@ public void onBindViewHolder(
         Glide.with(holder.poster)
                 .load(posterUrl)
                 .centerCrop()
+
+                /*
+                 * Poster resolution အလွန်ကြီးသော image ကို
+                 * မူရင်းအရွယ်အစားအတိုင်း decode မလုပ်ရန်။
+                 */
+                .override(480, 720)
+
+                /*
+                 * Poster များအတွက် RGB_565 သုံးခြင်းဖြင့်
+                 * bitmap memory ကို အကြမ်းဖျင်း တစ်ဝက်ခန့်
+                 * လျှော့နိုင်သည်။
+                 */
+                .format(
+                        DecodeFormat.PREFER_RGB_565
+                )
+
+                .diskCacheStrategy(
+                        DiskCacheStrategy.AUTOMATIC
+                )
+
                 .placeholder(R.color.card_bg)
                 .error(R.color.card_bg)
-                .transition(
-                        DrawableTransitionOptions
-                                .withCrossFade(650)
-                );
+
+                /*
+                 * Grid scroll လုပ်ချိန် poster အများကြီး
+                 * cross-fade မလုပ်စေရန်။
+                 */
+                .dontAnimate();
 
 
         /*
