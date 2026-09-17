@@ -55,7 +55,7 @@
             android:layout_height="wrap_content"
             android:gravity="center"
             android:lineSpacingExtra="5dp"
-            android:text="Premium ဝယ်ယူရန်လိုအပ်ပါသည်။&#10;ဝယ်ယူရန် Telegram မှတစ်ဆင့် ဆက်သွယ်နိုင်ပါသည်။"
+            android:text="Premium ဝယ်ယူပါက&#10;Movie အားလုံးကြည့်ရှုနိူင်ခြင်း။&#10;Movie အားလုံး Downloadလုပ်နိူင်ခြင်း။"
             android:textColor="#C9C6D0"
             android:textSize="15sp" />
 
@@ -68,7 +68,7 @@
             android:clickable="true"
             android:focusable="true"
             android:gravity="center"
-            android:text="➤   Telegram  @iqowoq"
+            android:text="Premium ဝယ်ယူရန်"
             android:textColor="#FFFFFF"
             android:textSize="16sp"
             android:textStyle="bold" />
