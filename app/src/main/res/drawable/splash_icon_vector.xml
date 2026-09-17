@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- CMFLIX logo background -->
+    <path
+        android:fillColor="#E50914"
+        android:pathData="
+            M54,15
+            A39,39 0,1 0,54 93
+            A39,39 0,1 0,54 15" />
+
+    <!-- Play icon -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="
+            M45,34
+            L45,74
+            L76,54
+            Z" />
+
+    <!-- Rotating loading ring -->
+    <group
+        android:name="spinner"
+        android:pivotX="54"
+        android:pivotY="54">
+
+        <path
+            android:fillColor="@android:color/transparent"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="3"
+            android:strokeLineCap="round"
+            android:pathData="
+                M54,7
+                A47,47 0,1 1,7 54" />
+
+    </group>
+
+</vector>
