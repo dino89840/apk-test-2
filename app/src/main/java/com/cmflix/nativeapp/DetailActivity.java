@@ -1000,17 +1000,30 @@ currentTitleName = currentTitle;
 title.setText(currentTitle);
 
 /*
- * 18+ VIP category ဖြစ်သော "lugyi" ဇာတ်ကားမှာသာ
- * ဇာတ်ကားနာမည်ဘေးက VIP badge ကိုပြမယ်။
+ * TMDB metadata သုံးထားသော Movies category မှာသာ
+ * year, rating နှင့် genres ကိုပြပါမယ်။
  *
- * Movie card မှာအသုံးပြုထားသော condition နဲ့
- * တူညီအောင်ထားပါတယ်။
+ * Free 18+ (series) နှင့် VIP 18+ (lugyi) မှာ
+ * API က null/0 တန်ဖိုးတွေ ပြန်လာနိုင်သောကြောင့်
+ * metadata အားလုံးကိုဖျောက်ထားပါမယ်။
  */
+boolean movieTitle =
+        "movies".equalsIgnoreCase(
+                titleCategory
+        ) ||
+        "movie".equalsIgnoreCase(
+                titleCategory
+        );
+
 boolean vipTitle =
         "lugyi".equalsIgnoreCase(
                 titleCategory
         );
 
+/*
+ * VIP badge ကို title ဘေးမှာမပြတော့ဘဲ
+ * title အောက် metadata row ထဲမှာပြမယ်။
+ */
 detailVipBadge.setVisibility(
         vipTitle
                 ? View.VISIBLE
@@ -1023,42 +1036,78 @@ detailVipBadge.setVisibility(
  */
 LocalStore.rememberRecentlyViewed(item);
 
-
-
-        String year = item.optString(
-                "year",
-                ""
+String year =
+        cleanMetadataValue(
+                item,
+                "year"
         );
 
-        String rating = item.optString(
-                "rating",
-                ""
+String rating =
+        cleanMetadataValue(
+                item,
+                "rating"
         );
 
-        String genres = item.optString(
-                "genres",
-                ""
+String genres =
+        cleanMetadataValue(
+                item,
+                "genres"
         );
 
-        StringBuilder metaText = new StringBuilder();
+/*
+ * 0, 0.0 rating တွေကို valid rating အဖြစ်မပြပါ။
+ */
+if (isZeroMetadataValue(rating)) {
+    rating = "";
+}
 
-        if (!year.isEmpty()) {
-            metaText.append(year);
-        }
+/*
+ * 0 year ကိုလည်း UI မှာမပြပါ။
+ */
+if (isZeroMetadataValue(year)) {
+    year = "";
+}
 
-        if (!rating.isEmpty()) {
-            if (metaText.length() > 0) {
-                metaText.append("  •  ");
-            }
+StringBuilder metaText =
+        new StringBuilder();
 
-            metaText
-                    .append("★ ")
-                    .append(rating);
-        }
+if (movieTitle && !year.isEmpty()) {
+    metaText.append(year);
+}
 
-        meta.setText(metaText.toString());
+if (movieTitle && !rating.isEmpty()) {
+    if (metaText.length() > 0) {
+        metaText.append("  •  ");
+    }
 
-        bindGenres(genres);
+    metaText
+            .append("★ ")
+            .append(rating);
+}
+
+String finalMetaText =
+        metaText.toString();
+
+meta.setText(finalMetaText);
+
+meta.setVisibility(
+        movieTitle &&
+        !finalMetaText.isEmpty()
+                ? View.VISIBLE
+                : View.GONE
+);
+
+/*
+ * Movies category မှာပဲ genres ပြပါမယ်။
+ * series/lugyi ဖြစ်လျှင် empty string ပို့ပြီး
+ * label နဲ့ scroll container နှစ်ခုလုံးဖျောက်မယ်။
+ */
+bindGenres(
+        movieTitle
+                ? genres
+                : ""
+);
+
 
         shareButton.setEnabled(!currentTitle.trim().isEmpty());
         shareButton.setAlpha(
@@ -1549,6 +1598,75 @@ private boolean isSafeDownloadUrl(
                         : 1f
         );
     }
+/*
+ * JSONObject.NULL, "null", "undefined", "N/A"
+ * စသော အသုံးမဝင်သည့် metadata များကို
+ * screen ပေါ်မပြမီ empty string ပြောင်းပေးမည်။
+ */
+private String cleanMetadataValue(
+        JSONObject item,
+        String key
+) {
+    if (
+            item == null ||
+            key == null ||
+            !item.has(key) ||
+            item.isNull(key)
+    ) {
+        return "";
+    }
+
+    String value =
+            item.optString(
+                    key,
+                    ""
+            ).trim();
+
+    if (value.isEmpty()) {
+        return "";
+    }
+
+    String normalized =
+            value.toLowerCase(
+                    java.util.Locale.US
+            );
+
+    if (
+            "null".equals(normalized) ||
+            "undefined".equals(normalized) ||
+            "n/a".equals(normalized) ||
+            "na".equals(normalized) ||
+            "none".equals(normalized) ||
+            "-".equals(normalized)
+    ) {
+        return "";
+    }
+
+    return value;
+}
+
+/*
+ * "0", "0.0", "0.00" စတဲ့တန်ဖိုးတွေကို
+ * metadata မရှိခြင်းအဖြစ် သတ်မှတ်မယ်။
+ */
+private boolean isZeroMetadataValue(
+        String value
+) {
+    if (
+            value == null ||
+            value.trim().isEmpty()
+    ) {
+        return false;
+    }
+
+    try {
+        return Double.parseDouble(
+                value.trim()
+        ) == 0d;
+    } catch (NumberFormatException ignored) {
+        return false;
+    }
+}
 
     private void bindGenres(String genres) {
         genresContainer.removeAllViews();
