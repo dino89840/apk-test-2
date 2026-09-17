@@ -44,11 +44,7 @@
         </item>
 
         <item name="windowSplashScreenAnimatedIcon">
-            @drawable/splash_icon_animated
-        </item>
-
-        <item name="windowSplashScreenAnimationDuration">
-            900
+            @drawable/my_logo
         </item>
 
         <item name="windowSplashScreenIconBackgroundColor">
