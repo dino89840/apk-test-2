@@ -14,11 +14,14 @@
         android:padding="24dp">
 
         <ImageView
-            android:layout_width="88dp"
-            android:layout_height="88dp"
-            android:layout_gravity="center_horizontal"
-            android:contentDescription="@string/app_name"
-            android:src="@drawable/ic_cmflix_logo" />
+    android:layout_width="88dp"
+    android:layout_height="88dp"
+    android:layout_gravity="center_horizontal"
+    android:contentDescription="@string/app_name"
+    android:scaleType="fitCenter"
+    android:adjustViewBounds="true"
+    android:src="@drawable/my_logo" />
+
 
         <TextView
             android:id="@+id/authHeading"
