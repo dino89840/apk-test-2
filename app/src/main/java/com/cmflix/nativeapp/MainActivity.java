@@ -1387,7 +1387,7 @@ refreshCategoryLabels();
 
         ApiClient.getCached(
         path,
-        10L * 60L * 1000L,
+        60L * 60L * 1000L,
         new ApiClient.Callback() {
 
                     @Override
