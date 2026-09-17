@@ -358,29 +358,38 @@ if (isLocalCategory(category)) {
     }
 
     layoutManager =
-            new GridLayoutManager(
-                    this,
-                    spanCount
-            );
+        new GridLayoutManager(
+                this,
+                spanCount
+        );
 
-    recycler.setLayoutManager(
-            layoutManager
-    );
+layoutManager.setInitialPrefetchItemCount(
+        spanCount * 2
+);
 
-    recycler.setHasFixedSize(true);
+recycler.setLayoutManager(
+        layoutManager
+);
 
-    /*
-     * Pagination append လုပ်ချိန် default animation
-     * ကြောင့် grid လှုပ်ခြင်းကို ပိတ်ထားမည်။
-     */
-    recycler.setItemAnimator(null);
+recycler.setHasFixedSize(true);
+recycler.setItemAnimator(null);
 
-    /*
-     * မူရင်း 12 က poster bitmap များကို
-     * အများကြီးထိန်းထားနိုင်သဖြင့် low-memory phone
-     * များတွင် memory pressure ဖြစ်နိုင်သည်။
-     */
-    recycler.setItemViewCacheSize(4);
+recycler.setItemViewCacheSize(
+        Math.max(
+                6,
+                spanCount * 3
+        )
+);
+
+recycler.getRecycledViewPool()
+        .setMaxRecycledViews(
+                0,
+                Math.max(
+                        12,
+                        spanCount * 4
+                )
+        );
+
 
     recycler.getRecycledViewPool()
             .setMaxRecycledViews(
