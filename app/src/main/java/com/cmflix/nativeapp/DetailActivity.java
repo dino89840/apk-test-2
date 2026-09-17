@@ -45,7 +45,6 @@ private TextView detailVipBadge;
 private TextView meta;
 private TextView overview;
 private TextView episodesLabel;
-private TextView genresLabel;
 
 
     private Button playButton;
@@ -160,7 +159,7 @@ private TextView genresLabel;
     overview = findViewById(R.id.detailOverview);
 
     episodesLabel = findViewById(R.id.episodesLabel);
-    genresLabel = findViewById(R.id.genresLabel);
+
 
     playButton = findViewById(R.id.playButton);
     downloadButton = findViewById(R.id.downloadButton);
@@ -1669,81 +1668,88 @@ private boolean isZeroMetadataValue(
 }
 
     private void bindGenres(String genres) {
-        genresContainer.removeAllViews();
+    genresContainer.removeAllViews();
 
-        if (genres == null || genres.trim().isEmpty()) {
-            genresLabel.setVisibility(View.GONE);
-            genresScroll.setVisibility(View.GONE);
-            return;
-        }
-
-        genresLabel.setVisibility(View.VISIBLE);
-        genresScroll.setVisibility(View.VISIBLE);
-
-        String[] genreItems = genres.split(",");
-
-        for (String genreValue : genreItems) {
-            String genre = genreValue.trim();
-
-            if (genre.isEmpty()) {
-                continue;
-            }
-
-            TextView chip = new TextView(this);
-
-            chip.setText(genre);
-            chip.setTextColor(Color.WHITE);
-            chip.setTextSize(13);
-            chip.setSingleLine(true);
-
-            chip.setPadding(
-                    dp(14),
-                    dp(8),
-                    dp(14),
-                    dp(8)
-            );
-
-            GradientDrawable background =
-                    new GradientDrawable();
-
-            background.setShape(
-                    GradientDrawable.RECTANGLE
-            );
-
-            background.setColor(
-                    Color.parseColor("#1A1D24")
-            );
-
-            background.setCornerRadius(
-                    dp(50)
-            );
-
-            background.setStroke(
-                    dp(1),
-                    Color.parseColor("#3A404C")
-            );
-
-            chip.setBackground(background);
-
-            LinearLayout.LayoutParams params =
-                    new LinearLayout.LayoutParams(
-                            LinearLayout.LayoutParams.WRAP_CONTENT,
-                            LinearLayout.LayoutParams.WRAP_CONTENT
-                    );
-
-            params.setMarginEnd(dp(8));
-
-            genresContainer.addView(
-                    chip,
-                    params
-            );
-        }
-
-        if (genresContainer.getChildCount() == 0) {
-            genresLabel.setVisibility(View.GONE);
-            genresScroll.setVisibility(View.GONE);
-        }
+    /*
+     * Genre data မရှိလျှင် genre chip container ကိုဖျောက်မည်။
+     * "Genres" label ကို XML မှဖယ်ထားသောကြောင့်
+     * HorizontalScrollView ကိုသာ ထိန်းချုပ်ရန်လိုသည်။
+     */
+    if (genres == null || genres.trim().isEmpty()) {
+        genresScroll.setVisibility(View.GONE);
+        return;
     }
+
+    String[] genreItems = genres.split(",");
+
+    for (String genreValue : genreItems) {
+        String genre = genreValue.trim();
+
+        if (genre.isEmpty()) {
+            continue;
+        }
+
+        TextView chip = new TextView(this);
+
+        chip.setText(genre);
+        chip.setTextColor(Color.WHITE);
+        chip.setTextSize(13);
+        chip.setSingleLine(true);
+
+        chip.setPadding(
+                dp(14),
+                dp(8),
+                dp(14),
+                dp(8)
+        );
+
+        GradientDrawable background =
+                new GradientDrawable();
+
+        background.setShape(
+                GradientDrawable.RECTANGLE
+        );
+
+        background.setColor(
+                Color.parseColor("#1A1D24")
+        );
+
+        background.setCornerRadius(
+                dp(50)
+        );
+
+        background.setStroke(
+                dp(1),
+                Color.parseColor("#3A404C")
+        );
+
+        chip.setBackground(background);
+
+        LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                );
+
+        params.setMarginEnd(dp(8));
+
+        genresContainer.addView(
+                chip,
+                params
+        );
+    }
+
+    /*
+     * Valid genre တစ်ခုမှမရှိလျှင် container ကိုဖျောက်မည်။
+     * ရှိလျှင် Action, Drama စသည့် chip များကိုပြမည်။
+     */
+    genresScroll.setVisibility(
+            genresContainer.getChildCount() > 0
+                    ? View.VISIBLE
+                    : View.GONE
+    );
+}
+
 
     private void shareCurrentTitle() {
         String currentTitle =
