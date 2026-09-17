@@ -46,7 +46,14 @@ public class MainActivity extends AppCompatActivity {
      * Splash ကို အနည်းဆုံးပြထားမည့်အချိန်။
      * 900L = 0.9 second
      */
-    private static final long MIN_SPLASH_MS = 900L;
+    /*
+ * Cold start မှာ splash ကို အနည်းဆုံး 1.6 seconds
+ * ပြထားမည်။
+ *
+ * Rotation/configuration change ဖြစ်ချိန်တွင်
+ * onCreate() logic ကြောင့် ထပ်စောင့်မည်မဟုတ်ပါ။
+ */
+private static final long MIN_SPLASH_MS = 1600L;
 
     /*
      * Splash ပျောက်သွားချိန် fade/zoom animation ကြာချိန်။
