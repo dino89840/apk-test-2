@@ -1,17 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<vector
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
+<layer-list
+    xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <path
-        android:fillColor="#E50914"
-        android:pathData="M54,18A36,36 0,1 0,54 90A36,36 0,1 0,54 18" />
+    <!--
+        Logo ကို adaptive icon safe zone အတွင်း
+        ထည့်ထားရန် ဘေးတစ်ဖက်စီ 21dp ချန်ထားသည်။
+    -->
+    <item
+        android:left="21dp"
+        android:top="21dp"
+        android:right="21dp"
+        android:bottom="21dp">
 
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M45,36 L45,72 L73,54 Z" />
+        <bitmap
+            android:src="@drawable/my_logo"
+            android:gravity="fill"
+            android:filter="true" />
 
-</vector>
+    </item>
+
+</layer-list>
