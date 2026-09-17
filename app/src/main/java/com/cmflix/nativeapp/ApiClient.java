@@ -83,29 +83,7 @@ private static Context applicationContext;
         return;
     }
 
-    private static void request(
-        String method,
-        String path,
-        JSONObject requestBody,
-        Callback callback
-) {
-    if (
-            BuildConfig.CMFLIX_APP_KEY == null ||
-            BuildConfig.CMFLIX_APP_KEY
-                    .trim()
-                    .isEmpty()
-    ) {
-        callback.onError(
-                new IllegalStateException(
-                        "App configuration is missing."
-                )
-        );
-
-        return;
-    }
-
     EXECUTOR.execute(() -> {
-
         String key = cacheKey(path);
 
         long savedAt =
@@ -355,12 +333,28 @@ private static String cacheKey(
     }
 
     private static void request(
-            String method,
-            String path,
-            JSONObject requestBody,
-            Callback callback
+        String method,
+        String path,
+        JSONObject requestBody,
+        Callback callback
+) {
+    if (
+            BuildConfig.CMFLIX_APP_KEY == null ||
+            BuildConfig.CMFLIX_APP_KEY
+                    .trim()
+                    .isEmpty()
     ) {
-        EXECUTOR.execute(() -> {
+        callback.onError(
+                new IllegalStateException(
+                        "App configuration is missing."
+                )
+        );
+
+        return;
+    }
+
+    EXECUTOR.execute(() -> {
+
             HttpURLConnection connection = null;
 
             try {
