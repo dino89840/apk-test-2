@@ -46,17 +46,18 @@
                     android:textColor="#FFFFFF"
                     android:textSize="31sp" />
 
-                <TextView
-                    android:layout_width="72dp"
-                    android:layout_height="72dp"
-                    android:layout_gravity="center_horizontal"
-                    android:layout_marginTop="0dp"
-                    android:background="@drawable/profile_avatar_bg"
-                    android:gravity="center"
-                    android:text="♙"
-                    android:textColor="#FFFFFF"
-                    android:textSize="39sp"
-                    android:textStyle="bold" />
+                <ImageView
+    android:layout_width="72dp"
+    android:layout_height="72dp"
+    android:layout_gravity="center_horizontal"
+    android:layout_marginTop="0dp"
+    android:background="@drawable/profile_avatar_bg"
+    android:contentDescription="Profile"
+    android:padding="18dp"
+    android:scaleType="fitCenter"
+    android:src="@drawable/ic_profile_user"
+    android:tint="#FFFFFF" />
+
 
                 <TextView
                     android:id="@+id/profileUsername"
@@ -115,15 +116,16 @@
                         android:gravity="center_vertical"
                         android:orientation="horizontal">
 
-                        <TextView
-                            android:layout_width="38dp"
-                            android:layout_height="38dp"
-                            android:background="@drawable/profile_info_icon_bg"
-                            android:gravity="center"
-                            android:text="@"
-                            android:textColor="#FFFFFF"
-                            android:textSize="18sp"
-                            android:textStyle="bold" />
+                        <ImageView
+    android:layout_width="38dp"
+    android:layout_height="38dp"
+    android:background="@drawable/profile_icon_email_bg"
+    android:contentDescription="Email"
+    android:padding="9dp"
+    android:scaleType="fitCenter"
+    android:src="@drawable/ic_profile_email"
+    android:tint="#FFFFFF" />
+
 
                         <LinearLayout
                             android:layout_width="0dp"
@@ -168,15 +170,16 @@
                         android:gravity="center_vertical"
                         android:orientation="horizontal">
 
-                        <TextView
-                            android:layout_width="38dp"
-                            android:layout_height="38dp"
-                            android:background="@drawable/profile_info_icon_bg"
-                            android:gravity="center"
-                            android:text="✓"
-                            android:textColor="#7EE2A8"
-                            android:textSize="18sp"
-                            android:textStyle="bold" />
+                        <ImageView
+    android:layout_width="38dp"
+    android:layout_height="38dp"
+    android:background="@drawable/profile_icon_security_bg"
+    android:contentDescription="Account security"
+    android:padding="9dp"
+    android:scaleType="fitCenter"
+    android:src="@drawable/ic_profile_security"
+    android:tint="#FFFFFF" />
+
 
                         <LinearLayout
                             android:layout_width="0dp"
@@ -218,15 +221,16 @@
                         android:gravity="center_vertical"
                         android:orientation="horizontal">
 
-                        <TextView
-                            android:layout_width="38dp"
-                            android:layout_height="38dp"
-                            android:background="@drawable/profile_info_icon_bg"
-                            android:gravity="center"
-                            android:text="♛"
-                            android:textColor="#FFFFFF"
-                            android:textSize="17sp"
-                            android:textStyle="bold" />
+                        <ImageView
+    android:layout_width="38dp"
+    android:layout_height="38dp"
+    android:background="@drawable/profile_icon_plan_bg"
+    android:contentDescription="Current plan"
+    android:padding="9dp"
+    android:scaleType="fitCenter"
+    android:src="@drawable/ic_vip_crown"
+    android:tint="#FFFFFF" />
+
 
                         <LinearLayout
                             android:layout_width="0dp"
@@ -269,15 +273,16 @@
                         android:gravity="center_vertical"
                         android:orientation="horizontal">
 
-                        <TextView
-                            android:layout_width="38dp"
-                            android:layout_height="38dp"
-                            android:background="@drawable/profile_info_icon_bg"
-                            android:gravity="center"
-                            android:text="▣"
-                            android:textColor="#FFFFFF"
-                            android:textSize="16sp"
-                            android:textStyle="bold" />
+                        <ImageView
+    android:layout_width="38dp"
+    android:layout_height="38dp"
+    android:background="@drawable/profile_icon_expiry_bg"
+    android:contentDescription="Plan expiry"
+    android:padding="9dp"
+    android:scaleType="fitCenter"
+    android:src="@drawable/ic_profile_calendar"
+    android:tint="#FFFFFF" />
+
 
                         <LinearLayout
                             android:layout_width="0dp"
