@@ -228,7 +228,10 @@ SessionManager.saveAuth(
 
                             
 
-                            bindVipState(vipUntil);
+                            bindVipState(
+        vipUntil,
+        planType
+);
                         });
                     }
 
@@ -414,14 +417,16 @@ private void redeemPromoCode() {
 
 
                             SessionManager.saveVipState(
-                                    vipUntil,
-                                    planMonths
-                            );
+        vipUntil,
+        planMonths,
+        planType
+);
 
-                            bindVipState(
+bindVipState(
         vipUntil,
         planType
 );
+
                         }
 
                         promoCodeInput.setText("");
