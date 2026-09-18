@@ -68,17 +68,26 @@
             android:screenOrientation="unspecified" />
 
         <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:screenOrientation="unspecified"
-            android:theme="@style/Theme.CMFLIXNative.Starting">
+    android:name=".MainActivity"
+    android:exported="false"
+    android:screenOrientation="unspecified"
+    android:theme="@style/Theme.CMFLIXNative" />
 
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
+<activity
+    android:name=".SplashActivity"
+    android:exported="true"
+    android:screenOrientation="unspecified"
+    android:theme="@style/Theme.CMFLIXNative.Starting">
 
-        </activity>
+    <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+
+        <category
+            android:name="android.intent.category.LAUNCHER" />
+    </intent-filter>
+
+</activity>
+
 
     </application>
 </manifest>
