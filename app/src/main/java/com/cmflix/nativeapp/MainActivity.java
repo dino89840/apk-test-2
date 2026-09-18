@@ -52,6 +52,15 @@ public class MainActivity extends AppCompatActivity {
     private EditText searchInput;
     private LinearLayout categoryBar;
 private LinearLayout searchHistoryContainer;
+/*
+ * ဇာတ်ကားအသစ်တင်ပြီး ၂၀ မိနစ်အတွင်း
+ * cached category မှာ မပေါ်သေးနိုင်သည်။
+ *
+ * User က delay အနည်းငယ်ရနိုင်သည်ဟု
+ * သတ်မှတ်ထားသည့်အတွက် ဒီ TTL ကသင့်တော်သည်။
+ */
+private static final long CATALOG_CACHE_MS =
+        20L * 60L * 1000L;
 
 private View searchHistoryRow;
 
@@ -1320,8 +1329,9 @@ refreshCategoryLabels();
  * Movie detail caching ကို ApiClient.getCached()
  * ဖြင့် အခြားနေရာတွင် ဆက်သုံးနိုင်သည်။
  */
-ApiClient.get(
+requestTitlePage(
         path,
+        requestedPage,
         new ApiClient.Callback() {
 
                     @Override
@@ -1419,6 +1429,44 @@ adapter.submitList(
                             }
                         });
                     }
+private void requestTitlePage(
+        String path,
+        int requestedPage,
+        ApiClient.Callback callback
+) {
+    boolean cacheEligible =
+            requestedPage == 1 &&
+            !"favorites".equals(category) &&
+            search != null &&
+            search.trim().isEmpty();
+
+    if (cacheEligible) {
+        /*
+         * ApiClient က hasMore=false ဖြစ်သော
+         * single-page category response ကိုသာ
+         * အမှန်တကယ်သိမ်းပေးမည်။
+         *
+         * hasMore=true ဖြစ်လျှင် network response ကို
+         * ပြပေးမည်၊ cache ထဲမသိမ်းပါ။
+         */
+        ApiClient.getCached(
+                path,
+                CATALOG_CACHE_MS,
+                callback
+        );
+
+        return;
+    }
+
+    /*
+     * Pagination page 2+၊ search နှင့် favorites
+     * အားလုံးကို server မှတိုက်ရိုက်ယူမည်။
+     */
+    ApiClient.get(
+            path,
+            callback
+    );
+}
 
                     @Override
 public void onError(Exception error) {
