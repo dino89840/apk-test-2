@@ -36,21 +36,26 @@
             android:textSize="15sp" />
 
         <TextView
-            android:id="@+id/splashBrandText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:fontFamily="sans-serif-black"
-            android:includeFontPadding="false"
-            android:letterSpacing="0.08"
-            android:shadowColor="#99E50914"
-            android:shadowDx="0"
-            android:shadowDy="5"
-            android:shadowRadius="18"
-            android:text="CMFLIX"
-            android:textColor="#E50914"
-            android:textSize="50sp"
-            android:textStyle="italic" />
+    android:id="@+id/splashBrandText"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="8dp"
+    android:fontFamily="sans-serif-black"
+    android:includeFontPadding="true"
+    android:letterSpacing="0.08"
+    android:paddingStart="14dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="20dp"
+    android:paddingBottom="10dp"
+    android:shadowColor="#99E50914"
+    android:shadowDx="0"
+    android:shadowDy="4"
+    android:shadowRadius="14"
+    android:text="CMFLIX"
+    android:textColor="#E50914"
+    android:textSize="50sp"
+    android:textStyle="italic" />
+
 
         <View
             android:id="@+id/splashAccentLine"
