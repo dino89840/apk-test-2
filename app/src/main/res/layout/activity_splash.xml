@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/splashRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#050609"
+    android:fitsSystemWindows="true">
+
+    <View
+        android:layout_width="280dp"
+        android:layout_height="280dp"
+        android:layout_gravity="center"
+        android:background="@drawable/splash_glow"
+        android:importantForAccessibility="no" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp">
+
+        <TextView
+            android:id="@+id/splashWelcomeText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-medium"
+            android:includeFontPadding="false"
+            android:letterSpacing="0.24"
+            android:text="WELCOME TO"
+            android:textColor="#D6D6DA"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/splashBrandText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:fontFamily="sans-serif-black"
+            android:includeFontPadding="false"
+            android:letterSpacing="0.08"
+            android:shadowColor="#99E50914"
+            android:shadowDx="0"
+            android:shadowDy="5"
+            android:shadowRadius="18"
+            android:text="CMFLIX"
+            android:textColor="#E50914"
+            android:textSize="50sp"
+            android:textStyle="italic" />
+
+        <View
+            android:id="@+id/splashAccentLine"
+            android:layout_width="78dp"
+            android:layout_height="3dp"
+            android:layout_marginTop="18dp"
+            android:background="@drawable/splash_accent_line"
+            android:pivotX="0dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:fontFamily="sans-serif"
+            android:letterSpacing="0.12"
+            android:text="MOVIES • SERIES • MORE"
+            android:textColor="#737680"
+            android:textSize="10sp" />
+
+    </LinearLayout>
+
+</FrameLayout>
