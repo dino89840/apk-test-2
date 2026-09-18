@@ -39,16 +39,29 @@
         name="Theme.CMFLIXNative.Starting"
         parent="Theme.SplashScreen">
 
+        <!--
+            my_logo.png ရဲ့ အပြင်ထောင့်မှာ အနက်ရောင် pixel/canvas
+            ပါနေသောကြောင့် splash background ကို အနက်ထားပါမယ်။
+            ဒါဆို လေးထောင့်အနားသတ် မမြင်ရတော့ပါ။
+        -->
         <item name="windowSplashScreenBackground">
-            @color/dark_bg
+            @color/black
         </item>
 
+        <!--
+            PNG ကို တိုက်ရိုက်မသုံးဘဲ safe-size wrapper သုံးပါမယ်။
+        -->
         <item name="windowSplashScreenAnimatedIcon">
-            @drawable/my_logo
+            @drawable/splash_logo
         </item>
 
         <item name="windowSplashScreenIconBackgroundColor">
-            @color/dark_bg
+            @color/black
+        </item>
+
+        <!-- Android 12 မှာ animation duration ကိုသိစေရန် -->
+        <item name="windowSplashScreenAnimationDuration">
+            700
         </item>
 
         <item name="postSplashScreenTheme">
