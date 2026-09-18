@@ -5,6 +5,8 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.os.SystemClock;
+
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.animation.DecelerateInterpolator;
@@ -41,16 +43,7 @@ import java.util.Set;
 
 public class MainActivity extends AppCompatActivity {
 
-    /*
-     * Splash ကို အနည်းဆုံးပြထားမည့်အချိန်။
-     * 900L = 0.9 second
-     */
-    /*
- * Cold start မှာ splash ကို အနည်းဆုံး 1.6 seconds
- * ပြထားမည်။
- *
- * Rotation/configuration change ဖြစ်ချိန်တွင်
- * onCreate() logic ကြောင့် ထပ်စောင့်မည်မဟုတ်ပါ။
+    
 
 
     private RecyclerView recycler;
@@ -154,11 +147,7 @@ protected void onCreate(Bundle savedInstanceState) {
 
     
 
-   /*
- * Splash logo ကို pulse + အနည်းငယ်လှည့်ခြင်း +
- * smooth zoom-out animation ဖြင့်ပျောက်စေမည်။
- */
-    ApiClient.initialize(this);
+       ApiClient.initialize(this);
     setContentView(R.layout.activity_main);
 
     recycler = findViewById(R.id.recycler);
