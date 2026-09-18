@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list
+    xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+        Android SplashScreen icon canvas ဖြစ်ပါတယ်။
+        ဒီ transparent canvas ကြောင့် my_logo.png ကို
+        system က အလွန်အကျွံမချဲ့တော့ပါ။
+    -->
+    <item
+        android:width="288dp"
+        android:height="288dp"
+        android:gravity="center">
+
+        <shape android:shape="rectangle">
+
+            <size
+                android:width="288dp"
+                android:height="288dp" />
+
+            <solid android:color="@android:color/transparent" />
+
+        </shape>
+
+    </item>
+
+    <!--
+        တကယ်ပေါ်မည့် CMFLIX logo အရွယ်အစား။
+        ပိုသေးချင်ရင် 168dp ကို 155dp လောက်ပြောင်းနိုင်ပါတယ်။
+    -->
+    <item
+        android:width="168dp"
+        android:height="168dp"
+        android:gravity="center">
+
+        <bitmap
+            android:src="@drawable/my_logo"
+            android:gravity="fill"
+            android:antialias="true"
+            android:dither="true"
+            android:filter="true" />
+
+    </item>
+
+</layer-list>
