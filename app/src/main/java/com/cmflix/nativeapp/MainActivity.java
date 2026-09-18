@@ -1310,9 +1310,18 @@ refreshCategoryLabels();
             }
         }
 
-        ApiClient.getCached(
+        /*
+ * Online title lists တွေကို persistent cache မသုံးပါ။
+ *
+ * Admin က title အသစ်ထည့်သောအခါ page 1 အဟောင်းနှင့်
+ * page 2 အသစ် ရောသွားခြင်းကို ကာကွယ်ရန်
+ * server ကိုတိုက်ရိုက် request လုပ်မည်။
+ *
+ * Movie detail caching ကို ApiClient.getCached()
+ * ဖြင့် အခြားနေရာတွင် ဆက်သုံးနိုင်သည်။
+ */
+ApiClient.get(
         path,
-        60L * 60L * 1000L,
         new ApiClient.Callback() {
 
                     @Override
@@ -1331,26 +1340,36 @@ refreshCategoryLabels();
                             );
 
                             JSONArray items =
-                                    json.optJSONArray("items");
+        json.optJSONArray("items");
 
-                            if (items != null) {
-                                for (
-                                        int index = 0;
-                                        index < items.length();
-                                        index++
-                                ) {
-                                    JSONObject item =
-                                            items.optJSONObject(index);
+if (items != null) {
+    for (
+            int index = 0;
+            index < items.length();
+            index++
+    ) {
+        JSONObject item =
+                items.optJSONObject(index);
 
-                                    if (
-        item != null &&
-        matchesSearch(item)
-) {
-    allItems.add(item);
+        if (
+                item != null &&
+                matchesSearch(item)
+        ) {
+            /*
+             * Pagination အတွင်း page boundary
+             * ပြောင်းသွားလျှင် title တစ်ခုတည်း
+             * နှစ်ကြိမ်ပါလာနိုင်သည်။
+             *
+             * id သို့မဟုတ် slug တူလျှင်
+             * duplicate ထပ်မထည့်ဘဲ
+             * server ကပို့လာသော နောက်ဆုံး data ဖြင့်
+             * အဟောင်းကို update လုပ်မည်။
+             */
+            addOrReplaceOnlineItem(item);
+        }
+    }
 }
 
-                                }
-                            }
 
                             if ("favorites".equals(category)) {
     currentPage = 1;
@@ -1878,6 +1897,91 @@ private void refreshSearchHistory() {
         searchHistoryContainer.addView(chip);
     }
 }
+/*
+ * Online pagination response များကို merge လုပ်သောအခါ
+ * title တစ်ခုတည်း ထပ်မပါစေရန် စစ်ပေးမည်။
+ *
+ * ID တူလျှင် title တစ်ခုတည်းဟုသတ်မှတ်မည်။
+ * ID မရှိသော response အတွက် slug ကို fallback
+ * identity အဖြစ်အသုံးပြုမည်။
+ *
+ * Duplicate တွေ့လျှင် အဟောင်းကို server ကပို့သော
+ * နောက်ဆုံး JSONObject ဖြင့် အစားထိုးမည်။
+ */
+private void addOrReplaceOnlineItem(
+        JSONObject incomingItem
+) {
+    if (incomingItem == null) {
+        return;
+    }
+
+    String incomingId =
+            incomingItem.optString(
+                    "id",
+                    ""
+            ).trim();
+
+    String incomingSlug =
+            incomingItem.optString(
+                    "slug",
+                    ""
+            ).trim();
+
+    for (
+            int index = 0;
+            index < allItems.size();
+            index++
+    ) {
+        JSONObject currentItem =
+                allItems.get(index);
+
+        if (currentItem == null) {
+            continue;
+        }
+
+        String currentId =
+                currentItem.optString(
+                        "id",
+                        ""
+                ).trim();
+
+        String currentSlug =
+                currentItem.optString(
+                        "slug",
+                        ""
+                ).trim();
+
+        boolean sameId =
+                !incomingId.isEmpty() &&
+                !currentId.isEmpty() &&
+                incomingId.equals(currentId);
+
+        boolean sameSlug =
+                !incomingSlug.isEmpty() &&
+                !currentSlug.isEmpty() &&
+                incomingSlug.equals(currentSlug);
+
+        if (sameId || sameSlug) {
+            /*
+             * Existing position ကိုမပြောင်းဘဲ
+             * title data ကို အသစ်ဖြင့် update လုပ်မည်။
+             */
+            allItems.set(
+                    index,
+                    incomingItem
+            );
+
+            return;
+        }
+    }
+
+    /*
+     * id/slug တူသော item မရှိမှသာ
+     * list အဆုံးတွင်အသစ်ထည့်မည်။
+     */
+    allItems.add(incomingItem);
+}
+
 private boolean matchesSearch(
         JSONObject item
 ) {
