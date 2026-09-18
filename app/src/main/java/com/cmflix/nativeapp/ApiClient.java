@@ -35,8 +35,12 @@ public final class ApiClient {
 
     private ApiClient() {
     }
-    private static final String CACHE_PREFS =
-        "cmflix_public_api_cache";
+    /*
+ * v2 သုံးထားတာက app version အဟောင်းက
+ * pagination page-1 cache များကို ပြန်မယူစေရန်ဖြစ်သည်။
+ */
+private static final String CACHE_PREFS =
+        "cmflix_public_api_cache_v2";
 
 private static SharedPreferences cachePreferences;
 
@@ -153,23 +157,50 @@ private static Context applicationContext;
                 path,
                 new Callback() {
                     @Override
-                    public void onSuccess(
-                            JSONObject json
-                    ) {
-                        cachePreferences
-                                .edit()
-                                .putLong(
-                                        key + "_time",
-                                        System.currentTimeMillis()
-                                )
-                                .putString(
-                                        key + "_body",
-                                        json.toString()
-                                )
-                                .apply();
+public void onSuccess(
+        JSONObject json
+) {
+    /*
+     * Detail response ကို cache လုပ်နိုင်သည်။
+     *
+     * Title list ဖြစ်လျှင် hasMore=false ဖြစ်သော
+     * single-page category ကိုသာ cache လုပ်မည်။
+     *
+     * hasMore=true ကို cache လုပ်လိုက်လျှင်
+     * page 1 အဟောင်းနှင့် page 2 အသစ် ရောသွားနိုင်သည်။
+     */
+    if (
+            shouldPersistPublicResponse(
+                    path,
+                    json
+            )
+    ) {
+        cachePreferences
+                .edit()
+                .putLong(
+                        key + "_time",
+                        System.currentTimeMillis()
+                )
+                .putString(
+                        key + "_body",
+                        json.toString()
+                )
+                .apply();
+    } else {
+        /*
+         * ဒီ path အတွက် အရင်ကကျန်ခဲ့သော
+         * unsafe list cache ရှိလျှင် ဖယ်ရှားမည်။
+         */
+        cachePreferences
+                .edit()
+                .remove(key + "_time")
+                .remove(key + "_body")
+                .apply();
+    }
 
-                        callback.onSuccess(json);
-                    }
+    callback.onSuccess(json);
+}
+
 
                     @Override
                     public void onError(
@@ -276,6 +307,52 @@ private static boolean isPublicCacheablePath(
      */
     return "1".equals(page) &&
             search.trim().isEmpty();
+}
+private static boolean shouldPersistPublicResponse(
+        String path,
+        JSONObject json
+) {
+    if (
+            path == null ||
+            json == null
+    ) {
+        return false;
+    }
+
+    String normalized =
+            path.trim();
+
+    /*
+     * titles/{slug} က movie detail ဖြစ်သောကြောင့်
+     * သတ်မှတ်ထားသော TTL အတိုင်း cache လုပ်နိုင်သည်။
+     */
+    if (
+            normalized.startsWith("titles/") &&
+            normalized.length() >
+                    "titles/".length()
+    ) {
+        return true;
+    }
+
+    /*
+     * Search၊ favorites နှင့် တခြား responses
+     * ကို ဒီ cache ထဲ မထည့်ပါ။
+     */
+    if (!normalized.startsWith("titles?")) {
+        return false;
+    }
+
+    /*
+     * hasMore=false ဆိုသည်မှာ response တစ်ခုတည်းနဲ့
+     * category အကုန်ပါပြီးသားဖြစ်သည်။
+     *
+     * ဒါကြောင့် cached page 1 + fresh page 2
+     * ရောသွားနိုင်သောအခြေအနေ မရှိတော့ပါ။
+     */
+    return !json.optBoolean(
+            "hasMore",
+            false
+    );
 }
 
 
