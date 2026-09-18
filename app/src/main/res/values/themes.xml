@@ -35,37 +35,52 @@
 
     </style>
 
+    <!-- Custom text splash activity ပေါ်လာချိန်သုံးမည့် theme -->
+    <style
+        name="Theme.CMFLIXNative.SplashContent"
+        parent="Theme.CMFLIXNative">
+
+        <item name="android:windowBackground">
+            @color/black
+        </item>
+
+        <item name="android:statusBarColor">
+            @color/black
+        </item>
+
+        <item name="android:navigationBarColor">
+            @color/black
+        </item>
+
+        <item name="android:windowLightStatusBar">
+            false
+        </item>
+
+    </style>
+
+    <!-- Android 12+ system splash -->
     <style
         name="Theme.CMFLIXNative.Starting"
         parent="Theme.SplashScreen">
 
-        <!--
-            my_logo.png ရဲ့ အပြင်ထောင့်မှာ အနက်ရောင် pixel/canvas
-            ပါနေသောကြောင့် splash background ကို အနက်ထားပါမယ်။
-            ဒါဆို လေးထောင့်အနားသတ် မမြင်ရတော့ပါ။
-        -->
         <item name="windowSplashScreenBackground">
             @color/black
         </item>
 
-        <!--
-            PNG ကို တိုက်ရိုက်မသုံးဘဲ safe-size wrapper သုံးပါမယ်။
-        -->
         <item name="windowSplashScreenAnimatedIcon">
-            @drawable/splash_logo
+            @drawable/transparent_splash_icon
         </item>
 
         <item name="windowSplashScreenIconBackgroundColor">
             @color/black
         </item>
 
-        <!-- Android 12 မှာ animation duration ကိုသိစေရန် -->
         <item name="windowSplashScreenAnimationDuration">
-            700
+            0
         </item>
 
         <item name="postSplashScreenTheme">
-            @style/Theme.CMFLIXNative
+            @style/Theme.CMFLIXNative.SplashContent
         </item>
 
     </style>
