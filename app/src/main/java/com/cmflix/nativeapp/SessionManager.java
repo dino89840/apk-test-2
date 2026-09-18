@@ -18,8 +18,6 @@ public final class SessionManager {
 
     private static final String KEY_CSRF =
             "csrf";
-private static final String KEY_VIP_PLAN_TYPE =
-        "vip_plan_type";
 
     private static final String KEY_USERNAME =
             "username";
@@ -32,6 +30,9 @@ private static final String KEY_VIP_PLAN_TYPE =
 
     private static final String KEY_VIP_PLAN_MONTHS =
             "vip_plan_months";
+
+    private static final String KEY_VIP_PLAN_TYPE =
+            "vip_plan_type";
 
     private static final String KEY_PROFILE_SYNCED_AT =
             "profile_synced_at";
@@ -69,23 +70,6 @@ private static final String KEY_VIP_PLAN_TYPE =
 
         ensureDeviceId();
     }
-public static String getVipPlanType() {
-    String value =
-            prefs().getString(
-                    KEY_VIP_PLAN_TYPE,
-                    "free"
-            );
-
-    if ("trial".equals(value)) {
-        return "trial";
-    }
-
-    if ("premium".equals(value)) {
-        return "premium";
-    }
-
-    return "free";
-}
 
     private static SharedPreferences prefs() {
         if (preferences == null) {
@@ -114,7 +98,7 @@ public static String getVipPlanType() {
                         ""
                 );
 
-        if (current == null || current.isEmpty()) {
+        if (current == null || current.trim().isEmpty()) {
             devicePrefs()
                     .edit()
                     .putString(
@@ -128,10 +112,13 @@ public static String getVipPlanType() {
     public static String getDeviceId() {
         ensureDeviceId();
 
-        return devicePrefs().getString(
-                KEY_DEVICE_ID,
-                ""
-        );
+        String value =
+                devicePrefs().getString(
+                        KEY_DEVICE_ID,
+                        ""
+                );
+
+        return value == null ? "" : value;
     }
 
     public static boolean isLoggedIn() {
@@ -139,31 +126,43 @@ public static String getVipPlanType() {
     }
 
     public static String getCookie() {
-        return prefs().getString(
-                KEY_COOKIE,
-                ""
-        );
+        String value =
+                prefs().getString(
+                        KEY_COOKIE,
+                        ""
+                );
+
+        return value == null ? "" : value;
     }
 
     public static String getCsrf() {
-        return prefs().getString(
-                KEY_CSRF,
-                ""
-        );
+        String value =
+                prefs().getString(
+                        KEY_CSRF,
+                        ""
+                );
+
+        return value == null ? "" : value;
     }
 
     public static String getUsername() {
-        return prefs().getString(
-                KEY_USERNAME,
-                ""
-        );
+        String value =
+                prefs().getString(
+                        KEY_USERNAME,
+                        ""
+                );
+
+        return value == null ? "" : value;
     }
 
     public static String getEmail() {
-        return prefs().getString(
-                KEY_EMAIL,
-                ""
-        );
+        String value =
+                prefs().getString(
+                        KEY_EMAIL,
+                        ""
+                );
+
+        return value == null ? "" : value;
     }
 
     public static long getVipUntil() {
@@ -178,6 +177,33 @@ public static String getVipPlanType() {
                 KEY_VIP_PLAN_MONTHS,
                 0
         );
+    }
+
+    public static String getVipPlanType() {
+        String value =
+                prefs().getString(
+                        KEY_VIP_PLAN_TYPE,
+                        ""
+                );
+
+        if ("trial".equals(value)) {
+            return "trial";
+        }
+
+        if ("premium".equals(value)) {
+            return "premium";
+        }
+
+        /*
+         * App version အဟောင်းမှာ plan type မသိမ်းထားဘဲ
+         * vipUntil ပဲသိမ်းထားခဲ့နိုင်တာကြောင့်
+         * active VIP ဖြစ်နေရင် premium အဖြစ် fallback လုပ်မယ်။
+         */
+        if (isVipActive()) {
+            return "premium";
+        }
+
+        return "free";
     }
 
     public static boolean isVipActive() {
@@ -198,10 +224,6 @@ public static String getVipPlanType() {
                 / ONE_DAY_MS;
     }
 
-    /*
-     * Main screen အပေါ်ညာဘက် button အတွက်။
-     * VIP မရှိသေးလျှင် P-0Day မပြဘဲ Buy VIP ပြမည်။
-     */
     public static String getPremiumLabel() {
         if (!isVipActive()) {
             return "Buy VIP";
@@ -213,36 +235,28 @@ public static String getVipPlanType() {
         return "P-" + days + "Day";
     }
 
-    /*
-     * Profile Current Plan အတွက်။
-     */
     public static String getPlanLabel() {
-    if (!isVipActive()) {
-        return "Free Plan";
+        if (!isVipActive()) {
+            return "Free Plan";
+        }
+
+        if ("trial".equals(getVipPlanType())) {
+            return "Trial";
+        }
+
+        int months =
+                getVipPlanMonths();
+
+        if (months <= 0) {
+            return "Premium Plan";
+        }
+
+        if (months == 1) {
+            return "1 Month";
+        }
+
+        return months + " Months";
     }
-
-    if (
-            "trial".equals(
-                    getVipPlanType()
-            )
-    ) {
-        return "Trial";
-    }
-
-    int months =
-            getVipPlanMonths();
-
-    if (months <= 0) {
-        return "Premium Plan";
-    }
-
-    if (months == 1) {
-        return "1 Month";
-    }
-
-    return months + " Months";
-}
-
 
     public static boolean isProfileRefreshDue(
             long maxAgeMillis
@@ -268,16 +282,27 @@ public static String getVipPlanType() {
                 .apply();
     }
 
+    /*
+     * Main method:
+     * server ပြန်ပေးသော planType ပါသိမ်းရန်။
+     */
     public static void saveAuth(
             String csrf,
             String username,
             String email,
             long vipUntil,
-            int vipPlanMonths
+            int vipPlanMonths,
+            String vipPlanType
     ) {
         boolean active =
                 vipUntil >
                         System.currentTimeMillis();
+
+        String normalizedPlanType =
+                normalizePlanType(
+                        vipPlanType,
+                        active
+                );
 
         prefs()
                 .edit()
@@ -303,180 +328,163 @@ public static String getVipPlanType() {
                                 ? Math.max(0, vipPlanMonths)
                                 : 0
                 )
+                .putString(
+                        KEY_VIP_PLAN_TYPE,
+                        normalizedPlanType
+                )
                 .putLong(
                         KEY_PROFILE_SYNCED_AT,
                         System.currentTimeMillis()
                 )
                 .apply();
     }
-public static void saveAuth(
-        String csrf,
-        String username,
-        String email,
-        long vipUntil,
-        int vipPlanMonths,
-        String vipPlanType
-) {
-    boolean active =
-            vipUntil >
-                    System.currentTimeMillis();
-
-    String normalizedPlanType;
-
-    if (!active) {
-        normalizedPlanType = "free";
-    } else if (
-            "trial".equals(
-                    vipPlanType
-            )
-    ) {
-        normalizedPlanType = "trial";
-    } else {
-        normalizedPlanType = "premium";
-    }
-
-    prefs()
-            .edit()
-            .putString(
-                    KEY_CSRF,
-                    csrf == null
-                            ? ""
-                            : csrf
-            )
-            .putString(
-                    KEY_USERNAME,
-                    username == null
-                            ? ""
-                            : username
-            )
-            .putString(
-                    KEY_EMAIL,
-                    email == null
-                            ? ""
-                            : email
-            )
-            .putLong(
-                    KEY_VIP_UNTIL,
-                    Math.max(
-                            0L,
-                            vipUntil
-                    )
-            )
-            .putInt(
-                    KEY_VIP_PLAN_MONTHS,
-                    active
-                            ? Math.max(
-                                    0,
-                                    vipPlanMonths
-                            )
-                            : 0
-            )
-            .putString(
-                    KEY_VIP_PLAN_TYPE,
-                    normalizedPlanType
-            )
-            .putLong(
-                    KEY_PROFILE_SYNCED_AT,
-                    System.currentTimeMillis()
-            )
-            .apply();
-}
 
     /*
-     * အဟောင်း call ကျန်နေလျှင် build မပျက်အောင်ထားသည်။
+     * အဟောင်း 5-parameter calls တွေ build မပျက်ရန်။
      */
     public static void saveAuth(
-        String csrf,
-        String username,
-        String email,
-        long vipUntil,
-        int vipPlanMonths
-) {
-    saveAuth(
-            csrf,
-            username,
-            email,
-            vipUntil,
-            vipPlanMonths,
-            vipUntil >
-                    System.currentTimeMillis()
-                    ? "premium"
-                    : "free"
-    );
-}
-
-
-    public static void saveVipState(
-        long vipUntil,
-        int vipPlanMonths,
-        String vipPlanType
-) {
-    boolean active =
-            vipUntil >
-                    System.currentTimeMillis();
-
-    String normalizedPlanType;
-
-    if (!active) {
-        normalizedPlanType = "free";
-    } else if (
-            "trial".equals(
-                    vipPlanType
-            )
+            String csrf,
+            String username,
+            String email,
+            long vipUntil,
+            int vipPlanMonths
     ) {
-        normalizedPlanType = "trial";
-    } else {
-        normalizedPlanType = "premium";
+        saveAuth(
+                csrf,
+                username,
+                email,
+                vipUntil,
+                vipPlanMonths,
+                defaultPlanType(vipUntil)
+        );
     }
 
-    prefs()
-            .edit()
-            .putLong(
-                    KEY_VIP_UNTIL,
-                    Math.max(
-                            0L,
-                            vipUntil
-                    )
-            )
-            .putInt(
-                    KEY_VIP_PLAN_MONTHS,
-                    active
-                            ? Math.max(
-                                    0,
-                                    vipPlanMonths
-                            )
-                            : 0
-            )
-            .putString(
-                    KEY_VIP_PLAN_TYPE,
-                    normalizedPlanType
-            )
-            .putLong(
-                    KEY_PROFILE_SYNCED_AT,
-                    System.currentTimeMillis()
-            )
-            .apply();
-}
-
+    /*
+     * အဟောင်း 4-parameter calls တွေ build မပျက်ရန်။
+     */
+    public static void saveAuth(
+            String csrf,
+            String username,
+            String email,
+            long vipUntil
+    ) {
+        saveAuth(
+                csrf,
+                username,
+                email,
+                vipUntil,
+                getVipPlanMonths(),
+                defaultPlanType(vipUntil)
+        );
+    }
 
     public static void saveVipState(
-        long vipUntil,
-        int vipPlanMonths
-) {
-    saveVipState(
-            vipUntil,
-            vipPlanMonths,
-            vipUntil >
-                    System.currentTimeMillis()
-                    ? "premium"
-                    : "free"
-    );
-}
+            long vipUntil,
+            int vipPlanMonths,
+            String vipPlanType
+    ) {
+        boolean active =
+                vipUntil >
+                        System.currentTimeMillis();
 
+        String normalizedPlanType =
+                normalizePlanType(
+                        vipPlanType,
+                        active
+                );
+
+        prefs()
+                .edit()
+                .putLong(
+                        KEY_VIP_UNTIL,
+                        Math.max(0L, vipUntil)
+                )
+                .putInt(
+                        KEY_VIP_PLAN_MONTHS,
+                        active
+                                ? Math.max(0, vipPlanMonths)
+                                : 0
+                )
+                .putString(
+                        KEY_VIP_PLAN_TYPE,
+                        normalizedPlanType
+                )
+                .putLong(
+                        KEY_PROFILE_SYNCED_AT,
+                        System.currentTimeMillis()
+                )
+                .apply();
+    }
 
     /*
-     * Account data ပဲရှင်းမည်။
-     * Device ID ကို မရှင်းပါ။
+     * အဟောင်း 2-parameter calls တွေ build မပျက်ရန်။
+     */
+    public static void saveVipState(
+            long vipUntil,
+            int vipPlanMonths
+    ) {
+        saveVipState(
+                vipUntil,
+                vipPlanMonths,
+                defaultPlanType(vipUntil)
+        );
+    }
+
+    /*
+     * DetailActivity ရဲ့ saveVipState(0L)
+     * call အတွက် overload။
+     */
+    public static void saveVipState(
+            long vipUntil
+    ) {
+        saveVipState(
+                vipUntil,
+                vipUntil > System.currentTimeMillis()
+                        ? getVipPlanMonths()
+                        : 0,
+                defaultPlanType(vipUntil)
+        );
+    }
+
+    private static String defaultPlanType(
+            long vipUntil
+    ) {
+        if (vipUntil <= System.currentTimeMillis()) {
+            return "free";
+        }
+
+        String current =
+                prefs().getString(
+                        KEY_VIP_PLAN_TYPE,
+                        ""
+                );
+
+        if ("trial".equals(current)) {
+            return "trial";
+        }
+
+        return "premium";
+    }
+
+    private static String normalizePlanType(
+            String planType,
+            boolean active
+    ) {
+        if (!active) {
+            return "free";
+        }
+
+        if ("trial".equals(planType)) {
+            return "trial";
+        }
+
+        return "premium";
+    }
+
+    /*
+     * Account session ကိုရှင်းမယ်။
+     * Device ID ကိုတော့ DEVICE_PREFS ထဲမှာထားလို့
+     * logout လုပ်ချိန် မပျက်ပါ။
      */
     public static void clear() {
         prefs()
