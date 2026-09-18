@@ -289,8 +289,9 @@ SessionManager.saveAuth(
     if (active) {
         if (isTrial) {
             accountStatusText.setText(
-                    "★  Trial member"
-            );
+        "Trial member"
+);
+
 
             planText.setText(
                     "Trial"
@@ -303,8 +304,9 @@ SessionManager.saveAuth(
             );
         } else {
             accountStatusText.setText(
-                    "★  Premium member"
-            );
+        "Premium member"
+);
+
 
             planText.setText(
                     SessionManager
@@ -332,8 +334,9 @@ SessionManager.saveAuth(
         );
     } else {
         accountStatusText.setText(
-                "✕  Premium မရှိသေးပါ"
-        );
+        "Premium မရှိသေးပါ"
+);
+
 
         planText.setText(
                 "Free Plan"
