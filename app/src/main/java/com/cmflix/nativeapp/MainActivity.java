@@ -20,6 +20,12 @@ import android.widget.Toast;
 import android.graphics.Typeface;
 import android.widget.ImageView;
 import androidx.activity.OnBackPressedCallback;
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
+import android.view.animation.PathInterpolator;
+
 
 
 
@@ -58,7 +64,7 @@ private static final long MIN_SPLASH_MS = 1600L;
     /*
      * Splash ပျောက်သွားချိန် fade/zoom animation ကြာချိန်။
      */
-    private static final long SPLASH_EXIT_MS = 320L;
+    private static final long SPLASH_EXIT_MS = 700L;
 
     private RecyclerView recycler;
     private ProgressBar progress;
@@ -177,66 +183,150 @@ protected void onCreate(Bundle savedInstanceState) {
                     < keepSplashUntil
     );
 
-    /*
-     * မည်သည့် PNG/vector logo ကိုသုံးထားသည်ဖြစ်စေ
-     * splash ပျောက်ချိန်မှာ logo zoom-out နှင့်
-     * screen cross-fade animation ရပါမည်။
-     */
-    splashScreen.setOnExitAnimationListener(
-            splashScreenView -> {
-                View splashView =
-                        splashScreenView.getView();
+   /*
+ * Splash logo ကို pulse + အနည်းငယ်လှည့်ခြင်း +
+ * smooth zoom-out animation ဖြင့်ပျောက်စေမည်။
+ */
+splashScreen.setOnExitAnimationListener(
+        splashScreenView -> {
+            View splashView =
+                    splashScreenView.getView();
 
-                View iconView =
-                        splashScreenView.getIconView();
+            View iconView =
+                    splashScreenView.getIconView();
 
-                View contentView =
-                        findViewById(android.R.id.content);
+            View contentView =
+                    findViewById(
+                            android.R.id.content
+                    );
 
-                DecelerateInterpolator interpolator =
-                        new DecelerateInterpolator();
+            PathInterpolator splashInterpolator =
+                    new PathInterpolator(
+                            0.22f,
+                            1f,
+                            0.36f,
+                            1f
+                    );
 
-                /*
-                 * Main screen ကို ဖြည်းဖြည်းပေါ်လာစေမည်။
-                 */
-                contentView.setAlpha(0f);
-                contentView.setScaleX(0.985f);
-                contentView.setScaleY(0.985f);
+            /*
+             * Main screen ကို splash အောက်မှာ
+             * နည်းနည်းသေးပြီး မှိန်နေစေပါမယ်။
+             */
+            contentView.setAlpha(0f);
+            contentView.setScaleX(0.975f);
+            contentView.setScaleY(0.975f);
 
-                contentView.animate()
-                        .alpha(1f)
-                        .scaleX(1f)
-                        .scaleY(1f)
-                        .setDuration(SPLASH_EXIT_MS + 80L)
-                        .setInterpolator(interpolator)
-                        .start();
+            /*
+             * Logo animation စချိန်မှာ နည်းနည်းသေးပြီး
+             * ဘယ်ဘက်ကို အနည်းငယ်စောင်းထားပါမယ်။
+             */
+            iconView.setAlpha(0.35f);
+            iconView.setScaleX(0.76f);
+            iconView.setScaleY(0.76f);
+            iconView.setRotation(-7f);
 
-                /*
-                 * Splash logo ကို အနည်းငယ်ချဲ့ပြီး
-                 * ပျောက်သွားစေမည်။
-                 */
-                iconView.animate()
-                        .scaleX(1.15f)
-                        .scaleY(1.15f)
-                        .alpha(0f)
-                        .setDuration(SPLASH_EXIT_MS)
-                        .setInterpolator(interpolator)
-                        .start();
+            ObjectAnimator logoScaleX =
+                    ObjectAnimator.ofFloat(
+                            iconView,
+                            View.SCALE_X,
+                            0.76f,
+                            1.10f,
+                            1.00f,
+                            0.86f
+                    );
 
-                /*
-                 * Splash background ကို fade-out လုပ်ပြီး
-                 * animation ပြီးသွားလျှင် splash view ဖယ်မည်။
-                 */
-                splashView.animate()
-                        .alpha(0f)
-                        .setDuration(SPLASH_EXIT_MS)
-                        .setInterpolator(interpolator)
-                        .withEndAction(
-                                () -> splashScreenView.remove()
-                        )
-                        .start();
-            }
-    );
+            ObjectAnimator logoScaleY =
+                    ObjectAnimator.ofFloat(
+                            iconView,
+                            View.SCALE_Y,
+                            0.76f,
+                            1.10f,
+                            1.00f,
+                            0.86f
+                    );
+
+            ObjectAnimator logoAlpha =
+                    ObjectAnimator.ofFloat(
+                            iconView,
+                            View.ALPHA,
+                            0.35f,
+                            1f,
+                            1f,
+                            0f
+                    );
+
+            ObjectAnimator logoRotation =
+                    ObjectAnimator.ofFloat(
+                            iconView,
+                            View.ROTATION,
+                            -7f,
+                            4f,
+                            0f,
+                            0f
+                    );
+
+            /*
+             * Splash background ကို animation အဆုံးပိုင်းမှ
+             * fade-out ဖြစ်စေပါမယ်။
+             */
+            ObjectAnimator splashAlpha =
+                    ObjectAnimator.ofFloat(
+                            splashView,
+                            View.ALPHA,
+                            1f,
+                            1f,
+                            0f
+                    );
+
+            AnimatorSet splashAnimator =
+                    new AnimatorSet();
+
+            splashAnimator.playTogether(
+                    logoScaleX,
+                    logoScaleY,
+                    logoAlpha,
+                    logoRotation,
+                    splashAlpha
+            );
+
+            splashAnimator.setDuration(
+                    SPLASH_EXIT_MS
+            );
+
+            splashAnimator.setInterpolator(
+                    splashInterpolator
+            );
+
+            /*
+             * Splash animation အလယ်ပိုင်းကစပြီး
+             * main content ကို smooth fade/zoom-in လုပ်ပါမယ်။
+             */
+            contentView.animate()
+                    .alpha(1f)
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .setStartDelay(320L)
+                    .setDuration(380L)
+                    .setInterpolator(
+                            splashInterpolator
+                    )
+                    .start();
+
+            splashAnimator.addListener(
+                    new AnimatorListenerAdapter() {
+                        @Override
+                        public void onAnimationEnd(
+                                Animator animation
+                        ) {
+                            splashScreenView.remove();
+                        }
+                    }
+            );
+
+            splashAnimator.start();
+        }
+);
+
 
     ApiClient.initialize(this);
     setContentView(R.layout.activity_main);
