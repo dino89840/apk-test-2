@@ -35,6 +35,8 @@ private TextView expiryText;
 private EditText promoCodeInput;
 private Button promoRedeemButton;
 private boolean promoLoading = false;
+private static final long PROFILE_CACHE_MS =
+        6L * 60L * 60L * 1000L;
 
 
 
@@ -56,9 +58,26 @@ private boolean promoLoading = false;
         setContentView(R.layout.activity_profile);
 
         bindViews();
-        bindCachedProfile();
-        setupClickListeners();
-        loadProfile();
+bindCachedProfile();
+setupClickListeners();
+
+/*
+ * Login / promo redeem / previous profile sync ကနေ
+ * ရထားပြီးသား profile information သက်တမ်း
+ * ၆ နာရီမပြည့်သေးလျှင် auth/me ကို ထပ်မခေါ်ပါ။
+ *
+ * Cache ဟောင်းသွားမှ server နဲ့ sync ပြန်လုပ်မည်။
+ */
+if (
+        SessionManager.isProfileRefreshDue(
+                PROFILE_CACHE_MS
+        )
+) {
+    loadProfile();
+} else {
+    progress.setVisibility(View.GONE);
+}
+
     }
 
     private void bindViews() {
