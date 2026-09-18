@@ -1429,44 +1429,6 @@ adapter.submitList(
                             }
                         });
                     }
-private void requestTitlePage(
-        String path,
-        int requestedPage,
-        ApiClient.Callback callback
-) {
-    boolean cacheEligible =
-            requestedPage == 1 &&
-            !"favorites".equals(category) &&
-            search != null &&
-            search.trim().isEmpty();
-
-    if (cacheEligible) {
-        /*
-         * ApiClient က hasMore=false ဖြစ်သော
-         * single-page category response ကိုသာ
-         * အမှန်တကယ်သိမ်းပေးမည်။
-         *
-         * hasMore=true ဖြစ်လျှင် network response ကို
-         * ပြပေးမည်၊ cache ထဲမသိမ်းပါ။
-         */
-        ApiClient.getCached(
-                path,
-                CATALOG_CACHE_MS,
-                callback
-        );
-
-        return;
-    }
-
-    /*
-     * Pagination page 2+၊ search နှင့် favorites
-     * အားလုံးကို server မှတိုက်ရိုက်ယူမည်။
-     */
-    ApiClient.get(
-            path,
-            callback
-    );
-}
 
                     @Override
 public void onError(Exception error) {
@@ -1526,6 +1488,44 @@ public void onError(Exception error) {
                 }
         );
     }
+private void requestTitlePage(
+        String path,
+        int requestedPage,
+        ApiClient.Callback callback
+) {
+    boolean cacheEligible =
+            requestedPage == 1 &&
+            !"favorites".equals(category) &&
+            search != null &&
+            search.trim().isEmpty();
+
+    if (cacheEligible) {
+        /*
+         * ApiClient က hasMore=false ဖြစ်သော
+         * single-page category response ကိုသာ
+         * အမှန်တကယ်သိမ်းပေးမည်။
+         *
+         * hasMore=true ဖြစ်လျှင် network response ကို
+         * ပြပေးမည်၊ cache ထဲမသိမ်းပါ။
+         */
+        ApiClient.getCached(
+                path,
+                CATALOG_CACHE_MS,
+                callback
+        );
+
+        return;
+    }
+
+    /*
+     * Pagination page 2+၊ search နှင့် favorites
+     * အားလုံးကို server မှတိုက်ရိုက်ယူမည်။
+     */
+    ApiClient.get(
+            path,
+            callback
+    );
+}
 
     private String safeMessage(
         Exception error
