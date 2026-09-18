@@ -431,8 +431,11 @@ runOnUiThread(() -> {
                                     lower.contains("expired")
                             ) {
                                 SessionManager.saveVipState(
-                                        0L
-                                );
+        0L,
+        0,
+        "free"
+);
+
 
                                 PremiumDialog.show(
                                         DetailActivity.this
