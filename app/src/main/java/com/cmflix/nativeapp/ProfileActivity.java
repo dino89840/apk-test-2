@@ -138,7 +138,10 @@ promoRedeemButton =
                         : email
         );
 
-        bindVipState(vipUntil);
+        bindVipState(
+        vipUntil,
+        SessionManager.getVipPlanType()
+);
     }
 
     private void loadProfile() {
@@ -189,6 +192,14 @@ promoRedeemButton =
                 "planMonths",
                 0
         );
+String planType =
+        user.optString(
+                "planType",
+                vipUntil >
+                        System.currentTimeMillis()
+                        ? "premium"
+                        : "free"
+        );
 
 SessionManager.saveAuth(
         json.optString(
@@ -198,7 +209,8 @@ SessionManager.saveAuth(
         username,
         email,
         vipUntil,
-        planMonths
+        planMonths,
+        planType
 );
 
 
@@ -238,45 +250,85 @@ SessionManager.saveAuth(
         );
     }
 
-    private void bindVipState(long vipUntil) {
-        boolean active =
-                vipUntil > System.currentTimeMillis();
+    private void bindVipState(
+        long vipUntil,
+        String planType
+) {
+    boolean active =
+            vipUntil >
+                    System.currentTimeMillis();
 
-        if (active) {
+    boolean isTrial =
+            active &&
+            "trial".equals(
+                    planType
+            );
+
+    if (active) {
+        if (isTrial) {
+            accountStatusText.setText(
+                    "★  Trial member"
+            );
+
+            planText.setText(
+                    "Trial"
+            );
+
+            accountStatusText.setTextColor(
+                    Color.parseColor(
+                            "#8FE9FF"
+                    )
+            );
+        } else {
             accountStatusText.setText(
                     "★  Premium member"
             );
 
             planText.setText(
-        SessionManager.getPlanLabel()
-);
-
-
-            expiryText.setText(
-                    DateFormat
-                            .getDateTimeInstance(
-                                    DateFormat.MEDIUM,
-                                    DateFormat.SHORT
-                            )
-                            .format(new Date(vipUntil))
+                    SessionManager
+                            .getPlanLabel()
             );
 
             accountStatusText.setTextColor(
-                    Color.parseColor("#FFF2A8")
-            );
-        } else {
-            accountStatusText.setText(
-                    "✕  Premium မရှိသေးပါ"
-            );
-
-            planText.setText("Free Plan");
-            expiryText.setText("Expired");
-
-            accountStatusText.setTextColor(
-                    Color.parseColor("#FFD2D2")
+                    Color.parseColor(
+                            "#FFF2A8"
+                    )
             );
         }
+
+        expiryText.setText(
+                DateFormat
+                        .getDateTimeInstance(
+                                DateFormat.MEDIUM,
+                                DateFormat.SHORT
+                        )
+                        .format(
+                                new Date(
+                                        vipUntil
+                                )
+                        )
+        );
+    } else {
+        accountStatusText.setText(
+                "✕  Premium မရှိသေးပါ"
+        );
+
+        planText.setText(
+                "Free Plan"
+        );
+
+        expiryText.setText(
+                "Expired"
+        );
+
+        accountStatusText.setTextColor(
+                Color.parseColor(
+                        "#FFD2D2"
+                )
+        );
     }
+}
+
 private void redeemPromoCode() {
     if (promoLoading) {
         return;
@@ -354,13 +406,22 @@ private void redeemPromoCode() {
                                             "planMonths",
                                             0
                                     );
+                                    String planType =
+        user.optString(
+                "planType",
+                "premium"
+        );
+
 
                             SessionManager.saveVipState(
                                     vipUntil,
                                     planMonths
                             );
 
-                            bindVipState(vipUntil);
+                            bindVipState(
+        vipUntil,
+        planType
+);
                         }
 
                         promoCodeInput.setText("");
