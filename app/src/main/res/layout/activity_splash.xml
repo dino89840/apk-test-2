@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/splashRoot"
@@ -57,7 +58,7 @@
             android:layout_height="3dp"
             android:layout_marginTop="18dp"
             android:background="@drawable/splash_accent_line"
-            android:pivotX="0dp" />
+            android:pivotX="0" />
 
         <TextView
             android:layout_width="wrap_content"
