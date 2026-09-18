@@ -198,7 +198,21 @@ public class AuthActivity extends AppCompatActivity {
                                 return;
                             }
 
-                            SessionManager.saveAuth(
+                            long vipUntil =
+        user.optLong(
+                "vipUntil",
+                0L
+        );
+
+String planType =
+        user.optString(
+                "planType",
+                vipUntil > System.currentTimeMillis()
+                        ? "premium"
+                        : "free"
+        );
+
+SessionManager.saveAuth(
         json.optString(
                 "csrf",
                 ""
@@ -211,14 +225,12 @@ public class AuthActivity extends AppCompatActivity {
                 "email",
                 ""
         ),
-        user.optLong(
-                "vipUntil",
-                0L
-        ),
+        vipUntil,
         user.optInt(
                 "planMonths",
                 0
-        )
+        ),
+        planType
 );
 
 
