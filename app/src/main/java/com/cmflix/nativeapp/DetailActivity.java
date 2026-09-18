@@ -101,13 +101,15 @@ private TextView episodesLabel;
                         }
 
                         if (loginRequestedForPlayback) {
+    /*
+     * Playback အတွက် Login ဝင်ခဲ့ခြင်း state ကိုသာ
+     * reset လုပ်မယ်။
+     *
+     * AuthActivity က "Login အောင်မြင်ပါသည်။"
+     * Toast ပြပြီးသားဖြစ်သောကြောင့်
+     * "PLAY ကို ထပ်နှိပ်ပါ" Toast မပြတော့ပါ။
+     */
     loginRequestedForPlayback = false;
-
-    Toast.makeText(
-            DetailActivity.this,
-            "Login အောင်မြင်ပါသည်။ ကြည့်ရန် PLAY ကို ထပ်နှိပ်ပါ။",
-            Toast.LENGTH_SHORT
-    ).show();
 }
 
                     }
