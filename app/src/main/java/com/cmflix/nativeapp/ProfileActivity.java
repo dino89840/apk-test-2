@@ -36,7 +36,7 @@ private EditText promoCodeInput;
 private Button promoRedeemButton;
 private boolean promoLoading = false;
 private static final long PROFILE_CACHE_MS =
-        6L * 60L * 60L * 1000L;
+        3L * 60L * 60L * 1000L;
 
 
 
