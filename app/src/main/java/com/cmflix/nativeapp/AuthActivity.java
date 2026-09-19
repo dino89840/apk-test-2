@@ -2,35 +2,51 @@ package com.cmflix.nativeapp;
 
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.InputType;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 import org.json.JSONObject;
 
 public class AuthActivity extends AppCompatActivity {
 
+    private static final String TELEGRAM_URL =
+            "https://t.me/iqowoq";
+
     private View authCard;
+    private View loginOptionsRow;
+
     private ImageView authLogo;
+    private ImageButton backButton;
 
     private TextView heading;
     private TextView subtitle;
     private TextView errorText;
+    private TextView forgotPasswordButton;
+    private TextView contactButton;
 
     private EditText usernameInput;
     private EditText emailInput;
     private EditText identityInput;
     private EditText passwordInput;
+    private EditText confirmPasswordInput;
 
     private CheckBox rememberCheckBox;
 
@@ -41,6 +57,9 @@ public class AuthActivity extends AppCompatActivity {
     private boolean registerMode = false;
     private boolean loading = false;
 
+    private boolean passwordVisible = false;
+    private boolean confirmPasswordVisible = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -48,32 +67,62 @@ public class AuthActivity extends AppCompatActivity {
         ApiClient.initialize(this);
         setContentView(R.layout.activity_auth);
 
+        bindViews();
+        setupPasswordToggles();
+        setupClickListeners();
+
+        loadRememberedLogin();
+        updateMode();
+        playEntranceAnimation();
+    }
+
+    private void bindViews() {
         authCard = findViewById(R.id.authCard);
+        loginOptionsRow =
+                findViewById(R.id.loginOptionsRow);
+
         authLogo = findViewById(R.id.authLogo);
+        backButton = findViewById(R.id.authBackButton);
 
         heading = findViewById(R.id.authHeading);
         subtitle = findViewById(R.id.authSubtitle);
         errorText = findViewById(R.id.authError);
 
-        usernameInput = findViewById(R.id.usernameInput);
-        emailInput = findViewById(R.id.emailInput);
-        identityInput = findViewById(R.id.identityInput);
-        passwordInput = findViewById(R.id.passwordInput);
+        forgotPasswordButton =
+                findViewById(R.id.forgotPasswordButton);
+
+        contactButton =
+                findViewById(R.id.authContactButton);
+
+        usernameInput =
+                findViewById(R.id.usernameInput);
+
+        emailInput =
+                findViewById(R.id.emailInput);
+
+        identityInput =
+                findViewById(R.id.identityInput);
+
+        passwordInput =
+                findViewById(R.id.passwordInput);
+
+        confirmPasswordInput =
+                findViewById(R.id.confirmPasswordInput);
 
         rememberCheckBox =
                 findViewById(R.id.rememberCheckBox);
 
-        submitButton = findViewById(R.id.authSubmit);
-        switchButton = findViewById(R.id.authSwitch);
-        progress = findViewById(R.id.authProgress);
+        submitButton =
+                findViewById(R.id.authSubmit);
 
-        passwordInput.setInputType(
-                InputType.TYPE_CLASS_TEXT |
-                        InputType.TYPE_TEXT_VARIATION_PASSWORD
-        );
+        switchButton =
+                findViewById(R.id.authSwitch);
 
-        loadRememberedLogin();
+        progress =
+                findViewById(R.id.authProgress);
+    }
 
+    private void setupClickListeners() {
         submitButton.setOnClickListener(
                 view -> submit()
         );
@@ -84,83 +133,290 @@ public class AuthActivity extends AppCompatActivity {
             }
 
             registerMode = !registerMode;
+
+            /*
+             * Remembered password ကို Register form မှာ
+             * မပြမိအောင် register ပြောင်းသောအခါရှင်းမည်။
+             */
+            if (registerMode) {
+                passwordInput.setText("");
+                confirmPasswordInput.setText("");
+            } else {
+                loadRememberedLogin();
+            }
+
             updateMode();
             playModeAnimation();
         });
 
-        updateMode();
-        playEntranceAnimation();
+        backButton.setOnClickListener(view -> {
+            if (loading) {
+                return;
+            }
+
+            if (registerMode) {
+                registerMode = false;
+                loadRememberedLogin();
+                updateMode();
+                playModeAnimation();
+            } else {
+                finish();
+            }
+        });
+
+        forgotPasswordButton.setOnClickListener(
+                view -> openTelegram()
+        );
+
+        contactButton.setOnClickListener(
+                view -> openTelegram()
+        );
+    }
+
+    private void setupPasswordToggles() {
+        setPasswordDrawable(
+                passwordInput,
+                false
+        );
+
+        setPasswordDrawable(
+                confirmPasswordInput,
+                false
+        );
+
+        passwordInput.setOnTouchListener(
+                (view, event) -> {
+                    if (
+                            event.getAction() ==
+                                    MotionEvent.ACTION_UP &&
+                            touchedEndDrawable(
+                                    passwordInput,
+                                    event
+                            )
+                    ) {
+                        passwordVisible =
+                                !passwordVisible;
+
+                        updatePasswordVisibility(
+                                passwordInput,
+                                passwordVisible
+                        );
+
+                        return true;
+                    }
+
+                    return false;
+                }
+        );
+
+        confirmPasswordInput.setOnTouchListener(
+                (view, event) -> {
+                    if (
+                            event.getAction() ==
+                                    MotionEvent.ACTION_UP &&
+                            touchedEndDrawable(
+                                    confirmPasswordInput,
+                                    event
+                            )
+                    ) {
+                        confirmPasswordVisible =
+                                !confirmPasswordVisible;
+
+                        updatePasswordVisibility(
+                                confirmPasswordInput,
+                                confirmPasswordVisible
+                        );
+
+                        return true;
+                    }
+
+                    return false;
+                }
+        );
+    }
+
+    private boolean touchedEndDrawable(
+            EditText editText,
+            MotionEvent event
+    ) {
+        if (
+                editText.getCompoundDrawables()[2] ==
+                        null
+        ) {
+            return false;
+        }
+
+        return event.getX() >=
+                editText.getWidth() -
+                        editText.getTotalPaddingEnd();
+    }
+
+    private void updatePasswordVisibility(
+            EditText input,
+            boolean visible
+    ) {
+        int selection =
+                input.getSelectionStart();
+
+        input.setInputType(
+                InputType.TYPE_CLASS_TEXT |
+                        (
+                                visible
+                                        ? InputType
+                                        .TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+                                        : InputType
+                                        .TYPE_TEXT_VARIATION_PASSWORD
+                        )
+        );
+
+        input.setSelection(
+                Math.max(
+                        0,
+                        Math.min(
+                                selection,
+                                input.length()
+                        )
+                )
+        );
+
+        setPasswordDrawable(
+                input,
+                visible
+        );
+    }
+
+    private void setPasswordDrawable(
+            EditText input,
+            boolean visible
+    ) {
+        input.setCompoundDrawablesWithIntrinsicBounds(
+                ContextCompat.getDrawable(
+                        this,
+                        R.drawable.ic_auth_lock
+                ),
+                null,
+                ContextCompat.getDrawable(
+                        this,
+                        visible
+                                ? R.drawable.ic_auth_visibility
+                                : R.drawable.ic_auth_visibility_off
+                ),
+                null
+        );
+
+        input.setCompoundDrawablePadding(dp(12));
     }
 
     private void loadRememberedLogin() {
         boolean remember =
-                SessionManager.isRememberLoginEnabled();
+                SessionManager
+                        .isRememberLoginEnabled();
 
         rememberCheckBox.setChecked(remember);
 
-        if (remember) {
-            identityInput.setText(
-                    SessionManager.getRememberedIdentity()
-            );
-
-            identityInput.setSelection(
-                    identityInput.getText().length()
-            );
+        if (!remember) {
+            return;
         }
+
+        String identity =
+                SessionManager
+                        .getRememberedIdentity();
+
+        String password =
+                SessionManager
+                        .getRememberedPassword();
+
+        identityInput.setText(identity);
+        passwordInput.setText(password);
+
+        identityInput.setSelection(
+                identityInput.length()
+        );
+
+        passwordInput.setSelection(
+                passwordInput.length()
+        );
     }
 
     private void updateMode() {
         errorText.setVisibility(View.GONE);
 
         usernameInput.setVisibility(
-                registerMode ? View.VISIBLE : View.GONE
+                registerMode
+                        ? View.VISIBLE
+                        : View.GONE
         );
 
         emailInput.setVisibility(
-                registerMode ? View.VISIBLE : View.GONE
+                registerMode
+                        ? View.VISIBLE
+                        : View.GONE
         );
 
         identityInput.setVisibility(
-                registerMode ? View.GONE : View.VISIBLE
+                registerMode
+                        ? View.GONE
+                        : View.VISIBLE
         );
 
-        rememberCheckBox.setVisibility(
-                registerMode ? View.GONE : View.VISIBLE
+        confirmPasswordInput.setVisibility(
+                registerMode
+                        ? View.VISIBLE
+                        : View.GONE
+        );
+
+        loginOptionsRow.setVisibility(
+                registerMode
+                        ? View.GONE
+                        : View.VISIBLE
+        );
+
+        backButton.setVisibility(
+                registerMode
+                        ? View.VISIBLE
+                        : View.INVISIBLE
         );
 
         heading.setText(
                 registerMode
-                        ? "Create Account"
-                        : "Welcome Back"
+                        ? "Register"
+                        : "Login"
         );
 
-        subtitle.setText(
-                registerMode
-                        ? "CMFLIX မှာ account အသစ်ဖွင့်ပြီး စတင်ကြည့်ရှုလိုက်ပါ"
-                        : "လူကြီးမင်း၏ account ဖြင့် ပြန်လည်ဝင်ရောက်ပါ"
-        );
+        subtitle.setText("CMFLIX for Mobile");
 
         submitButton.setText(
                 registerMode
-                        ? "ACCOUNT ဖွင့်မည်"
-                        : "LOGIN ဝင်မည်"
+                        ? "Register"
+                        : "Login"
         );
 
         switchButton.setText(
                 registerMode
-                        ? "Account ရှိပြီးသားလား?  Login ဝင်မည်"
-                        : "Account မရှိသေးဘူးလား?  Register လုပ်မည်"
+                        ? "Login"
+                        : "New User? Register"
         );
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (Build.VERSION.SDK_INT >=
+                Build.VERSION_CODES.O) {
+
             if (registerMode) {
                 usernameInput.setAutofillHints(
-                        "newUsername"
+                        View.AUTOFILL_HINT_NEW_USERNAME
+                );
+
+                emailInput.setAutofillHints(
+                        View.AUTOFILL_HINT_EMAIL_ADDRESS
                 );
 
                 passwordInput.setAutofillHints(
-                        "newPassword"
+                        View.AUTOFILL_HINT_NEW_PASSWORD
                 );
+
+                confirmPasswordInput
+                        .setAutofillHints(
+                                View.AUTOFILL_HINT_NEW_PASSWORD
+                        );
             } else {
                 identityInput.setAutofillHints(
                         View.AUTOFILL_HINT_USERNAME,
@@ -185,13 +441,16 @@ public class AuthActivity extends AppCompatActivity {
                 registerMode;
 
         final String password =
-                passwordInput.getText()
+                passwordInput
+                        .getText()
                         .toString();
 
         if (password.length() < 8) {
             showError(
                     "Password အနည်းဆုံး 8 လုံးလိုအပ်ပါသည်။"
             );
+
+            passwordInput.requestFocus();
             return;
         }
 
@@ -203,24 +462,43 @@ public class AuthActivity extends AppCompatActivity {
         try {
             if (requestWasRegister) {
                 String username =
-                        usernameInput.getText()
+                        usernameInput
+                                .getText()
                                 .toString()
                                 .trim();
 
                 String email =
-                        emailInput.getText()
+                        emailInput
+                                .getText()
                                 .toString()
                                 .trim();
+
+                String confirmPassword =
+                        confirmPasswordInput
+                                .getText()
+                                .toString();
 
                 if (username.length() < 3) {
                     showError(
                             "Username အနည်းဆုံး 3 လုံးလိုအပ်ပါသည်။"
                     );
+
+                    usernameInput.requestFocus();
                     return;
                 }
 
                 if (email.isEmpty()) {
                     showError("Email ထည့်ပါ။");
+                    emailInput.requestFocus();
+                    return;
+                }
+
+                if (!password.equals(confirmPassword)) {
+                    showError(
+                            "Password နှစ်ခု မတူပါ။"
+                    );
+
+                    confirmPasswordInput.requestFocus();
                     return;
                 }
 
@@ -233,7 +511,8 @@ public class AuthActivity extends AppCompatActivity {
                 body.put("turnstileToken", "");
             } else {
                 String identity =
-                        identityInput.getText()
+                        identityInput
+                                .getText()
                                 .toString()
                                 .trim();
 
@@ -241,6 +520,8 @@ public class AuthActivity extends AppCompatActivity {
                     showError(
                             "Username သို့မဟုတ် email ထည့်ပါ။"
                     );
+
+                    identityInput.requestFocus();
                     return;
                 }
 
@@ -270,7 +551,9 @@ public class AuthActivity extends AppCompatActivity {
                 body,
                 new ApiClient.Callback() {
                     @Override
-                    public void onSuccess(JSONObject json) {
+                    public void onSuccess(
+                            JSONObject json
+                    ) {
                         runOnUiThread(() ->
                                 handleAuthSuccess(
                                         json,
@@ -283,10 +566,14 @@ public class AuthActivity extends AppCompatActivity {
                     }
 
                     @Override
-                    public void onError(Exception error) {
+                    public void onError(
+                            Exception error
+                    ) {
                         runOnUiThread(() -> {
                             setLoading(false);
-                            showError(safeMessage(error));
+                            showError(
+                                    safeMessage(error)
+                            );
                         });
                     }
                 }
@@ -345,7 +632,8 @@ public class AuthActivity extends AppCompatActivity {
         if (!requestWasRegister) {
             SessionManager.saveRememberedLogin(
                     rememberCheckBox.isChecked(),
-                    submittedIdentity
+                    submittedIdentity,
+                    submittedPassword
             );
 
             setResult(RESULT_OK);
@@ -353,11 +641,6 @@ public class AuthActivity extends AppCompatActivity {
             return;
         }
 
-        /*
-         * Password ကို SharedPreferences ထဲမသိမ်းပါ။
-         * Register response အောင်မြင်သည့်အချိန်မှာ
-         * dialog ကို တစ်ကြိမ်သာပြပါမယ်။
-         */
         NewAccountDialog.show(
                 this,
                 responseUsername.isEmpty()
@@ -371,24 +654,51 @@ public class AuthActivity extends AppCompatActivity {
         );
     }
 
+    private void openTelegram() {
+        Intent intent =
+                new Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse(TELEGRAM_URL)
+                );
+
+        try {
+            startActivity(intent);
+        } catch (ActivityNotFoundException error) {
+            Toast.makeText(
+                    this,
+                    "Telegram link ကိုဖွင့်နိုင်သော app မရှိပါ။",
+                    Toast.LENGTH_SHORT
+            ).show();
+        }
+    }
+
     private void setLoading(boolean value) {
         loading = value;
 
         progress.setVisibility(
-                value ? View.VISIBLE : View.GONE
+                value
+                        ? View.VISIBLE
+                        : View.GONE
         );
 
         submitButton.setEnabled(!value);
         switchButton.setEnabled(!value);
+        backButton.setEnabled(!value);
 
         usernameInput.setEnabled(!value);
         emailInput.setEnabled(!value);
         identityInput.setEnabled(!value);
         passwordInput.setEnabled(!value);
+        confirmPasswordInput.setEnabled(!value);
+
         rememberCheckBox.setEnabled(!value);
+        forgotPasswordButton.setEnabled(!value);
+        contactButton.setEnabled(!value);
 
         authCard.setAlpha(
-                value ? 0.78f : 1f
+                value
+                        ? 0.78f
+                        : 1f
         );
     }
 
@@ -401,7 +711,6 @@ public class AuthActivity extends AppCompatActivity {
         );
 
         errorText.setVisibility(View.VISIBLE);
-
         errorText.setAlpha(0f);
         errorText.setTranslationY(-12f);
 
@@ -414,16 +723,16 @@ public class AuthActivity extends AppCompatActivity {
 
     private void playEntranceAnimation() {
         authCard.setAlpha(0f);
-        authCard.setScaleX(0.94f);
-        authCard.setScaleY(0.94f);
-        authCard.setTranslationY(48f);
+        authCard.setScaleX(0.96f);
+        authCard.setScaleY(0.96f);
+        authCard.setTranslationY(38f);
 
         authCard.animate()
                 .alpha(1f)
                 .scaleX(1f)
                 .scaleY(1f)
                 .translationY(0f)
-                .setDuration(480L)
+                .setDuration(450L)
                 .setInterpolator(
                         new DecelerateInterpolator(1.7f)
                 )
@@ -433,8 +742,8 @@ public class AuthActivity extends AppCompatActivity {
                 ObjectAnimator.ofFloat(
                         authLogo,
                         View.SCALE_X,
-                        0.82f,
-                        1.08f,
+                        0.84f,
+                        1.05f,
                         1f
                 );
 
@@ -442,32 +751,23 @@ public class AuthActivity extends AppCompatActivity {
                 ObjectAnimator.ofFloat(
                         authLogo,
                         View.SCALE_Y,
-                        0.82f,
-                        1.08f,
+                        0.84f,
+                        1.05f,
                         1f
-                );
-
-        ObjectAnimator logoRotation =
-                ObjectAnimator.ofFloat(
-                        authLogo,
-                        View.ROTATION,
-                        -7f,
-                        4f,
-                        0f
                 );
 
         AnimatorSet set = new AnimatorSet();
 
         set.playTogether(
                 logoScaleX,
-                logoScaleY,
-                logoRotation
+                logoScaleY
         );
 
-        set.setDuration(600L);
+        set.setDuration(520L);
         set.setInterpolator(
                 new DecelerateInterpolator()
         );
+
         set.start();
     }
 
@@ -475,8 +775,8 @@ public class AuthActivity extends AppCompatActivity {
         heading.setAlpha(0f);
         subtitle.setAlpha(0f);
 
-        heading.setTranslationY(12f);
-        subtitle.setTranslationY(12f);
+        heading.setTranslationY(10f);
+        subtitle.setTranslationY(10f);
 
         heading.animate()
                 .alpha(1f)
@@ -487,15 +787,28 @@ public class AuthActivity extends AppCompatActivity {
         subtitle.animate()
                 .alpha(1f)
                 .translationY(0f)
-                .setDuration(280L)
+                .setDuration(260L)
                 .start();
     }
 
-    private String safeMessage(Exception error) {
+    private int dp(int value) {
+        return Math.round(
+                value *
+                        getResources()
+                                .getDisplayMetrics()
+                                .density
+        );
+    }
+
+    private String safeMessage(
+            Exception error
+    ) {
         if (
                 error == null ||
                 error.getMessage() == null ||
-                error.getMessage().trim().isEmpty()
+                error.getMessage()
+                        .trim()
+                        .isEmpty()
         ) {
             return "Request မအောင်မြင်ပါ။";
         }
