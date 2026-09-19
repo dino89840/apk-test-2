@@ -155,11 +155,11 @@ public class AuthActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (registerMode) {
                 usernameInput.setAutofillHints(
-                        View.AUTOFILL_HINT_NEW_USERNAME
+                        "newUsername"
                 );
 
                 passwordInput.setAutofillHints(
-                        View.AUTOFILL_HINT_NEW_PASSWORD
+                        "newPassword"
                 );
             } else {
                 identityInput.setAutofillHints(
