@@ -398,36 +398,36 @@ public class AuthActivity extends AppCompatActivity {
         );
 
         if (Build.VERSION.SDK_INT >=
-                Build.VERSION_CODES.O) {
+        Build.VERSION_CODES.O) {
 
-            if (registerMode) {
-                usernameInput.setAutofillHints(
-                        View.AUTOFILL_HINT_NEW_USERNAME
-                );
+    if (registerMode) {
+        usernameInput.setAutofillHints(
+                "newUsername"
+        );
 
-                emailInput.setAutofillHints(
-                        View.AUTOFILL_HINT_EMAIL_ADDRESS
-                );
+        emailInput.setAutofillHints(
+                View.AUTOFILL_HINT_EMAIL_ADDRESS
+        );
 
-                passwordInput.setAutofillHints(
-                        View.AUTOFILL_HINT_NEW_PASSWORD
-                );
+        passwordInput.setAutofillHints(
+                "newPassword"
+        );
 
-                confirmPasswordInput
-                        .setAutofillHints(
-                                View.AUTOFILL_HINT_NEW_PASSWORD
-                        );
-            } else {
-                identityInput.setAutofillHints(
-                        View.AUTOFILL_HINT_USERNAME,
-                        View.AUTOFILL_HINT_EMAIL_ADDRESS
-                );
+        confirmPasswordInput.setAutofillHints(
+                "newPassword"
+        );
+    } else {
+        identityInput.setAutofillHints(
+                View.AUTOFILL_HINT_USERNAME,
+                View.AUTOFILL_HINT_EMAIL_ADDRESS
+        );
 
-                passwordInput.setAutofillHints(
-                        View.AUTOFILL_HINT_PASSWORD
-                );
-            }
-        }
+        passwordInput.setAutofillHints(
+                View.AUTOFILL_HINT_PASSWORD
+        );
+    }
+}
+
     }
 
     private void submit() {
