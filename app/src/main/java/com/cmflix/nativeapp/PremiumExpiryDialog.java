@@ -361,15 +361,16 @@ public final class PremiumExpiryDialog {
                             .widthPixels;
 
             int dialogWidth =
-                    Math.min(
-                            (int) (
-                                    screenWidth * 0.90f
-                            ),
-                            dp(
-                                    activity,
-                                    410
-                            )
-                    );
+        Math.min(
+                (int) (
+                        screenWidth * 0.85f
+                ),
+                dp(
+                        activity,
+                        380
+                )
+        );
+
 
             window.setLayout(
                     dialogWidth,
