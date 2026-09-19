@@ -1,13 +1,18 @@
 package com.cmflix.nativeapp;
 
+import android.app.Dialog;
 import android.content.pm.ActivityInfo;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -22,6 +27,8 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.ui.AspectRatioFrameLayout;
 import androidx.media3.ui.PlayerView;
 
+import java.util.Locale;
+
 public class PlayerActivity extends AppCompatActivity {
 
     private ExoPlayer player;
@@ -29,11 +36,14 @@ public class PlayerActivity extends AppCompatActivity {
     private ProgressBar playerProgress;
     private TextView resizeButton;
 
+    private Dialog resumeDialog;
+
     private final Handler progressHandler =
             new Handler(Looper.getMainLooper());
 
     private boolean playbackFailed = false;
     private boolean playbackEnded = false;
+    private boolean resumeDecisionHandled = false;
 
     private int resizeModeIndex = 0;
 
@@ -243,8 +253,8 @@ public class PlayerActivity extends AppCompatActivity {
 
         boolean isHls =
                 "m3u8".equalsIgnoreCase(type) ||
-                url.toLowerCase()
-                        .contains(".m3u8");
+                        url.toLowerCase(Locale.US)
+                                .contains(".m3u8");
 
         if (isHls) {
             mediaBuilder.setMimeType(
@@ -285,21 +295,7 @@ public class PlayerActivity extends AppCompatActivity {
                                     View.GONE
                             );
 
-                            if (resumePosition > 0L) {
-                                long duration =
-                                        player.getDuration();
-
-                                if (
-                                        duration == C.TIME_UNSET ||
-                                        resumePosition < duration
-                                ) {
-                                    player.seekTo(
-                                            resumePosition
-                                    );
-                                }
-
-                                resumePosition = 0L;
-                            }
+                            handleReadyState();
                         }
 
                         if (
@@ -307,6 +303,7 @@ public class PlayerActivity extends AppCompatActivity {
                                         Player.STATE_ENDED
                         ) {
                             playbackEnded = true;
+
                             playerProgress.setVisibility(
                                     View.GONE
                             );
@@ -341,6 +338,8 @@ public class PlayerActivity extends AppCompatActivity {
                     ) {
                         playbackFailed = true;
 
+                        dismissResumeDialog();
+
                         playerProgress.setVisibility(
                                 View.GONE
                         );
@@ -368,12 +367,225 @@ public class PlayerActivity extends AppCompatActivity {
                 mediaBuilder.build()
         );
 
-        player.setPlayWhenReady(true);
+        /*
+         * Resume dialog ဆုံးဖြတ်ချက်မရခင်
+         * autoplay မလုပ်ပါ။
+         */
+        player.setPlayWhenReady(false);
         player.prepare();
 
         progressHandler.postDelayed(
                 saveProgressTask,
                 5000L
+        );
+    }
+
+    private void handleReadyState() {
+        if (
+                player == null ||
+                resumeDecisionHandled
+        ) {
+            return;
+        }
+
+        resumeDecisionHandled = true;
+
+        long duration =
+                player.getDuration();
+
+        boolean validResume =
+                resumePosition >= 10_000L &&
+                        (
+                                duration == C.TIME_UNSET ||
+                                duration <= 0L ||
+                                resumePosition < duration
+                        );
+
+        if (!validResume) {
+            if (resumePosition > 0L) {
+                LocalStore.clearResumePosition(
+                        titleId
+                );
+            }
+
+            resumePosition = 0L;
+            startPlaybackAt(0L);
+            return;
+        }
+
+        showResumeDialog(
+                resumePosition
+        );
+    }
+
+    private void showResumeDialog(
+            long savedPosition
+    ) {
+        if (
+                isFinishing() ||
+                isDestroyed() ||
+                player == null
+        ) {
+            return;
+        }
+
+        resumeDialog = new Dialog(this);
+
+        resumeDialog.setContentView(
+                R.layout.dialog_resume_playback
+        );
+
+        resumeDialog.setCancelable(false);
+        resumeDialog.setCanceledOnTouchOutside(false);
+
+        Window window =
+                resumeDialog.getWindow();
+
+        if (window != null) {
+            window.setBackgroundDrawable(
+                    new ColorDrawable(
+                            Color.TRANSPARENT
+                    )
+            );
+
+            window.addFlags(
+                    android.view.WindowManager
+                            .LayoutParams
+                            .FLAG_DIM_BEHIND
+            );
+
+            android.view.WindowManager.LayoutParams
+                    attributes =
+                    window.getAttributes();
+
+            attributes.dimAmount = 0.78f;
+            window.setAttributes(attributes);
+        }
+
+        View card =
+                resumeDialog.findViewById(
+                        R.id.resumeDialogCard
+                );
+
+        TextView timeText =
+                resumeDialog.findViewById(
+                        R.id.resumeTimeText
+                );
+
+        TextView restartButton =
+                resumeDialog.findViewById(
+                        R.id.resumeRestartButton
+                );
+
+        TextView continueButton =
+                resumeDialog.findViewById(
+                        R.id.resumeContinueButton
+                );
+
+        timeText.setText(
+                formatDuration(savedPosition) +
+                        " မှာ ရပ်ထားခဲ့ပါသည်။"
+        );
+
+        restartButton.setOnClickListener(view -> {
+            LocalStore.clearResumePosition(
+                    titleId
+            );
+
+            resumePosition = 0L;
+
+            resumeDialog.dismiss();
+            resumeDialog = null;
+
+            startPlaybackAt(0L);
+        });
+
+        continueButton.setOnClickListener(view -> {
+            resumePosition = 0L;
+
+            resumeDialog.dismiss();
+            resumeDialog = null;
+
+            startPlaybackAt(
+                    savedPosition
+            );
+        });
+
+        resumeDialog.show();
+
+        if (window != null) {
+            int screenWidth =
+                    getResources()
+                            .getDisplayMetrics()
+                            .widthPixels;
+
+            int width =
+                    Math.min(
+                            (int) (screenWidth * 0.72f),
+                            dp(480)
+                    );
+
+            window.setLayout(
+                    width,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+        }
+
+        card.setAlpha(0f);
+        card.setScaleX(0.84f);
+        card.setScaleY(0.84f);
+        card.setTranslationY(dp(20));
+
+        card.animate()
+                .alpha(1f)
+                .scaleX(1f)
+                .scaleY(1f)
+                .translationY(0f)
+                .setDuration(340L)
+                .setInterpolator(
+                        new DecelerateInterpolator(1.6f)
+                )
+                .start();
+    }
+
+    private void startPlaybackAt(
+            long position
+    ) {
+        if (player == null) {
+            return;
+        }
+
+        player.seekTo(
+                Math.max(0L, position)
+        );
+
+        player.play();
+        playerView.showController();
+
+        enterImmersive();
+    }
+
+    private String formatDuration(
+            long milliseconds
+    ) {
+        long totalSeconds =
+                Math.max(0L, milliseconds) / 1000L;
+
+        long hours =
+                totalSeconds / 3600L;
+
+        long minutes =
+                (totalSeconds % 3600L) / 60L;
+
+        long seconds =
+                totalSeconds % 60L;
+
+        return String.format(
+                Locale.US,
+                "%02d:%02d:%02d",
+                hours,
+                minutes,
+                seconds
         );
     }
 
@@ -420,6 +632,17 @@ public class PlayerActivity extends AppCompatActivity {
         );
     }
 
+    private void dismissResumeDialog() {
+        if (
+                resumeDialog != null &&
+                resumeDialog.isShowing()
+        ) {
+            resumeDialog.dismiss();
+        }
+
+        resumeDialog = null;
+    }
+
     private void enterImmersive() {
         Window window = getWindow();
 
@@ -433,7 +656,7 @@ public class PlayerActivity extends AppCompatActivity {
             if (controller != null) {
                 controller.hide(
                         WindowInsets.Type.statusBars() |
-                        WindowInsets.Type.navigationBars()
+                                WindowInsets.Type.navigationBars()
                 );
 
                 controller.setSystemBarsBehavior(
@@ -445,13 +668,22 @@ public class PlayerActivity extends AppCompatActivity {
             window.getDecorView()
                     .setSystemUiVisibility(
                             View.SYSTEM_UI_FLAG_FULLSCREEN |
-                            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
-                            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
-                            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
-                            View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
-                            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+                                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
+                                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
+                                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
                     );
         }
+    }
+
+    private int dp(int value) {
+        return Math.round(
+                value *
+                        getResources()
+                                .getDisplayMetrics()
+                                .density
+        );
     }
 
     private String safe(String value) {
@@ -489,6 +721,7 @@ public class PlayerActivity extends AppCompatActivity {
                 saveProgressTask
         );
 
+        dismissResumeDialog();
         saveWatchProgress();
 
         if (playerView != null) {
