@@ -734,71 +734,93 @@ bindVipState(
     }
 
     private void showLogoutDialog() {
-        if (logoutLoading) {
-            return;
-        }
-
-        Dialog dialog = createBaseDialog();
-
-        LinearLayout container =
-                createDialogContainer();
-
-        TextView icon = createText(
-                "⏻",
-                38,
-                Color.parseColor("#FF4A52"),
-                true
-        );
-
-        icon.setGravity(Gravity.CENTER);
-
-        TextView title = createText(
-                "Logout Account",
-                21,
-                Color.WHITE,
-                true
-        );
-
-        title.setGravity(Gravity.CENTER);
-
-        TextView message = createText(
-                "CMFLIX account မှ ထွက်မှာ သေချာပါသလား?",
-                14,
-                Color.parseColor("#A8ADB8"),
-                false
-        );
-
-        message.setGravity(Gravity.CENTER);
-
-        Button confirmButton = createDialogButton(
-                "Logout",
-                Color.parseColor("#E52D38")
-        );
-
-        Button cancelButton = createDialogButton(
-                "Cancel",
-                Color.parseColor("#2A2D35")
-        );
-
-        container.addView(icon);
-        addTopMargin(container, title, 8);
-        addTopMargin(container, message, 10);
-        addTopMargin(container, confirmButton, 24);
-        addTopMargin(container, cancelButton, 10);
-
-        dialog.setContentView(container);
-
-        cancelButton.setOnClickListener(
-                view -> dialog.dismiss()
-        );
-
-        confirmButton.setOnClickListener(view -> {
-            dialog.dismiss();
-            logout();
-        });
-
-        showSizedDialog(dialog);
+    if (logoutLoading) {
+        return;
     }
+
+    Dialog dialog = createBaseDialog();
+
+    LinearLayout container =
+            createDialogContainer();
+
+    ImageView icon =
+            new ImageView(this);
+
+    LinearLayout.LayoutParams iconParams =
+            new LinearLayout.LayoutParams(
+                    dp(66),
+                    dp(66)
+            );
+
+    iconParams.gravity = Gravity.CENTER_HORIZONTAL;
+
+    icon.setLayoutParams(iconParams);
+    icon.setImageResource(R.drawable.ic_logout);
+    icon.setColorFilter(Color.WHITE);
+
+    icon.setPadding(
+            dp(17),
+            dp(17),
+            dp(17),
+            dp(17)
+    );
+
+    icon.setBackground(
+            roundedBackground(
+                    "#3B1D23",
+                    33,
+                    "#E52D38"
+            )
+    );
+
+    TextView title = createText(
+            "Logout Account",
+            21,
+            Color.WHITE,
+            true
+    );
+
+    title.setGravity(Gravity.CENTER);
+
+    TextView message = createText(
+            "CMFLIX account မှ ထွက်မှာ သေချာပါသလား?",
+            14,
+            Color.parseColor("#A8ADB8"),
+            false
+    );
+
+    message.setGravity(Gravity.CENTER);
+
+    Button confirmButton = createDialogButton(
+            "Logout",
+            Color.parseColor("#E52D38")
+    );
+
+    Button cancelButton = createDialogButton(
+            "Cancel",
+            Color.parseColor("#2A2D35")
+    );
+
+    container.addView(icon);
+    addTopMargin(container, title, 12);
+    addTopMargin(container, message, 10);
+    addTopMargin(container, confirmButton, 24);
+    addTopMargin(container, cancelButton, 10);
+
+    dialog.setContentView(container);
+
+    cancelButton.setOnClickListener(
+            view -> dialog.dismiss()
+    );
+
+    confirmButton.setOnClickListener(view -> {
+        dialog.dismiss();
+        logout();
+    });
+
+    showSizedDialog(dialog);
+}
+
 
     private void logout() {
         if (logoutLoading) {
