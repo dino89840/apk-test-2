@@ -6,6 +6,8 @@ import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.SystemClock;
+import android.os.Handler;
+import android.os.Looper;
 
 import android.view.KeyEvent;
 import android.view.View;
@@ -79,14 +81,37 @@ private String vipBannerLink =
         "https://t.me/iqowoq";
 
 /*
- * Activity recreation တစ်ခုအတွင်း notification
+ * Same notification ID ကို app process တစ်ခုအတွင်း
  * ထပ်မပြစေရန်။
  *
- * App process အသစ် cold start လုပ်တိုင်း
- * false ပြန်ဖြစ်ပြီး notification ပြန်ပြမည်။
+ * Admin က notification ID ပြောင်းလိုက်လျှင် app မပိတ်ဘဲ
+ * foreground polling ကနေ notification အသစ်ကိုပြနိုင်သည်။
  */
-private static boolean announcementShownThisLaunch =
-        false;
+private static String lastShownNoticeIdThisLaunch =
+        "";
+
+private static final long
+        NOTIFICATION_REFRESH_INTERVAL_MS =
+        60L * 1000L;
+
+private final Handler notificationHandler =
+        new Handler(
+                Looper.getMainLooper()
+        );
+
+private final Runnable
+        notificationRefreshRunnable =
+        new Runnable() {
+            @Override
+            public void run() {
+                refreshRemoteNotification();
+
+                notificationHandler.postDelayed(
+                        this,
+                        NOTIFICATION_REFRESH_INTERVAL_MS
+                );
+            }
+        };
 
 private long lastBackPressedAt = 0L;
 
@@ -223,10 +248,10 @@ setupDoubleBackExit();
 setupLocalFeatureControls();
 
 /*
- * Cached app content ကိုအရင်ပြပြီး
- * 12 နာရီကျော်မှသာ server refresh လုပ်မည်။
+ * Banner ကို local 12-hour cache မှအရင်ပြမည်။
+ * Refresh လိုအပ်မှ CDN-backed /app-content ကိုခေါ်မည်။
  */
-loadRemoteAppContent();
+loadRemoteBanner();
 
 refreshSearchHistory();
 
@@ -263,26 +288,57 @@ protected void onResume() {
 
     updateAccountButtons();
 
-PremiumExpiryDialog.showIfNeeded(
-        MainActivity.this
-);
+    PremiumExpiryDialog.showIfNeeded(
+            MainActivity.this
+    );
+
     refreshProfileIfNeeded();
     refreshSearchHistory();
 
     refreshLocalCategoryCounts();
-refreshCategoryLabels();
+    refreshCategoryLabels();
 
-if (isLocalCategory(category)) {
-    loadLocalCategory();
-} else if (adapter != null) {
+    if (isLocalCategory(category)) {
+        loadLocalCategory();
+    } else if (adapter != null) {
+        /*
+         * Poster အားလုံးကို ပြန် bind မလုပ်ဘဲ
+         * progress bar များကိုသာ update လုပ်မည်။
+         */
+        adapter.refreshProgressSnapshot();
+    }
+
     /*
-     * Poster အားလုံးကို ပြန် bind မလုပ်ဘဲ
-     * progress bar များကိုသာ update လုပ်မည်။
+     * Foreground ဝင်တာနဲ့ notification ကို
+     * ချက်ချင်း ETag validation လုပ်မည်။
+     *
+     * App foreground ရှိနေစဉ် 60 seconds တစ်ကြိမ်
+     * revalidate လုပ်မည်။ Unchanged ဖြစ်ရင် 304
+     * response body မရှိသောကြောင့် traffic သေးသည်။
      */
-    adapter.refreshProgressSnapshot();
+    notificationHandler.removeCallbacks(
+            notificationRefreshRunnable
+    );
+
+    notificationRefreshRunnable.run();
+}
+@Override
+protected void onPause() {
+    notificationHandler.removeCallbacks(
+            notificationRefreshRunnable
+    );
+
+    super.onPause();
+}
+@Override
+protected void onDestroy() {
+    notificationHandler.removeCallbacksAndMessages(
+            null
+    );
+
+    super.onDestroy();
 }
 
-}
 
 
     private void setupRecycler() {
@@ -1016,8 +1072,8 @@ private void setupVipBanner() {
     });
 }
 
-private void loadRemoteAppContent() {
-    AppContentManager.load(
+private void loadRemoteBanner() {
+    AppContentManager.loadBanner(
             this,
             new AppContentManager.Callback() {
                 @Override
@@ -1025,7 +1081,7 @@ private void loadRemoteAppContent() {
                         JSONObject content
                 ) {
                     runOnUiThread(() ->
-                            applyRemoteAppContent(
+                            applyRemoteBanner(
                                     content
                             )
                     );
@@ -1036,19 +1092,57 @@ private void loadRemoteAppContent() {
                         Exception error
                 ) {
                     /*
-                     * Remote config မရလျှင် local banner
-                     * ကိုဆက်ပြမည်။ User ကို error toast
-                     * မပြဘဲ silent fallback လုပ်ထားသည်။
+                     * Remote banner မရလျှင် drawable
+                     * fallback ကိုဆက်ပြမည်။
                      */
                 }
             }
     );
 }
 
-private void applyRemoteAppContent(
+private void refreshRemoteNotification() {
+    AppContentManager.refreshNotification(
+            this,
+            new AppContentManager.Callback() {
+                @Override
+                public void onContent(
+                        JSONObject content
+                ) {
+                    runOnUiThread(() -> {
+                        if (
+                                isFinishing() ||
+                                isDestroyed()
+                        ) {
+                            return;
+                        }
+
+                        applyRemoteNotification(
+                                content
+                        );
+                    });
+                }
+
+                @Override
+                public void onError(
+                        Exception error
+                ) {
+                    /*
+                     * Notification validation failure ကို
+                     * user-facing error မပြဘဲ နောက် periodic
+                     * refresh မှာပြန်ကြိုးစားမည်။
+                     */
+                }
+            }
+    );
+}
+
+private void applyRemoteBanner(
         JSONObject content
 ) {
-    if (content == null) {
+    if (
+            content == null ||
+            vipPlanBanner == null
+    ) {
         return;
     }
 
@@ -1057,109 +1151,111 @@ private void applyRemoteAppContent(
                     "banner"
             );
 
-    if (
-            banner != null &&
-            vipPlanBanner != null
-    ) {
-        boolean enabled =
-                banner.optBoolean(
-                        "enabled",
-                        false
-                );
-
-        String imageUrl =
-                banner.optString(
-                        "url",
-                        ""
-                ).trim();
-
-        String link =
-                banner.optString(
-                        "link",
-                        ""
-                ).trim();
-
-        String version =
-                banner.optString(
-                        "version",
-                        "1"
-                ).trim();
-
-        vipBannerLink =
-                link.isEmpty()
-                        ? "https://t.me/iqowoq"
-                        : link;
-
-        if (!enabled) {
-            vipPlanBanner.setVisibility(
-                    View.GONE
-            );
-        } else {
-            vipPlanBanner.setVisibility(
-                    View.VISIBLE
-            );
-
-            if (imageUrl.isEmpty()) {
-                vipPlanBanner.setImageResource(
-                        R.drawable.vip_plan_banner
-                );
-            } else {
-                /*
-                 * DiskCacheStrategy.ALL:
-                 * original image နဲ့ transformed image
-                 * နှစ်မျိုးလုံး disk cache ထဲထားမည်။
-                 *
-                 * ObjectKey(version):
-                 * URL တူနေပေမယ့် admin က version
-                 * ပြောင်းလျှင် Glide က ပုံအသစ်ယူမည်။
-                 */
-                com.bumptech.glide.Glide
-                        .with(this)
-                        .load(imageUrl)
-                        .signature(
-                                new com.bumptech.glide
-                                        .signature
-                                        .ObjectKey(
-                                        version.isEmpty()
-                                                ? imageUrl
-                                                : version
-                                )
-                        )
-                        .diskCacheStrategy(
-                                com.bumptech.glide
-                                        .load
-                                        .engine
-                                        .DiskCacheStrategy
-                                        .ALL
-                        )
-                        .placeholder(
-                                R.drawable.vip_plan_banner
-                        )
-                        .error(
-                                R.drawable.vip_plan_banner
-                        )
-                        .into(vipPlanBanner);
-            }
-        }
+    if (banner == null) {
+        return;
     }
 
-    JSONObject notice =
-            content.optJSONObject(
-                    "notice"
+    boolean enabled =
+            banner.optBoolean(
+                    "enabled",
+                    false
             );
 
+    String imageUrl =
+            banner.optString(
+                    "url",
+                    ""
+            ).trim();
+
+    String link =
+            banner.optString(
+                    "link",
+                    ""
+            ).trim();
+
+    String version =
+            banner.optString(
+                    "version",
+                    "1"
+            ).trim();
+
+    vipBannerLink =
+            link.isEmpty()
+                    ? "https://t.me/iqowoq"
+                    : link;
+
+    if (!enabled) {
+        vipPlanBanner.setVisibility(
+                View.GONE
+        );
+
+        return;
+    }
+
+    vipPlanBanner.setVisibility(
+            View.VISIBLE
+    );
+
+    if (imageUrl.isEmpty()) {
+        vipPlanBanner.setImageResource(
+                R.drawable.vip_plan_banner
+        );
+
+        return;
+    }
+
+    /*
+     * URL တူပြီး image ပြောင်းလဲသွားပါက
+     * banner.version ပြောင်းခြင်းဖြင့် Glide cache
+     * invalidation ဖြစ်မည်။
+     */
+    com.bumptech.glide.Glide
+            .with(this)
+            .load(imageUrl)
+            .signature(
+                    new com.bumptech.glide
+                            .signature
+                            .ObjectKey(
+                            version.isEmpty()
+                                    ? imageUrl
+                                    : version
+                    )
+            )
+            .diskCacheStrategy(
+                    com.bumptech.glide
+                            .load
+                            .engine
+                            .DiskCacheStrategy
+                            .ALL
+            )
+            .placeholder(
+                    R.drawable.vip_plan_banner
+            )
+            .error(
+                    R.drawable.vip_plan_banner
+            )
+            .into(vipPlanBanner);
+}
+
+private void applyRemoteNotification(
+        JSONObject content
+) {
+    if (content == null) {
+        return;
+    }
+
     showAnnouncementIfActive(
-            notice
+            content.optJSONObject(
+                    "notice"
+            )
     );
 }
+
 
 private void showAnnouncementIfActive(
         JSONObject notice
 ) {
-    if (
-            notice == null ||
-            announcementShownThisLaunch
-    ) {
+    if (notice == null) {
         return;
     }
 
@@ -1197,6 +1293,12 @@ private void showAnnouncementIfActive(
         return;
     }
 
+    String noticeId =
+            notice.optString(
+                    "id",
+                    ""
+            ).trim();
+
     String title =
             notice.optString(
                     "title",
@@ -1213,12 +1315,32 @@ private void showAnnouncementIfActive(
         return;
     }
 
-    announcementShownThisLaunch = true;
-
     /*
-     * Main layout attach/render ဖြစ်ပြီးမှ dialog ပြရန်။
+     * ID မပါသော legacy response ဖြစ်လျှင်
+     * title/message ကို fallback identity အဖြစ်သုံးမည်။
      */
-    vipPlanBanner.post(() -> {
+    if (noticeId.isEmpty()) {
+        noticeId =
+                title + "\n" + message;
+    }
+
+    if (
+            noticeId.equals(
+                    lastShownNoticeIdThisLaunch
+            )
+    ) {
+        return;
+    }
+
+    lastShownNoticeIdThisLaunch =
+            noticeId;
+
+    View anchor =
+            vipPlanBanner != null
+                    ? vipPlanBanner
+                    : recycler;
+
+    anchor.post(() -> {
         if (
                 isFinishing() ||
                 isDestroyed()
@@ -1233,6 +1355,7 @@ private void showAnnouncementIfActive(
         );
     });
 }
+
 
 private void setupDoubleBackExit() {
     getOnBackPressedDispatcher()
