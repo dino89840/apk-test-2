@@ -17,18 +17,20 @@ import java.util.concurrent.Executors;
 public final class AppContentManager {
 
     /*
-     * Admin က banner ကို တစ်လ ၁/၂ ပုံသာ
-     * ပြောင်းမည်ဖြစ်သောကြောင့် app config ကို
-     * 12 နာရီ cache လုပ်ထားသည်။
+     * Banner/notification JSON ကို local storage မှာ
+     * သိမ်းထားမည်။
      *
-     * Device တစ်လုံးအတွက် တစ်ရက်အများဆုံး
-     * ၂ request ခန့်သာဝင်မည်။
+     * Online ဖြစ်ရင် app ဖွင့်တိုင်း ETag ဖြင့်
+     * config ပြောင်း/မပြောင်း စစ်မည်။
+     *
+     * Server data မပြောင်းရင် 304 response ပဲရပြီး
+     * JSON body အပြည့်ပြန် download လုပ်ရန်မလိုပါ။
+     *
+     * Offline/network error ဖြစ်မှ cached content ကို
+     * fallback အဖြစ်အသုံးပြုမည်။
      */
-    private static final long CACHE_TTL_MS =
-            12L * 60L * 60L * 1000L;
-
     private static final String PREFS =
-            "cmflix_app_content_v1";
+            "cmflix_app_content_v2";
 
     private static final String KEY_BODY =
             "cached_body";
@@ -46,6 +48,7 @@ public final class AppContentManager {
     }
 
     public interface Callback {
+
         void onContent(JSONObject content);
 
         void onError(Exception error);
@@ -70,52 +73,37 @@ public final class AppContentManager {
                         ""
                 );
 
-        long savedAt =
-                preferences.getLong(
-                        KEY_SAVED_AT,
-                        0L
-                );
+        /*
+         * Internet မရှိလျှင် network request မလုပ်ဘဲ
+         * cached banner/notification ကိုအသုံးပြုမည်။
+         */
+        if (!NetworkUtils.isOnline(appContext)) {
+            JSONObject cached =
+                    parseCachedBody(
+                            preferences,
+                            cachedBody
+                    );
 
-        boolean cacheFresh =
-                !cachedBody.isEmpty() &&
-                savedAt > 0L &&
-                System.currentTimeMillis() - savedAt
-                        < CACHE_TTL_MS;
-
-        if (cacheFresh) {
-            try {
-                callback.onContent(
-                        new JSONObject(
-                                cachedBody
+            if (cached != null) {
+                callback.onContent(cached);
+            } else {
+                callback.onError(
+                        new IllegalStateException(
+                                "အင်တာနက်ချိတ်ဆက်မှု မရှိပါ။"
                         )
                 );
-
-                return;
-            } catch (Exception ignored) {
-                preferences
-                        .edit()
-                        .remove(KEY_BODY)
-                        .remove(KEY_ETAG)
-                        .remove(KEY_SAVED_AT)
-                        .apply();
             }
+
+            return;
         }
 
         /*
-         * Cache ဟောင်းရှိရင် UI ကိုချက်ချင်းပြမယ်။
-         * ပြီးမှ background မှာ refresh လုပ်မယ်။
+         * Online ဖြစ်လျှင် server ကို ETag ဖြင့်
+         * revalidate လုပ်ပြီးမှ content ပြမည်။
+         *
+         * ဒီလိုလုပ်ထားလို့ notification အသစ်ကို
+         * cache TTL က ပိတ်ထားမည်မဟုတ်ပါ။
          */
-        if (!cachedBody.isEmpty()) {
-            try {
-                callback.onContent(
-                        new JSONObject(
-                                cachedBody
-                        )
-                );
-            } catch (Exception ignored) {
-            }
-        }
-
         EXECUTOR.execute(() ->
                 requestLatest(
                         appContext,
@@ -129,7 +117,7 @@ public final class AppContentManager {
     private static void requestLatest(
             Context context,
             SharedPreferences preferences,
-            String staleBody,
+            String cachedBody,
             Callback callback
     ) {
         HttpURLConnection connection = null;
@@ -148,11 +136,28 @@ public final class AppContentManager {
             connection.setRequestMethod("GET");
             connection.setConnectTimeout(12000);
             connection.setReadTimeout(18000);
-            connection.setUseCaches(true);
+
+            /*
+             * HttpURLConnection/proxy cache အဟောင်းကို
+             * တိုက်ရိုက်အသုံးမပြုစေရန်။
+             *
+             * ETag/304 ကိုတော့ ဆက်အသုံးပြုမည်။
+             */
+            connection.setUseCaches(false);
 
             connection.setRequestProperty(
                     "Accept",
                     "application/json"
+            );
+
+            connection.setRequestProperty(
+                    "Cache-Control",
+                    "no-cache"
+            );
+
+            connection.setRequestProperty(
+                    "Pragma",
+                    "no-cache"
             );
 
             connection.setRequestProperty(
@@ -171,10 +176,19 @@ public final class AppContentManager {
                             ""
                     );
 
-            if (!etag.isEmpty()) {
+            /*
+             * Cached body ရှိမှသာ ETag ပို့မည်။
+             * Body မရှိဘဲ 304 ပြန်လာခြင်းကိုကာကွယ်ရန်။
+             */
+            if (
+                    cachedBody != null &&
+                    !cachedBody.isEmpty() &&
+                    etag != null &&
+                    !etag.trim().isEmpty()
+            ) {
                 connection.setRequestProperty(
                         "If-None-Match",
-                        etag
+                        etag.trim()
                 );
             }
 
@@ -183,8 +197,21 @@ public final class AppContentManager {
 
             if (
                     statusCode ==
-                            HttpURLConnection.HTTP_NOT_MODIFIED
+                            HttpURLConnection
+                                    .HTTP_NOT_MODIFIED
             ) {
+                JSONObject cached =
+                        parseCachedBody(
+                                preferences,
+                                cachedBody
+                        );
+
+                if (cached == null) {
+                    throw new IllegalStateException(
+                            "Cached app content မရပါ။"
+                    );
+                }
+
                 preferences
                         .edit()
                         .putLong(
@@ -193,14 +220,7 @@ public final class AppContentManager {
                         )
                         .apply();
 
-                if (!staleBody.isEmpty()) {
-                    callback.onContent(
-                            new JSONObject(
-                                    staleBody
-                            )
-                    );
-                }
-
+                callback.onContent(cached);
                 return;
             }
 
@@ -208,9 +228,17 @@ public final class AppContentManager {
                     statusCode < 200 ||
                     statusCode >= 300
             ) {
+                String errorBody =
+                        readStream(
+                                connection.getErrorStream()
+                        );
+
                 throw new IllegalStateException(
-                        "App content request failed: " +
+                        errorBody == null ||
+                                errorBody.trim().isEmpty()
+                                ? "App content request failed: " +
                                 statusCode
+                                : errorBody
                 );
             }
 
@@ -249,26 +277,61 @@ public final class AppContentManager {
                         KEY_ETAG,
                         responseETag.trim()
                 );
+            } else {
+                editor.remove(KEY_ETAG);
             }
 
             editor.apply();
 
             callback.onContent(json);
+
         } catch (Exception error) {
+
             /*
-             * Cache အဟောင်းရှိပြီးသားဆို network error
-             * ကြောင့် UI ကိုမဖျက်ပါ။
+             * Request မအောင်မြင်ရင် cache အဟောင်းကို
+             * fallback အဖြစ်ဆက်သုံးမည်။
              */
-            if (
-                    staleBody == null ||
-                    staleBody.isEmpty()
-            ) {
+            JSONObject cached =
+                    parseCachedBody(
+                            preferences,
+                            cachedBody
+                    );
+
+            if (cached != null) {
+                callback.onContent(cached);
+            } else {
                 callback.onError(error);
             }
+
         } finally {
             if (connection != null) {
                 connection.disconnect();
             }
+        }
+    }
+
+    private static JSONObject parseCachedBody(
+            SharedPreferences preferences,
+            String cachedBody
+    ) {
+        if (
+                cachedBody == null ||
+                cachedBody.trim().isEmpty()
+        ) {
+            return null;
+        }
+
+        try {
+            return new JSONObject(cachedBody);
+        } catch (Exception ignored) {
+            preferences
+                    .edit()
+                    .remove(KEY_BODY)
+                    .remove(KEY_ETAG)
+                    .remove(KEY_SAVED_AT)
+                    .apply();
+
+            return null;
         }
     }
 
