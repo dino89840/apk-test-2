@@ -574,6 +574,38 @@ getProgressSnapshot() {
                 new JSONArray()
         );
     }
+public static synchronized void clearResumePosition(
+        String titleId
+) {
+    if (
+            titleId == null ||
+            titleId.trim().isEmpty()
+    ) {
+        return;
+    }
+
+    String id = titleId.trim();
+
+    JSONArray history =
+            readArray(KEY_HISTORY);
+
+    JSONObject item =
+            findById(history, id);
+
+    if (item == null) {
+        return;
+    }
+
+    try {
+        item.put("_position", 0L);
+    } catch (Exception ignored) {
+    }
+
+    saveArray(
+            KEY_HISTORY,
+            history
+    );
+}
 
     public static synchronized void recordDownload(
             String titleId
