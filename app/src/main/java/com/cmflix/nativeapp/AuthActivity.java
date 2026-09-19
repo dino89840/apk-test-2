@@ -38,8 +38,7 @@ public class AuthActivity extends AppCompatActivity {
 
     private TextView heading;
     private TextView subtitle;
-    private TextView errorText;
-    private TextView forgotPasswordButton;
+        private TextView forgotPasswordButton;
     private TextView contactButton;
 
     private EditText usernameInput;
@@ -86,8 +85,7 @@ public class AuthActivity extends AppCompatActivity {
 
         heading = findViewById(R.id.authHeading);
         subtitle = findViewById(R.id.authSubtitle);
-        errorText = findViewById(R.id.authError);
-
+        
         forgotPasswordButton =
                 findViewById(R.id.forgotPasswordButton);
 
@@ -339,8 +337,7 @@ public class AuthActivity extends AppCompatActivity {
     }
 
     private void updateMode() {
-        errorText.setVisibility(View.GONE);
-
+        
         usernameInput.setVisibility(
                 registerMode
                         ? View.VISIBLE
@@ -435,8 +432,7 @@ public class AuthActivity extends AppCompatActivity {
             return;
         }
 
-        errorText.setVisibility(View.GONE);
-
+        
         final boolean requestWasRegister =
                 registerMode;
 
@@ -542,9 +538,24 @@ public class AuthActivity extends AppCompatActivity {
             return;
         }
 
-        setLoading(true);
+        /*
+ * Internet မရှိတာသေချာလျှင် HttpURLConnection ကို
+ * request မလုပ်ခင် user-friendly popup ပြမည်။
+ */
+if (!NetworkUtils.isOnline(this)) {
+    showError(
+            "အင်တာနက်ချိတ်ဆက်မှု မရှိပါ။\n" +
+                    "Wi-Fi သို့မဟုတ် Mobile Data ကိုဖွင့်ပြီး " +
+                    "ပြန်လည်ကြိုးစားပါ။"
+    );
 
-        ApiClient.post(
+    return;
+}
+
+setLoading(true);
+
+ApiClient.post(
+
                 requestWasRegister
                         ? "auth/register"
                         : "auth/login",
@@ -703,23 +714,33 @@ public class AuthActivity extends AppCompatActivity {
     }
 
     private void showError(String message) {
-        errorText.setText(
-                message == null ||
-                        message.trim().isEmpty()
-                        ? "Request မအောင်မြင်ပါ။"
-                        : message
-        );
+    String safeText =
+            message == null ||
+                    message.trim().isEmpty()
+                    ? "Request မအောင်မြင်ပါ။"
+                    : message.trim();
 
-        errorText.setVisibility(View.VISIBLE);
-        errorText.setAlpha(0f);
-        errorText.setTranslationY(-12f);
-
-        errorText.animate()
-                .alpha(1f)
-                .translationY(0f)
-                .setDuration(220L)
-                .start();
+    if (
+            isFinishing() ||
+            isDestroyed()
+    ) {
+        return;
     }
+
+    /*
+     * AnnouncementDialog က custom modal dialog ဖြစ်တဲ့အတွက်
+     * login form UI အတွင်း error box မပြတော့ပါ။
+     *
+     * Offline error၊ wrong password၊ VIP device reset
+     * လိုအပ်သော message အားလုံး ဒီ popup ထဲဝင်မည်။
+     */
+    AnnouncementDialog.show(
+            this,
+            "အကြောင်းကြားချက်",
+            safeText
+    );
+}
+
 
     private void playEntranceAnimation() {
         authCard.setAlpha(0f);
@@ -801,18 +822,69 @@ public class AuthActivity extends AppCompatActivity {
     }
 
     private String safeMessage(
-            Exception error
-    ) {
-        if (
-                error == null ||
-                error.getMessage() == null ||
-                error.getMessage()
-                        .trim()
-                        .isEmpty()
-        ) {
-            return "Request မအောင်မြင်ပါ။";
-        }
-
-        return error.getMessage();
+        Exception error
+) {
+    if (error == null) {
+        return "Request မအောင်မြင်ပါ။";
     }
+
+    if (
+            error instanceof java.net.UnknownHostException ||
+            error instanceof java.net.ConnectException ||
+            error instanceof java.net.NoRouteToHostException ||
+            error instanceof java.net.SocketTimeoutException
+    ) {
+        return "အင်တာနက် သို့မဟုတ် server ချိတ်ဆက်မှု မရှိပါ။\n" +
+                "Wi-Fi/Mobile Data ဖွင့်ထားခြင်းနှင့် " +
+                "server အလုပ်လုပ်နေခြင်းကို စစ်ဆေးပါ။";
+    }
+
+    String message =
+            error.getMessage();
+
+    if (
+            message == null ||
+            message.trim().isEmpty()
+    ) {
+        return "Request မအောင်မြင်ပါ။";
+    }
+
+    String normalized =
+            message.toLowerCase(
+                    java.util.Locale.ROOT
+            );
+
+    if (
+            normalized.contains(
+                    "unable to resolve host"
+            ) ||
+            normalized.contains(
+                    "no address associated with hostname"
+            ) ||
+            normalized.contains(
+                    "failed to connect"
+            ) ||
+            normalized.contains(
+                    "connection refused"
+            ) ||
+            normalized.contains(
+                    "network is unreachable"
+            ) ||
+            normalized.contains(
+                    "no internet connection"
+            ) ||
+            normalized.contains(
+                    "timeout"
+            ) ||
+            normalized.contains(
+                    "timed out"
+            )
+    ) {
+        return "အင်တာနက် သို့မဟုတ် server ချိတ်ဆက်မှု မရှိပါ။\n" +
+                "ခဏနောက် ပြန်လည်ကြိုးစားပါ။";
+    }
+
+    return message.trim();
+}
+
 }
