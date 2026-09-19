@@ -93,10 +93,11 @@ public final class PremiumDialog {
                             .widthPixels;
 
             int dialogWidth =
-                    Math.min(
-                            (int) (screenWidth * 0.88f),
-                            dp(activity, 390)
-                    );
+        Math.min(
+                (int) (screenWidth * 0.84f),
+                dp(activity, 360)
+        );
+
 
             window.setLayout(
                     dialogWidth,
