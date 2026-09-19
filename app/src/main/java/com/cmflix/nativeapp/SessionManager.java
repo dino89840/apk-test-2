@@ -37,12 +37,14 @@ public final class SessionManager {
     private static final String KEY_PROFILE_SYNCED_AT =
             "profile_synced_at";
 
+    private static final String KEY_DEVICE_ID =
+            "device_id";
+
     private static final String KEY_REMEMBER_LOGIN =
-        "remember_login";
+            "remember_login";
 
-private static final String KEY_REMEMBERED_IDENTITY =
-        "remembered_identity";
-
+    private static final String KEY_REMEMBERED_IDENTITY =
+            "remembered_identity";
 
     private static final long ONE_DAY_MS =
             24L * 60L * 60L * 1000L;
