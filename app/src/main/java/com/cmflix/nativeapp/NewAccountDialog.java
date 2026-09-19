@@ -156,10 +156,11 @@ public final class NewAccountDialog {
                             .widthPixels;
 
             int width =
-                    Math.min(
-                            (int) (screenWidth * 0.92f),
-                            dp(activity, 430)
-                    );
+        Math.min(
+                (int) (screenWidth * 0.86f),
+                dp(activity, 390)
+        );
+
 
             window.setLayout(
                     width,
