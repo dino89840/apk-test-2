@@ -72,16 +72,7 @@
             android:textColor="#C6C8D0"
             android:textSize="14sp" />
 
-        <TextView
-            android:id="@+id/authError"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="22dp"
-            android:background="@drawable/error_bg"
-            android:padding="12dp"
-            android:textColor="#FFB4AB"
-            android:textSize="13sp"
-            android:visibility="gone" />
+        
 
         <EditText
             android:id="@+id/usernameInput"
