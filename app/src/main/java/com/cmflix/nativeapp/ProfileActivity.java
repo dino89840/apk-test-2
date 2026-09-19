@@ -16,6 +16,11 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
+import android.net.Uri;
+import android.widget.ImageView;
+
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -41,7 +46,9 @@ private static final long PROFILE_CACHE_MS =
 
 
     private Button changePasswordButton;
-    private Button logoutButton;
+private Button logoutButton;
+private Button contactButton;
+
 
     private ProgressBar progress;
 
@@ -107,7 +114,11 @@ promoRedeemButton =
                 findViewById(R.id.changePasswordButton);
 
         logoutButton =
-                findViewById(R.id.profileLogoutButton);
+        findViewById(R.id.profileLogoutButton);
+
+contactButton =
+        findViewById(R.id.profileContactButton);
+
 
         progress =
                 findViewById(R.id.profileProgress);
@@ -132,7 +143,31 @@ promoRedeemButton =
     logoutButton.setOnClickListener(
             view -> showLogoutDialog()
     );
+
+    contactButton.setOnClickListener(
+            view -> openTelegram()
+    );
 }
+private void openTelegram() {
+    Intent intent =
+            new Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse(
+                            "https://t.me/iqowoq"
+                    )
+            );
+
+    try {
+        startActivity(intent);
+    } catch (ActivityNotFoundException error) {
+        Toast.makeText(
+                this,
+                "Telegram link ကိုဖွင့်နိုင်သော app မရှိပါ။",
+                Toast.LENGTH_SHORT
+        ).show();
+    }
+}
+
 
 
     private void bindCachedProfile() {
@@ -649,19 +684,29 @@ bindVipState(
                 new ApiClient.Callback() {
                     @Override
                     public void onSuccess(
-                            JSONObject json
-                    ) {
-                        runOnUiThread(() -> {
-                            passwordLoading = false;
-                            dialog.dismiss();
+        JSONObject json
+) {
+    runOnUiThread(() -> {
+        passwordLoading = false;
 
-                            Toast.makeText(
-                                    ProfileActivity.this,
-                                    "Password ပြောင်းပြီးပါပြီ။",
-                                    Toast.LENGTH_LONG
-                            ).show();
-                        });
-                    }
+        /*
+         * Remember me ဖွင့်ထားလျှင်
+         * password အဟောင်းအစား password အသစ်ကို
+         * encrypted storage ထဲပြန်သိမ်းမည်။
+         */
+        SessionManager
+                .updateRememberedPassword(next);
+
+        dialog.dismiss();
+
+        Toast.makeText(
+                ProfileActivity.this,
+                "Password ပြောင်းပြီးပါပြီ။",
+                Toast.LENGTH_LONG
+        ).show();
+    });
+}
+
 
                     @Override
                     public void onError(
