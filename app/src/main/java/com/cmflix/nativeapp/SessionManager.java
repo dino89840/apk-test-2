@@ -37,8 +37,12 @@ public final class SessionManager {
     private static final String KEY_PROFILE_SYNCED_AT =
             "profile_synced_at";
 
-    private static final String KEY_DEVICE_ID =
-            "device_id";
+    private static final String KEY_REMEMBER_LOGIN =
+        "remember_login";
+
+private static final String KEY_REMEMBERED_IDENTITY =
+        "remembered_identity";
+
 
     private static final long ONE_DAY_MS =
             24L * 60L * 60L * 1000L;
@@ -120,6 +124,50 @@ public final class SessionManager {
 
         return value == null ? "" : value;
     }
+public static boolean isRememberLoginEnabled() {
+    return prefs().getBoolean(
+            KEY_REMEMBER_LOGIN,
+            false
+    );
+}
+
+public static String getRememberedIdentity() {
+    String value =
+            prefs().getString(
+                    KEY_REMEMBERED_IDENTITY,
+                    ""
+            );
+
+    return value == null ? "" : value;
+}
+
+public static void saveRememberedLogin(
+        boolean remember,
+        String identity
+) {
+    SharedPreferences.Editor editor =
+            prefs().edit();
+
+    editor.putBoolean(
+            KEY_REMEMBER_LOGIN,
+            remember
+    );
+
+    if (remember) {
+        editor.putString(
+                KEY_REMEMBERED_IDENTITY,
+                identity == null
+                        ? ""
+                        : identity.trim()
+        );
+    } else {
+        editor.remove(
+                KEY_REMEMBERED_IDENTITY
+        );
+    }
+
+    editor.apply();
+}
 
     public static boolean isLoggedIn() {
         return !getCookie().isEmpty();
@@ -487,9 +535,37 @@ public final class SessionManager {
      * logout လုပ်ချိန် မပျက်ပါ။
      */
     public static void clear() {
-        prefs()
-                .edit()
-                .clear()
-                .apply();
+    boolean remember =
+            isRememberLoginEnabled();
+
+    String rememberedIdentity =
+            getRememberedIdentity();
+
+    SharedPreferences.Editor editor =
+            prefs().edit();
+
+    editor.clear();
+
+    /*
+     * Logout သို့မဟုတ် session expire ဖြစ်ပေမယ့်
+     * Remember me ရွေးထားလျှင် username/email ကို
+     * login screen မှာ ဆက်ပြပေးပါမယ်။
+     *
+     * Password ကို local storage ထဲ မသိမ်းပါ။
+     */
+    if (remember) {
+        editor.putBoolean(
+                KEY_REMEMBER_LOGIN,
+                true
+        );
+
+        editor.putString(
+                KEY_REMEMBERED_IDENTITY,
+                rememberedIdentity
+        );
     }
+
+    editor.apply();
+}
+
 }
