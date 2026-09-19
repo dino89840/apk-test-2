@@ -72,6 +72,22 @@ private Button accountButton;
 private Button premiumButton;
 private ImageView vipPlanBanner;
 
+/*
+ * Admin မှသတ်မှတ်ထားသော banner click link။
+ */
+private String vipBannerLink =
+        "https://t.me/iqowoq";
+
+/*
+ * Activity recreation တစ်ခုအတွင်း notification
+ * ထပ်မပြစေရန်။
+ *
+ * App process အသစ် cold start လုပ်တိုင်း
+ * false ပြန်ဖြစ်ပြီး notification ပြန်ပြမည်။
+ */
+private static boolean announcementShownThisLaunch =
+        false;
+
 private long lastBackPressedAt = 0L;
 
 private static final long BACK_EXIT_INTERVAL_MS =
@@ -201,12 +217,19 @@ vipPlanBanner =
         setupRecycler();
         setupCategories();
         setupSearch();
-        setupAccountButtons();
+setupAccountButtons();
 setupVipBanner();
 setupDoubleBackExit();
 setupLocalFeatureControls();
 
+/*
+ * Cached app content ကိုအရင်ပြပြီး
+ * 12 နာရီကျော်မှသာ server refresh လုပ်မည်။
+ */
+loadRemoteAppContent();
+
 refreshSearchHistory();
+
 
 
         errorText.setOnClickListener(view -> {
@@ -953,29 +976,261 @@ private void setupVipBanner() {
         return;
     }
 
-    vipPlanBanner.setOnClickListener(view -> {
-        String telegramUrl =
-                "https://t.me/iqowoq";
+    /*
+     * Remote config မရသေးချိန် local banner ကို
+     * fallback အဖြစ်ပြထားမည်။
+     */
+    vipPlanBanner.setImageResource(
+            R.drawable.vip_plan_banner
+    );
 
-        Intent telegramIntent =
+    vipPlanBanner.setOnClickListener(view -> {
+        String link =
+                vipBannerLink == null
+                        ? ""
+                        : vipBannerLink.trim();
+
+        if (link.isEmpty()) {
+            return;
+        }
+
+        Intent intent =
                 new Intent(
                         Intent.ACTION_VIEW,
                         android.net.Uri.parse(
-                                telegramUrl
+                                link
                         )
                 );
 
         try {
-            startActivity(telegramIntent);
+            startActivity(intent);
         } catch (
                 android.content.ActivityNotFoundException error
         ) {
             Toast.makeText(
                     MainActivity.this,
-                    "Telegram link ကိုဖွင့်နိုင်သော app မရှိပါ။",
+                    "ဒီ link ကိုဖွင့်နိုင်သော app မရှိပါ။",
                     Toast.LENGTH_SHORT
             ).show();
         }
+    });
+}
+
+private void loadRemoteAppContent() {
+    AppContentManager.load(
+            this,
+            new AppContentManager.Callback() {
+                @Override
+                public void onContent(
+                        JSONObject content
+                ) {
+                    runOnUiThread(() ->
+                            applyRemoteAppContent(
+                                    content
+                            )
+                    );
+                }
+
+                @Override
+                public void onError(
+                        Exception error
+                ) {
+                    /*
+                     * Remote config မရလျှင် local banner
+                     * ကိုဆက်ပြမည်။ User ကို error toast
+                     * မပြဘဲ silent fallback လုပ်ထားသည်။
+                     */
+                }
+            }
+    );
+}
+
+private void applyRemoteAppContent(
+        JSONObject content
+) {
+    if (content == null) {
+        return;
+    }
+
+    JSONObject banner =
+            content.optJSONObject(
+                    "banner"
+            );
+
+    if (
+            banner != null &&
+            vipPlanBanner != null
+    ) {
+        boolean enabled =
+                banner.optBoolean(
+                        "enabled",
+                        false
+                );
+
+        String imageUrl =
+                banner.optString(
+                        "url",
+                        ""
+                ).trim();
+
+        String link =
+                banner.optString(
+                        "link",
+                        ""
+                ).trim();
+
+        String version =
+                banner.optString(
+                        "version",
+                        "1"
+                ).trim();
+
+        vipBannerLink =
+                link.isEmpty()
+                        ? "https://t.me/iqowoq"
+                        : link;
+
+        if (!enabled) {
+            vipPlanBanner.setVisibility(
+                    View.GONE
+            );
+        } else {
+            vipPlanBanner.setVisibility(
+                    View.VISIBLE
+            );
+
+            if (imageUrl.isEmpty()) {
+                vipPlanBanner.setImageResource(
+                        R.drawable.vip_plan_banner
+                );
+            } else {
+                /*
+                 * DiskCacheStrategy.ALL:
+                 * original image နဲ့ transformed image
+                 * နှစ်မျိုးလုံး disk cache ထဲထားမည်။
+                 *
+                 * ObjectKey(version):
+                 * URL တူနေပေမယ့် admin က version
+                 * ပြောင်းလျှင် Glide က ပုံအသစ်ယူမည်။
+                 */
+                com.bumptech.glide.Glide
+                        .with(this)
+                        .load(imageUrl)
+                        .signature(
+                                new com.bumptech.glide
+                                        .signature
+                                        .ObjectKey(
+                                        version.isEmpty()
+                                                ? imageUrl
+                                                : version
+                                )
+                        )
+                        .diskCacheStrategy(
+                                com.bumptech.glide
+                                        .load
+                                        .engine
+                                        .DiskCacheStrategy
+                                        .ALL
+                        )
+                        .placeholder(
+                                R.drawable.vip_plan_banner
+                        )
+                        .error(
+                                R.drawable.vip_plan_banner
+                        )
+                        .into(vipPlanBanner);
+            }
+        }
+    }
+
+    JSONObject notice =
+            content.optJSONObject(
+                    "notice"
+            );
+
+    showAnnouncementIfActive(
+            notice
+    );
+}
+
+private void showAnnouncementIfActive(
+        JSONObject notice
+) {
+    if (
+            notice == null ||
+            announcementShownThisLaunch
+    ) {
+        return;
+    }
+
+    boolean enabled =
+            notice.optBoolean(
+                    "enabled",
+                    false
+            );
+
+    if (!enabled) {
+        return;
+    }
+
+    long startAt =
+            notice.optLong(
+                    "startAt",
+                    0L
+            );
+
+    long endAt =
+            notice.optLong(
+                    "endAt",
+                    0L
+            );
+
+    long now =
+            System.currentTimeMillis();
+
+    if (
+            startAt <= 0L ||
+            endAt <= 0L ||
+            now < startAt ||
+            now > endAt
+    ) {
+        return;
+    }
+
+    String title =
+            notice.optString(
+                    "title",
+                    "အသိပေးချက်"
+            ).trim();
+
+    String message =
+            notice.optString(
+                    "message",
+                    ""
+            ).trim();
+
+    if (message.isEmpty()) {
+        return;
+    }
+
+    announcementShownThisLaunch = true;
+
+    /*
+     * Main layout attach/render ဖြစ်ပြီးမှ dialog ပြရန်။
+     */
+    vipPlanBanner.post(() -> {
+        if (
+                isFinishing() ||
+                isDestroyed()
+        ) {
+            return;
+        }
+
+        AnnouncementDialog.show(
+                MainActivity.this,
+                title,
+                message
+        );
     });
 }
 
