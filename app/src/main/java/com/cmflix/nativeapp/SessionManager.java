@@ -56,26 +56,28 @@ public final class SessionManager {
     }
 
     public static void initialize(Context context) {
-        if (preferences == null) {
-            preferences = context
-                    .getApplicationContext()
-                    .getSharedPreferences(
-                            PREFS,
-                            Context.MODE_PRIVATE
-                    );
-        }
-
-        if (devicePreferences == null) {
-            devicePreferences = context
-                    .getApplicationContext()
-                    .getSharedPreferences(
-                            DEVICE_PREFS,
-                            Context.MODE_PRIVATE
-                    );
-        }
-
-        ensureDeviceId();
+    if (preferences == null) {
+        preferences = context
+                .getApplicationContext()
+                .getSharedPreferences(
+                        PREFS,
+                        Context.MODE_PRIVATE
+                );
     }
+
+    if (devicePreferences == null) {
+        devicePreferences = context
+                .getApplicationContext()
+                .getSharedPreferences(
+                        DEVICE_PREFS,
+                        Context.MODE_PRIVATE
+                );
+    }
+
+    SecureCredentialStore.initialize(context);
+    ensureDeviceId();
+}
+
 
     private static SharedPreferences prefs() {
         if (preferences == null) {
@@ -143,9 +145,18 @@ public static String getRememberedIdentity() {
     return value == null ? "" : value;
 }
 
+public static String getRememberedPassword() {
+    if (!isRememberLoginEnabled()) {
+        return "";
+    }
+
+    return SecureCredentialStore.getPassword();
+}
+
 public static void saveRememberedLogin(
         boolean remember,
-        String identity
+        String identity,
+        String password
 ) {
     SharedPreferences.Editor editor =
             prefs().edit();
@@ -162,14 +173,42 @@ public static void saveRememberedLogin(
                         ? ""
                         : identity.trim()
         );
+
+        SecureCredentialStore.savePassword(
+                password == null
+                        ? ""
+                        : password
+        );
     } else {
         editor.remove(
                 KEY_REMEMBERED_IDENTITY
         );
+
+        SecureCredentialStore.clearPassword();
     }
 
     editor.apply();
 }
+
+/*
+ * Profile မှာ password ပြောင်းပြီးသောအခါ
+ * Remember me ဖွင့်ထားလျှင် saved password ကိုပါ
+ * password အသစ်နဲ့ update လုပ်မည်။
+ */
+public static void updateRememberedPassword(
+        String newPassword
+) {
+    if (!isRememberLoginEnabled()) {
+        return;
+    }
+
+    SecureCredentialStore.savePassword(
+            newPassword == null
+                    ? ""
+                    : newPassword
+    );
+}
+
 
     public static boolean isLoggedIn() {
         return !getCookie().isEmpty();
