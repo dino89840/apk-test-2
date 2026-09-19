@@ -13,36 +13,41 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class AppContentManager {
 
     /*
-     * Banner/notification JSON ကို local storage မှာ
-     * သိမ်းထားမည်။
+     * Banner သည် rarely-changing content ဖြစ်သောကြောင့်
+     * device မှာ 12 hours cache ထားမည်။
      *
-     * Online ဖြစ်ရင် app ဖွင့်တိုင်း ETag ဖြင့်
-     * config ပြောင်း/မပြောင်း စစ်မည်။
-     *
-     * Server data မပြောင်းရင် 304 response ပဲရပြီး
-     * JSON body အပြည့်ပြန် download လုပ်ရန်မလိုပါ။
-     *
-     * Offline/network error ဖြစ်မှ cached content ကို
-     * fallback အဖြစ်အသုံးပြုမည်။
+     * Refresh လုပ်ရသောအခါ /app-content ကိုခေါ်ပြီး
+     * Cloudflare edge cache မှရယူမည်။
      */
+    private static final long BANNER_CACHE_TTL_MS =
+            12L * 60L * 60L * 1000L;
+
     private static final String PREFS =
-            "cmflix_app_content_v2";
+            "cmflix_app_content_v3";
 
-    private static final String KEY_BODY =
-            "cached_body";
+    private static final String KEY_BANNER_BODY =
+            "banner_body";
 
-    private static final String KEY_ETAG =
-            "cached_etag";
+    private static final String KEY_BANNER_SAVED_AT =
+            "banner_saved_at";
 
-    private static final String KEY_SAVED_AT =
-            "cached_saved_at";
+    private static final String KEY_NOTICE_BODY =
+            "notice_body";
+
+    private static final String KEY_NOTICE_ETAG =
+            "notice_etag";
 
     private static final ExecutorService EXECUTOR =
             Executors.newSingleThreadExecutor();
+
+    private static final AtomicBoolean
+            NOTICE_REQUEST_IN_FLIGHT =
+            new AtomicBoolean(false);
 
     private AppContentManager() {
     }
@@ -54,7 +59,14 @@ public final class AppContentManager {
         void onError(Exception error);
     }
 
-    public static void load(
+    /*
+     * Cached banner ကိုချက်ချင်းပြမည်။
+     *
+     * Cache 12 hours ကျော်မှ /app-content ကို
+     * ပြန် request လုပ်မည်။ Server ဘက်မှာ CDN cache
+     * ရှိလို့ D1 request တိုက်ရိုက်မတက်ပါ။
+     */
+    public static void loadBanner(
             Context context,
             Callback callback
     ) {
@@ -62,28 +74,95 @@ public final class AppContentManager {
                 context.getApplicationContext();
 
         SharedPreferences preferences =
-                appContext.getSharedPreferences(
-                        PREFS,
-                        Context.MODE_PRIVATE
-                );
+                preferences(appContext);
 
         String cachedBody =
                 preferences.getString(
-                        KEY_BODY,
+                        KEY_BANNER_BODY,
                         ""
                 );
 
-        /*
-         * Internet မရှိလျှင် network request မလုပ်ဘဲ
-         * cached banner/notification ကိုအသုံးပြုမည်။
-         */
-        if (!NetworkUtils.isOnline(appContext)) {
-            JSONObject cached =
-                    parseCachedBody(
-                            preferences,
-                            cachedBody
-                    );
+        JSONObject cached =
+                parseCachedBody(
+                        preferences,
+                        KEY_BANNER_BODY,
+                        cachedBody
+                );
 
+        if (cached != null) {
+            callback.onContent(cached);
+        }
+
+        long savedAt =
+                preferences.getLong(
+                        KEY_BANNER_SAVED_AT,
+                        0L
+                );
+
+        boolean fresh =
+                cached != null &&
+                savedAt > 0L &&
+                System.currentTimeMillis() - savedAt
+                        < BANNER_CACHE_TTL_MS;
+
+        if (
+                fresh ||
+                !NetworkUtils.isOnline(appContext)
+        ) {
+            if (
+                    cached == null &&
+                    !NetworkUtils.isOnline(appContext)
+            ) {
+                callback.onError(
+                        new IllegalStateException(
+                                "အင်တာနက်ချိတ်ဆက်မှု မရှိပါ။"
+                        )
+                );
+            }
+
+            return;
+        }
+
+        EXECUTOR.execute(() ->
+                requestBanner(
+                        preferences,
+                        cached != null,
+                        callback
+                )
+        );
+    }
+
+    /*
+     * Notification ကို local TTL မသုံးဘဲ
+     * ETag ဖြင့် server နဲ့ validate လုပ်မည်။
+     *
+     * Same notification ဖြစ်လျှင် 304 ပြန်လာပြီး
+     * JSON body download လုပ်စရာမလိုပါ။
+     */
+    public static void refreshNotification(
+            Context context,
+            Callback callback
+    ) {
+        Context appContext =
+                context.getApplicationContext();
+
+        SharedPreferences preferences =
+                preferences(appContext);
+
+        String cachedBody =
+                preferences.getString(
+                        KEY_NOTICE_BODY,
+                        ""
+                );
+
+        JSONObject cached =
+                parseCachedBody(
+                        preferences,
+                        KEY_NOTICE_BODY,
+                        cachedBody
+                );
+
+        if (!NetworkUtils.isOnline(appContext)) {
             if (cached != null) {
                 callback.onContent(cached);
             } else {
@@ -98,91 +177,131 @@ public final class AppContentManager {
         }
 
         /*
-         * Online ဖြစ်လျှင် server ကို ETag ဖြင့်
-         * revalidate လုပ်ပြီးမှ content ပြမည်။
-         *
-         * ဒီလိုလုပ်ထားလို့ notification အသစ်ကို
-         * cache TTL က ပိတ်ထားမည်မဟုတ်ပါ။
+         * Periodic timer နဲ့ Activity resume callback
+         * တစ်ချိန်တည်းဝင်လာလျှင် duplicate request
+         * မပို့စေရန်။
          */
-        EXECUTOR.execute(() ->
-                requestLatest(
-                        appContext,
+        if (
+                !NOTICE_REQUEST_IN_FLIGHT
+                        .compareAndSet(
+                                false,
+                                true
+                        )
+        ) {
+            return;
+        }
+
+        EXECUTOR.execute(() -> {
+            try {
+                requestNotification(
                         preferences,
                         cachedBody,
+                        cached,
                         callback
-                )
-        );
+                );
+            } finally {
+                NOTICE_REQUEST_IN_FLIGHT.set(
+                        false
+                );
+            }
+        });
     }
 
-    private static void requestLatest(
-            Context context,
+    private static void requestBanner(
             SharedPreferences preferences,
-            String cachedBody,
+            boolean hasCachedBody,
             Callback callback
     ) {
         HttpURLConnection connection = null;
 
         try {
-            URL url =
-                    new URL(
-                            BuildConfig.API_BASE_URL +
-                                    "app-content"
+            connection =
+                    openConnection(
+                            "app-content",
+                            true
                     );
 
-            connection =
-                    (HttpURLConnection)
-                            url.openConnection();
+            int statusCode =
+                    connection.getResponseCode();
 
-            connection.setRequestMethod("GET");
-            connection.setConnectTimeout(12000);
-            connection.setReadTimeout(18000);
+            if (
+                    statusCode < 200 ||
+                    statusCode >= 300
+            ) {
+                throw requestError(
+                        connection,
+                        statusCode,
+                        "Banner request failed"
+                );
+            }
 
+            String responseBody =
+                    readStream(
+                            connection.getInputStream()
+                    );
+
+            JSONObject json =
+                    new JSONObject(
+                            responseBody
+                    );
+
+            preferences
+                    .edit()
+                    .putString(
+                            KEY_BANNER_BODY,
+                            json.toString()
+                    )
+                    .putLong(
+                            KEY_BANNER_SAVED_AT,
+                            System.currentTimeMillis()
+                    )
+                    .apply();
+
+            callback.onContent(json);
+
+        } catch (Exception error) {
             /*
-             * HttpURLConnection/proxy cache အဟောင်းကို
-             * တိုက်ရိုက်အသုံးမပြုစေရန်။
-             *
-             * ETag/304 ကိုတော့ ဆက်အသုံးပြုမည်။
+             * Cached banner ပြပြီးသားဖြစ်လျှင်
+             * refresh failure ကို silent fallback လုပ်မည်။
              */
-            connection.setUseCaches(false);
+            if (!hasCachedBody) {
+                callback.onError(error);
+            }
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
 
-            connection.setRequestProperty(
-                    "Accept",
-                    "application/json"
-            );
+    private static void requestNotification(
+            SharedPreferences preferences,
+            String cachedBody,
+            JSONObject cached,
+            Callback callback
+    ) {
+        HttpURLConnection connection = null;
 
-            connection.setRequestProperty(
-                    "Cache-Control",
-                    "no-cache"
-            );
-
-            connection.setRequestProperty(
-                    "Pragma",
-                    "no-cache"
-            );
-
-            connection.setRequestProperty(
-                    "x-cmflix-app-key",
-                    BuildConfig.CMFLIX_APP_KEY
-            );
-
-            connection.setRequestProperty(
-                    "x-cmflix-device-id",
-                    SessionManager.getDeviceId()
-            );
+        try {
+            connection =
+                    openConnection(
+                            "app-notification",
+                            false
+                    );
 
             String etag =
                     preferences.getString(
-                            KEY_ETAG,
+                            KEY_NOTICE_ETAG,
                             ""
                     );
 
             /*
-             * Cached body ရှိမှသာ ETag ပို့မည်။
-             * Body မရှိဘဲ 304 ပြန်လာခြင်းကိုကာကွယ်ရန်။
+             * Cached JSON body ရှိမှ If-None-Match ပို့မည်။
+             * Body မရှိဘဲ 304 ရသွားခြင်းကိုကာကွယ်သည်။
              */
             if (
                     cachedBody != null &&
-                    !cachedBody.isEmpty() &&
+                    !cachedBody.trim().isEmpty() &&
                     etag != null &&
                     !etag.trim().isEmpty()
             ) {
@@ -200,25 +319,11 @@ public final class AppContentManager {
                             HttpURLConnection
                                     .HTTP_NOT_MODIFIED
             ) {
-                JSONObject cached =
-                        parseCachedBody(
-                                preferences,
-                                cachedBody
-                        );
-
                 if (cached == null) {
                     throw new IllegalStateException(
-                            "Cached app content မရပါ။"
+                            "Cached notification မရှိပါ။"
                     );
                 }
-
-                preferences
-                        .edit()
-                        .putLong(
-                                KEY_SAVED_AT,
-                                System.currentTimeMillis()
-                        )
-                        .apply();
 
                 callback.onContent(cached);
                 return;
@@ -228,17 +333,10 @@ public final class AppContentManager {
                     statusCode < 200 ||
                     statusCode >= 300
             ) {
-                String errorBody =
-                        readStream(
-                                connection.getErrorStream()
-                        );
-
-                throw new IllegalStateException(
-                        errorBody == null ||
-                                errorBody.trim().isEmpty()
-                                ? "App content request failed: " +
-                                statusCode
-                                : errorBody
+                throw requestError(
+                        connection,
+                        statusCode,
+                        "Notification request failed"
                 );
             }
 
@@ -261,12 +359,8 @@ public final class AppContentManager {
                     preferences
                             .edit()
                             .putString(
-                                    KEY_BODY,
+                                    KEY_NOTICE_BODY,
                                     json.toString()
-                            )
-                            .putLong(
-                                    KEY_SAVED_AT,
-                                    System.currentTimeMillis()
                             );
 
             if (
@@ -274,11 +368,13 @@ public final class AppContentManager {
                     !responseETag.trim().isEmpty()
             ) {
                 editor.putString(
-                        KEY_ETAG,
+                        KEY_NOTICE_ETAG,
                         responseETag.trim()
                 );
             } else {
-                editor.remove(KEY_ETAG);
+                editor.remove(
+                        KEY_NOTICE_ETAG
+                );
             }
 
             editor.apply();
@@ -286,23 +382,15 @@ public final class AppContentManager {
             callback.onContent(json);
 
         } catch (Exception error) {
-
             /*
-             * Request မအောင်မြင်ရင် cache အဟောင်းကို
-             * fallback အဖြစ်ဆက်သုံးမည်။
+             * Network/server error ဖြစ်လျှင်
+             * cached notification ကို fallback သုံးမည်။
              */
-            JSONObject cached =
-                    parseCachedBody(
-                            preferences,
-                            cachedBody
-                    );
-
             if (cached != null) {
                 callback.onContent(cached);
             } else {
                 callback.onError(error);
             }
-
         } finally {
             if (connection != null) {
                 connection.disconnect();
@@ -310,8 +398,112 @@ public final class AppContentManager {
         }
     }
 
+    private static HttpURLConnection openConnection(
+            String path,
+            boolean allowHttpCache
+    ) throws Exception {
+        if (
+                BuildConfig.CMFLIX_APP_KEY == null ||
+                BuildConfig.CMFLIX_APP_KEY
+                        .trim()
+                        .isEmpty()
+        ) {
+            throw new IllegalStateException(
+                    "App configuration is missing."
+            );
+        }
+
+        URL url =
+                new URL(
+                        BuildConfig.API_BASE_URL +
+                                path
+                );
+
+        HttpURLConnection connection =
+                (HttpURLConnection)
+                        url.openConnection();
+
+        connection.setRequestMethod("GET");
+        connection.setConnectTimeout(12000);
+        connection.setReadTimeout(18000);
+        connection.setUseCaches(
+                allowHttpCache
+        );
+
+        connection.setRequestProperty(
+                "Accept",
+                "application/json"
+        );
+
+        connection.setRequestProperty(
+                "x-cmflix-app-key",
+                BuildConfig.CMFLIX_APP_KEY
+        );
+
+        connection.setRequestProperty(
+                "x-cmflix-device-id",
+                SessionManager.getDeviceId()
+        );
+
+        if (!allowHttpCache) {
+            /*
+             * Notification ကို proxy/browser cache ကနေ
+             * မယူဘဲ ETag validation request ကို server
+             * ဆီရောက်စေရန်။
+             */
+            connection.setRequestProperty(
+                    "Cache-Control",
+                    "no-cache"
+            );
+
+            connection.setRequestProperty(
+                    "Pragma",
+                    "no-cache"
+            );
+        }
+
+        return connection;
+    }
+
+    private static Exception requestError(
+            HttpURLConnection connection,
+            int statusCode,
+            String fallback
+    ) {
+        try {
+            String errorBody =
+                    readStream(
+                            connection.getErrorStream()
+                    );
+
+            if (
+                    errorBody != null &&
+                    !errorBody.trim().isEmpty()
+            ) {
+                return new IllegalStateException(
+                        errorBody
+                );
+            }
+        } catch (Exception ignored) {
+        }
+
+        return new IllegalStateException(
+                fallback + ": " + statusCode
+        );
+    }
+
+    private static SharedPreferences preferences(
+            Context context
+    ) {
+        return context.getSharedPreferences(
+                PREFS,
+                Context.MODE_PRIVATE
+        );
+    }
+
     private static JSONObject parseCachedBody(
             SharedPreferences preferences,
+            String key,
             String cachedBody
     ) {
         if (
@@ -322,13 +514,13 @@ public final class AppContentManager {
         }
 
         try {
-            return new JSONObject(cachedBody);
+            return new JSONObject(
+                    cachedBody
+            );
         } catch (Exception ignored) {
             preferences
                     .edit()
-                    .remove(KEY_BODY)
-                    .remove(KEY_ETAG)
-                    .remove(KEY_SAVED_AT)
+                    .remove(key)
                     .apply();
 
             return null;
@@ -369,11 +561,9 @@ public final class AppContentManager {
     public static void clearCache(
             Context context
     ) {
-        context.getApplicationContext()
-                .getSharedPreferences(
-                        PREFS,
-                        Context.MODE_PRIVATE
-                )
+        preferences(
+                context.getApplicationContext()
+        )
                 .edit()
                 .clear()
                 .apply();
