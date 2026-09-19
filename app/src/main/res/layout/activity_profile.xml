@@ -374,17 +374,22 @@
                     android:textStyle="bold" />
 
                 <Button
-                    android:id="@+id/profileLogoutButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="50dp"
-                    android:layout_marginTop="10dp"
-                    android:background="@drawable/profile_logout_button_bg"
-                    android:minHeight="0dp"
-                    android:text="Logout"
-                    android:textAllCaps="false"
-                    android:textColor="#FFFFFF"
-                    android:textSize="15sp"
-                    android:textStyle="bold" />
+    android:id="@+id/profileContactButton"
+    android:layout_width="match_parent"
+    android:layout_height="50dp"
+    android:layout_marginTop="16dp"
+    android:background="@drawable/profile_contact_button_bg"
+    android:drawableStart="@drawable/ic_telegram"
+    android:drawablePadding="10dp"
+    android:drawableTint="#FFFFFF"
+    android:gravity="center"
+    android:minHeight="0dp"
+    android:text="Contact Us"
+    android:textAllCaps="false"
+    android:textColor="#FFFFFF"
+    android:textSize="15sp"
+    android:textStyle="bold" />
+
 
             </LinearLayout>
 
