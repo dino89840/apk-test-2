@@ -524,81 +524,116 @@ bindVipState(
 }
 
     private void showChangePasswordDialog() {
-        if (passwordLoading) {
-            return;
-        }
-
-        Dialog dialog = createBaseDialog();
-
-        LinearLayout container =
-                createDialogContainer();
-
-        TextView title = createText(
-                "Change Password",
-                21,
-                Color.WHITE,
-                true
-        );
-
-        TextView message = createText(
-                "လက်ရှိ Password နဲ့ Password အသစ်ကို ထည့်ပါ။",
-                13,
-                Color.parseColor("#A8ADB8"),
-                false
-        );
-
-        EditText currentPassword =
-                createPasswordInput(
-                        "Current password"
-                );
-
-        EditText newPassword =
-                createPasswordInput(
-                        "New password"
-                );
-
-        EditText confirmPassword =
-                createPasswordInput(
-                        "Confirm new password"
-                );
-
-        Button submitButton = createDialogButton(
-                "Change Password",
-                Color.parseColor("#079E86")
-        );
-
-        Button cancelButton = createDialogButton(
-                "Cancel",
-                Color.parseColor("#2A2D35")
-        );
-
-        container.addView(title);
-        addTopMargin(container, message, 8);
-        addTopMargin(container, currentPassword, 20);
-        addTopMargin(container, newPassword, 12);
-        addTopMargin(container, confirmPassword, 12);
-        addTopMargin(container, submitButton, 20);
-        addTopMargin(container, cancelButton, 10);
-
-        dialog.setContentView(container);
-
-        cancelButton.setOnClickListener(
-                view -> dialog.dismiss()
-        );
-
-        submitButton.setOnClickListener(view ->
-                changePassword(
-                        dialog,
-                        currentPassword,
-                        newPassword,
-                        confirmPassword,
-                        submitButton,
-                        cancelButton
-                )
-        );
-
-        showSizedDialog(dialog);
+    if (passwordLoading) {
+        return;
     }
+
+    Dialog dialog = createBaseDialog();
+
+    LinearLayout container =
+            createDialogContainer();
+
+    /*
+     * Password dialog ကိုသာ compact ဖြစ်အောင်လုပ်ထားသည်။
+     * Logout dialog နှင့် အခြား dialog များကို မထိခိုက်ပါ။
+     */
+    container.setPadding(
+            dp(19),
+            dp(19),
+            dp(19),
+            dp(17)
+    );
+
+    TextView title = createText(
+            "Change Password",
+            19,
+            Color.WHITE,
+            true
+    );
+
+    TextView message = createText(
+            "လက်ရှိ Password နဲ့ Password အသစ်ကို ထည့်ပါ။",
+            12,
+            Color.parseColor("#A8ADB8"),
+            false
+    );
+
+    EditText currentPassword =
+            createPasswordInput(
+                    "Current password"
+            );
+
+    EditText newPassword =
+            createPasswordInput(
+                    "New password"
+            );
+
+    EditText confirmPassword =
+            createPasswordInput(
+                    "Confirm new password"
+            );
+
+    Button submitButton = createDialogButton(
+            "Change Password",
+            Color.parseColor("#079E86")
+    );
+
+    Button cancelButton = createDialogButton(
+            "Cancel",
+            Color.parseColor("#2A2D35")
+    );
+
+    /*
+     * ဒီ dialog ထဲက input/button များကိုသာ
+     * 54dp မှ 48dp သို့ လျှော့ထားသည်။
+     */
+    currentPassword.getLayoutParams().height =
+            dp(48);
+
+    newPassword.getLayoutParams().height =
+            dp(48);
+
+    confirmPassword.getLayoutParams().height =
+            dp(48);
+
+    submitButton.getLayoutParams().height =
+            dp(48);
+
+    cancelButton.getLayoutParams().height =
+            dp(48);
+
+    container.addView(title);
+    addTopMargin(container, message, 6);
+    addTopMargin(container, currentPassword, 15);
+    addTopMargin(container, newPassword, 9);
+    addTopMargin(container, confirmPassword, 9);
+    addTopMargin(container, submitButton, 15);
+    addTopMargin(container, cancelButton, 8);
+
+    dialog.setContentView(container);
+
+    cancelButton.setOnClickListener(
+            view -> dialog.dismiss()
+    );
+
+    submitButton.setOnClickListener(view ->
+            changePassword(
+                    dialog,
+                    currentPassword,
+                    newPassword,
+                    confirmPassword,
+                    submitButton,
+                    cancelButton
+            )
+    );
+
+    showSizedDialog(
+            dialog,
+            0.84f,
+            370
+    );
+}
+
 
     private void changePassword(
             Dialog dialog,
@@ -1078,44 +1113,64 @@ bindVipState(
     }
 
     private void showSizedDialog(
-            Dialog dialog
-    ) {
-        dialog.show();
+        Dialog dialog
+) {
+    /*
+     * Logout dialog အတွက် မူရင်း size ကို
+     * မပြောင်းဘဲ ဆက်သုံးမည်။
+     */
+    showSizedDialog(
+            dialog,
+            0.88f,
+            400
+    );
+}
 
-        Window window =
-                dialog.getWindow();
+private void showSizedDialog(
+        Dialog dialog,
+        float widthFraction,
+        int maximumWidthDp
+) {
+    dialog.show();
 
-        if (window == null) {
-            return;
-        }
+    Window window =
+            dialog.getWindow();
 
-        int screenWidth =
-                getResources()
-                        .getDisplayMetrics()
-                        .widthPixels;
-
-        int dialogWidth =
-                Math.min(
-                        (int) (screenWidth * 0.88f),
-                        dp(400)
-                );
-
-        window.setLayout(
-                dialogWidth,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-
-        android.view.WindowManager.LayoutParams attributes =
-                window.getAttributes();
-
-        attributes.dimAmount = 0.76f;
-        window.setAttributes(attributes);
-
-        window.addFlags(
-                android.view.WindowManager.LayoutParams
-                        .FLAG_DIM_BEHIND
-        );
+    if (window == null) {
+        return;
     }
+
+    int screenWidth =
+            getResources()
+                    .getDisplayMetrics()
+                    .widthPixels;
+
+    int dialogWidth =
+            Math.min(
+                    (int) (
+                            screenWidth *
+                                    widthFraction
+                    ),
+                    dp(maximumWidthDp)
+            );
+
+    window.setLayout(
+            dialogWidth,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+    );
+
+    android.view.WindowManager.LayoutParams attributes =
+            window.getAttributes();
+
+    attributes.dimAmount = 0.76f;
+    window.setAttributes(attributes);
+
+    window.addFlags(
+            android.view.WindowManager.LayoutParams
+                    .FLAG_DIM_BEHIND
+    );
+}
+
 
     private int dp(int value) {
         return Math.round(
