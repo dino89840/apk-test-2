@@ -223,23 +223,27 @@ public void onBindViewHolder(
                 .load(posterUrl)
 
                 /*
-                 * ပုံကို crop မလုပ်ဘဲ poster အပြည့်ပြမည်။
-                 * XML ရဲ့ fitCenter နဲ့အတူထားခြင်းဖြင့်
-                 * ပုံ ratio မတူသော်လည်း ခေါင်း/အောက်ပိုင်း
-                 * မပြတ်တော့ပါ။
+                 * Glide က ImageView scaleType ကိုကြည့်ပြီး
+                 * fitCenter/centerCrop transformation
+                 * အလိုအလျောက်ထည့်ခြင်းကိုပိတ်ထားသည်။
+                 *
+                 * Poster crop alignment ကို
+                 * TopCropImageView က တာဝန်ယူမည်။
                  */
-                .fitCenter()
+                .dontTransform()
 
                 /*
-                 * Original poster ကြီးလွန်းလျှင်
-                 * မူရင်း resolution အတိုင်း decode မလုပ်ဘဲ
-                 * grid အတွက်လုံလောက်သော size သုံးမည်။
+                 * Original poster resolution ကြီးလွန်းလျှင်
+                 * grid အတွက်လုံလောက်သော resolution ဖြင့်
+                 * decode လုပ်ပြီး memory အသုံးပြုမှုလျှော့မည်။
+                 *
+                 * Poster frame သည် 2:3 ratio ဖြစ်သည်။
                  */
                 .override(480, 720)
 
                 /*
-                 * RGB_565 သုံးခြင်းဖြင့် poster bitmap memory ကို
-                 * ARGB_8888 ထက် လျှော့သုံးနိုင်သည်။
+                 * Poster ပုံများအတွက် RGB_565 သုံးခြင်းဖြင့်
+                 * bitmap memory အသုံးပြုမှုကိုလျှော့မည်။
                  */
                 .format(
                         DecodeFormat.PREFER_RGB_565
@@ -247,7 +251,7 @@ public void onBindViewHolder(
 
                 /*
                  * Network poster များကို memory/disk cache မှ
-                 * ပြန်သုံးနိုင်စေရန်။
+                 * ပြန်လည်အသုံးပြုနိုင်စေရန်။
                  */
                 .diskCacheStrategy(
                         DiskCacheStrategy.AUTOMATIC
@@ -257,12 +261,8 @@ public void onBindViewHolder(
                 .error(R.color.card_bg)
 
                 /*
-                 * Image အသစ် load ပြီးချိန်မှာ 180ms အတွင်း
-                 * အနည်းငယ်နူးညံ့စွာ ပေါ်လာမည်။
-                 *
-                 * Memory cache မှလာသောပုံမှာ Glide က transition
-                 * မလုပ်သောကြောင့် ပြန် scroll လုပ်ချိန်မှာ
-                 * animation မကြာခဏထပ်မဖြစ်ပါ။
+                 * Poster load ပြီးချိန်တွင် နူးညံ့စွာ
+                 * ပေါ်လာစေရန် cross-fade သုံးမည်။
                  */
                 .transition(
                         DrawableTransitionOptions
