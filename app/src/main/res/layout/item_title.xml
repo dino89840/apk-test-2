@@ -13,22 +13,27 @@
     android:foreground="?android:attr/selectableItemBackground"
     android:orientation="vertical">
 
-    <!-- Poster ကို မူရင်း 238dp မှ 225dp သို့ အနည်းငယ်တိုထားသည် -->
-    <FrameLayout
-        android:layout_width="match_parent"
-        android:layout_height="225dp"
-        android:background="@drawable/poster_rounded_bg"
-        android:clipChildren="true"
-        android:clipToOutline="true"
-        android:outlineProvider="background">
+    <!--
+    Poster ကို screen width အလိုက် 2:3 ratio ဖြင့်
+    အလိုအလျောက်တိုင်းပေးမည်။
+-->
+<com.cmflix.nativeapp.PosterAspectFrameLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/poster_rounded_bg"
+    android:clipChildren="true"
+    android:clipToOutline="true"
+    android:outlineProvider="background">
+
 
         <ImageView
-            android:id="@+id/poster"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="#20232A"
-            android:contentDescription="Movie poster"
-            android:scaleType="centerCrop" />
+    android:id="@+id/poster"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#20232A"
+    android:contentDescription="Movie poster"
+    android:scaleType="fitCenter" />
+
 
         <TextView
             android:id="@+id/vipRibbon"
@@ -76,7 +81,8 @@
             android:progressTint="@color/brand_red"
             android:visibility="gone" />
 
-    </FrameLayout>
+    </com.cmflix.nativeapp.PosterAspectFrameLayout>
+
 
     <!-- Movie name သီးသန့်သာ ပြမည် -->
     <TextView
