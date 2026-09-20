@@ -30,7 +30,7 @@
             android:layout_gravity="center"
             android:gravity="center"
             android:text="✓"
-            android:textColor="#17130A"
+            android:textColor="#FFFFFF"
             android:textSize="28sp"
             android:textStyle="bold" />
 
