@@ -13,12 +13,20 @@ public class CmflixApplication
             Color.parseColor("#090B10");
 
     @Override
-    public void onCreate() {
-        super.onCreate();
+public void onCreate() {
+    super.onCreate();
 
-        LocalStore.initialize(this);
-        registerActivityLifecycleCallbacks(this);
-    }
+    /*
+     * LocalStore က history key ဆောက်ရာမှာ
+     * SessionManager.getUserId() ကိုသုံးမှာဖြစ်သောကြောင့်
+     * SessionManager ကိုအရင် initialize လုပ်ရမည်။
+     */
+    SessionManager.initialize(this);
+    LocalStore.initialize(this);
+
+    registerActivityLifecycleCallbacks(this);
+}
+
 
     public static void applyTheme(
             Activity activity
