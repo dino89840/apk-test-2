@@ -119,10 +119,20 @@ private static final long BACK_EXIT_INTERVAL_MS =
         2000L;
 
 
-private static final long PROFILE_CACHE_MS =
-        6L * 60L * 60L * 1000L;
+/*
+ * User-specific profile/VIP data ကို 3/6 နာရီ cache
+ * မလုပ်တော့ပါ။
+ *
+ * Main screen foreground ပြန်ဝင်တိုင်း server ကို refresh
+ * လုပ်မည်။ Lifecycle callback ဆက်တိုက်ဝင်လာလျှင် request
+ * duplicate မဖြစ်အောင် 15 seconds throttle သာထားမည်။
+ */
+private static final long
+        PROFILE_REFRESH_MIN_INTERVAL_MS =
+        15L * 1000L;
 
 private boolean profileRefreshInFlight = false;
+private long lastProfileRefreshAttemptAt = 0L;
 
 
     private TitleAdapter adapter;
@@ -174,18 +184,38 @@ private final Set<String>
                     result -> {
     updateAccountButtons();
 
-    PremiumExpiryDialog.showIfNeeded(
-            MainActivity.this
-    );
+PremiumExpiryDialog.showIfNeeded(
+        MainActivity.this
+);
+
+if (
+        result.getResultCode() ==
+                RESULT_OK
+) {
+    /*
+     * Account အသစ်နဲ့ login ဝင်ပြီးတာနဲ့
+     * Continue/Recent/Downloads/Favorites ကို
+     * account အသစ် data ဖြင့်ပြန်ဆွဲမည်။
+     */
+    refreshLocalCategoryCounts();
+    refreshCategoryLabels();
 
     if (
+            isLocalCategory(category) ||
+            "favorites".equals(category)
+    ) {
+        resetAndLoad();
+    }
 
-                                result.getResultCode()
-                                        == RESULT_OK &&
-                                "favorites".equals(category)
-                        ) {
-                            resetAndLoad();
-                        }
+    /*
+     * Login response မှာ VIP state ပါပြီးသားဖြစ်သော်လည်း
+     * foreground state ကို server နဲ့ sync ထပ်လုပ်နိုင်ရန်
+     * throttle time ကို reset လုပ်မည်။
+     */
+    lastProfileRefreshAttemptAt = 0L;
+    refreshProfileIfNeeded();
+}
+
                     }
             );
 
@@ -1439,75 +1469,145 @@ private void openLogin() {
 private void refreshProfileIfNeeded() {
     if (
             !SessionManager.isLoggedIn() ||
-            profileRefreshInFlight ||
-            !SessionManager.isProfileRefreshDue(
-                    PROFILE_CACHE_MS
-            )
+            profileRefreshInFlight
     ) {
         return;
     }
 
+    long now =
+            System.currentTimeMillis();
+
+    /*
+     * onCreate/onResume callback များ ဆက်တိုက်ဝင်လာလျှင်
+     * duplicate request မဖြစ်စေရန်သာ 15 seconds throttle။
+     *
+     * VIP state ကို နာရီပေါင်းများစွာ cache မလုပ်တော့ပါ။
+     */
+    if (
+            lastProfileRefreshAttemptAt > 0L &&
+            now - lastProfileRefreshAttemptAt <
+                    PROFILE_REFRESH_MIN_INTERVAL_MS
+    ) {
+        return;
+    }
+
+    lastProfileRefreshAttemptAt = now;
     profileRefreshInFlight = true;
 
     ApiClient.get(
             "auth/me",
             new ApiClient.Callback() {
                 @Override
-                public void onSuccess(JSONObject json) {
+                public void onSuccess(
+                        JSONObject json
+                ) {
                     runOnUiThread(() -> {
                         profileRefreshInFlight = false;
 
                         JSONObject user =
-                                json.optJSONObject("user");
+                                json.optJSONObject(
+                                        "user"
+                                );
 
                         /*
-                         * user == null ဆိုတာ session တကယ်
-                         * သက်တမ်းကုန်/ဖျက်ခံထားရတာဖြစ်သည်။
-                         * VIP ပဲ cancel ခံရရင် user object
-                         * ရှိနေပြီး vipUntil = 0 ဖြစ်ရမည်။
+                         * Password reset/device reset က server
+                         * session ဖျက်ထားလျှင် user == null
+                         * ပြန်လာမည်။
                          */
                         if (user == null) {
                             SessionManager.clear();
+
                             updateAccountButtons();
+                            refreshLocalCategoryCounts();
+                            refreshCategoryLabels();
+
+                            /*
+                             * Account session မရှိတော့သောကြောင့်
+                             * လက်ရှိ Continue/Recent/Download screen
+                             * ကို guest namespace ဖြင့်ပြန်ဆွဲမည်။
+                             */
+                            if (isLocalCategory(category)) {
+                                resetAndLoad();
+                            }
+
                             return;
                         }
 
-                        String csrf =
-                                json.optString(
-                                        "csrf",
-                                        SessionManager.getCsrf()
+                        String previousUserId =
+                                SessionManager.getUserId();
+
+                        String currentUserId =
+                                user.optString(
+                                        "id",
+                                        ""
+                                ).trim();
+
+                        long vipUntil =
+                                user.optLong(
+                                        "vipUntil",
+                                        0L
+                                );
+
+                        String planType =
+                                user.optString(
+                                        "planType",
+                                        vipUntil >
+                                                System.currentTimeMillis()
+                                                ? "premium"
+                                                : "free"
                                 );
 
                         SessionManager.saveAuth(
-        csrf,
-        user.optString(
-                "username",
-                SessionManager.getUsername()
-        ),
-        user.optString(
-                "email",
-                SessionManager.getEmail()
-        ),
-        user.optLong(
-                "vipUntil",
-                0L
-        ),
-        user.optInt(
-                "planMonths",
-                0
-        )
-);
-
+                                currentUserId,
+                                json.optString(
+                                        "csrf",
+                                        SessionManager.getCsrf()
+                                ),
+                                user.optString(
+                                        "username",
+                                        SessionManager.getUsername()
+                                ),
+                                user.optString(
+                                        "email",
+                                        SessionManager.getEmail()
+                                ),
+                                vipUntil,
+                                user.optInt(
+                                        "planMonths",
+                                        0
+                                ),
+                                planType
+                        );
 
                         updateAccountButtons();
+
+                        /*
+                         * Account ပြောင်းသွားလျှင် Continue/Recent
+                         * list ကို account အသစ် namespace နဲ့
+                         * ချက်ချင်းပြန်ဆွဲမည်။
+                         */
+                        if (
+                                !previousUserId.equals(
+                                        currentUserId
+                                )
+                        ) {
+                            refreshLocalCategoryCounts();
+                            refreshCategoryLabels();
+
+                            if (isLocalCategory(category)) {
+                                resetAndLoad();
+                            }
+                        }
                     });
                 }
 
                 @Override
-                public void onError(Exception error) {
+                public void onError(
+                        Exception error
+                ) {
                     /*
-                     * Network error ဖြစ်ရုံနဲ့ session မရှင်းပါ။
-                     * Cached information ကိုဆက်ပြမယ်။
+                     * Internet မရှိရုံနဲ့ local session ကို
+                     * မဖျက်ပါ။
                      */
                     runOnUiThread(() ->
                             profileRefreshInFlight = false
@@ -1516,6 +1616,7 @@ private void refreshProfileIfNeeded() {
             }
     );
 }
+
 
 
         
