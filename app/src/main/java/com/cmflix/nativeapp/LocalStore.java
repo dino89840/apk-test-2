@@ -64,25 +64,109 @@ public final class LocalStore {
         return preferences;
     }
 
-    private static JSONArray readArray(String key) {
-        try {
-            return new JSONArray(
-                    prefs().getString(key, "[]")
-            );
-        } catch (Exception ignored) {
-            return new JSONArray();
-        }
+    /*
+ * History နဲ့ download data များကို account တစ်ခုချင်းစီ
+ * အလိုက်ခွဲမည်။
+ *
+ * Search history က account-sensitive မဟုတ်သောကြောင့်
+ * device-level key အတိုင်းဆက်သုံးမည်။
+ */
+private static boolean isAccountScopedKey(
+        String key
+) {
+    return KEY_HISTORY.equals(key) ||
+            KEY_DOWNLOADS.equals(key);
+}
+
+/*
+ * ဥပမာ:
+ *
+ * view_history::user-uuid
+ * download_history::user-uuid
+ *
+ * Login မရှိလျှင် guest namespace သုံးမည်။
+ */
+private static String storageKey(
+        String key
+) {
+    if (!isAccountScopedKey(key)) {
+        return key;
     }
 
-    private static void saveArray(
-            String key,
-            JSONArray array
+    String userId =
+            SessionManager.getUserId();
+
+    String owner =
+            userId == null ||
+            userId.trim().isEmpty()
+                    ? "guest"
+                    : userId.trim();
+
+    String scopedKey =
+            key + "::" + owner;
+
+    /*
+     * App version အဟောင်းက unscoped key ဖြင့်သိမ်းထားသော
+     * history ရှိနိုင်သည်။
+     *
+     * Upgrade လုပ်ချိန်မှာ လက်ရှိ login ဝင်ထားသော account
+     * namespace ထဲသို့ တစ်ကြိမ်သာ migrate လုပ်မည်။
+     */
+    if (
+            !prefs().contains(scopedKey) &&
+            prefs().contains(key)
     ) {
+        String legacyValue =
+                prefs().getString(
+                        key,
+                        "[]"
+                );
+
         prefs()
                 .edit()
-                .putString(key, array.toString())
+                .putString(
+                        scopedKey,
+                        legacyValue == null
+                                ? "[]"
+                                : legacyValue
+                )
+                .remove(key)
                 .apply();
     }
+
+    return scopedKey;
+}
+
+private static JSONArray readArray(
+        String key
+) {
+    try {
+        return new JSONArray(
+                prefs().getString(
+                        storageKey(key),
+                        "[]"
+                )
+        );
+    } catch (Exception ignored) {
+        return new JSONArray();
+    }
+}
+
+private static void saveArray(
+        String key,
+        JSONArray array
+) {
+    prefs()
+            .edit()
+            .putString(
+                    storageKey(key),
+                    array == null
+                            ? "[]"
+                            : array.toString()
+            )
+            .apply();
+}
+
 
     private static String itemId(JSONObject item) {
         if (item == null) {
