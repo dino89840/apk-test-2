@@ -17,10 +17,19 @@ public final class SessionManager {
             "cookie";
 
     private static final String KEY_CSRF =
-            "csrf";
+        "csrf";
 
-    private static final String KEY_USERNAME =
-            "username";
+/*
+ * Continue Watching, Recent, Download History စတာတွေကို
+ * account တစ်ခုချင်းစီအလိုက် ခွဲသိမ်းရန် server user ID
+ * ကို local session ထဲ သိမ်းထားမည်။
+ */
+private static final String KEY_USER_ID =
+        "user_id";
+
+private static final String KEY_USERNAME =
+        "username";
+
 
     private static final String KEY_EMAIL =
             "email";
@@ -233,6 +242,17 @@ public static void updateRememberedPassword(
 
         return value == null ? "" : value;
     }
+public static String getUserId() {
+    String value =
+            prefs().getString(
+                    KEY_USER_ID,
+                    ""
+            );
+
+    return value == null
+            ? ""
+            : value.trim();
+}
 
     public static String getUsername() {
         String value =
@@ -372,61 +392,93 @@ public static void updateRememberedPassword(
     }
 
     /*
-     * Main method:
-     * server ပြန်ပေးသော planType ပါသိမ်းရန်။
-     */
-    public static void saveAuth(
-            String csrf,
-            String username,
-            String email,
-            long vipUntil,
-            int vipPlanMonths,
-            String vipPlanType
-    ) {
-        boolean active =
-                vipUntil >
-                        System.currentTimeMillis();
+ * Server user ID ပါသော main saveAuth method။
+ *
+ * User ID ကို local history namespace အတွက် အသုံးပြုမည်။
+ */
+public static void saveAuth(
+        String userId,
+        String csrf,
+        String username,
+        String email,
+        long vipUntil,
+        int vipPlanMonths,
+        String vipPlanType
+) {
+    boolean active =
+            vipUntil >
+                    System.currentTimeMillis();
 
-        String normalizedPlanType =
-                normalizePlanType(
-                        vipPlanType,
-                        active
-                );
+    String normalizedPlanType =
+            normalizePlanType(
+                    vipPlanType,
+                    active
+            );
 
-        prefs()
-                .edit()
-                .putString(
-                        KEY_CSRF,
-                        csrf == null ? "" : csrf
-                )
-                .putString(
-                        KEY_USERNAME,
-                        username == null ? "" : username
-                )
-                .putString(
-                        KEY_EMAIL,
-                        email == null ? "" : email
-                )
-                .putLong(
-                        KEY_VIP_UNTIL,
-                        Math.max(0L, vipUntil)
-                )
-                .putInt(
-                        KEY_VIP_PLAN_MONTHS,
-                        active
-                                ? Math.max(0, vipPlanMonths)
-                                : 0
-                )
-                .putString(
-                        KEY_VIP_PLAN_TYPE,
-                        normalizedPlanType
-                )
-                .putLong(
-                        KEY_PROFILE_SYNCED_AT,
-                        System.currentTimeMillis()
-                )
-                .apply();
-    }
+    prefs()
+            .edit()
+            .putString(
+                    KEY_USER_ID,
+                    userId == null
+                            ? ""
+                            : userId.trim()
+            )
+            .putString(
+                    KEY_CSRF,
+                    csrf == null ? "" : csrf
+            )
+            .putString(
+                    KEY_USERNAME,
+                    username == null ? "" : username
+            )
+            .putString(
+                    KEY_EMAIL,
+                    email == null ? "" : email
+            )
+            .putLong(
+                    KEY_VIP_UNTIL,
+                    Math.max(0L, vipUntil)
+            )
+            .putInt(
+                    KEY_VIP_PLAN_MONTHS,
+                    active
+                            ? Math.max(0, vipPlanMonths)
+                            : 0
+            )
+            .putString(
+                    KEY_VIP_PLAN_TYPE,
+                    normalizedPlanType
+            )
+            .putLong(
+                    KEY_PROFILE_SYNCED_AT,
+                    System.currentTimeMillis()
+            )
+            .apply();
+}
+
+/*
+ * အရင် code တွေ compile မပျက်စေရန် backward-compatible
+ * overload ကိုထားမည်။
+ */
+public static void saveAuth(
+        String csrf,
+        String username,
+        String email,
+        long vipUntil,
+        int vipPlanMonths,
+        String vipPlanType
+) {
+    saveAuth(
+            getUserId(),
+            csrf,
+            username,
+            email,
+            vipUntil,
+            vipPlanMonths,
+            vipPlanType
+    );
+}
+
 
     /*
      * အဟောင်း 5-parameter calls တွေ build မပျက်ရန်။
