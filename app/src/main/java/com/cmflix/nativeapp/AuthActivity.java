@@ -632,13 +632,27 @@ ApiClient.post(
                 ).trim();
 
         SessionManager.saveAuth(
-                json.optString("csrf", ""),
-                responseUsername,
-                user.optString("email", ""),
-                vipUntil,
-                user.optInt("planMonths", 0),
-                planType
-        );
+        user.optString(
+                "id",
+                ""
+        ),
+        json.optString(
+                "csrf",
+                ""
+        ),
+        responseUsername,
+        user.optString(
+                "email",
+                ""
+        ),
+        vipUntil,
+        user.optInt(
+                "planMonths",
+                0
+        ),
+        planType
+);
+
 
         if (!requestWasRegister) {
             SessionManager.saveRememberedLogin(
