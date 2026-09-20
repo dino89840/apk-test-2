@@ -40,8 +40,6 @@ private TextView expiryText;
 private EditText promoCodeInput;
 private Button promoRedeemButton;
 private boolean promoLoading = false;
-private static final long PROFILE_CACHE_MS =
-        3L * 60L * 60L * 1000L;
 
 
 
@@ -69,21 +67,14 @@ bindCachedProfile();
 setupClickListeners();
 
 /*
- * Login / promo redeem / previous profile sync ကနေ
- * ရထားပြီးသား profile information သက်တမ်း
- * ၆ နာရီမပြည့်သေးလျှင် auth/me ကို ထပ်မခေါ်ပါ။
+ * Profile screen က user-specific information ဖြစ်သောကြောင့်
+ * ဖွင့်တိုင်း server ကနေ လက်ရှိ VIP/password-reset/
+ * device-reset state ကိုပြန်စစ်မည်။
  *
- * Cache ဟောင်းသွားမှ server နဲ့ sync ပြန်လုပ်မည်။
+ * Cached profile ကို bindCachedProfile() က ချက်ချင်းပြထားပြီး
+ * server response ရောက်လျှင် update လုပ်မည်။
  */
-if (
-        SessionManager.isProfileRefreshDue(
-                PROFILE_CACHE_MS
-        )
-) {
-    loadProfile();
-} else {
-    progress.setVisibility(View.GONE);
-}
+loadProfile();
 
     }
 
@@ -256,6 +247,10 @@ String planType =
         );
 
 SessionManager.saveAuth(
+        user.optString(
+                "id",
+                SessionManager.getUserId()
+        ),
         json.optString(
                 "csrf",
                 SessionManager.getCsrf()
