@@ -17,6 +17,7 @@ import com.bumptech.glide.Glide;
 import com.bumptech.glide.RequestBuilder;
 import com.bumptech.glide.load.DecodeFormat;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
 
 import org.json.JSONObject;
 
@@ -220,23 +221,34 @@ public void onBindViewHolder(
         RequestBuilder<?> posterRequest =
         Glide.with(holder.poster)
                 .load(posterUrl)
-                .centerCrop()
 
                 /*
-                 * Poster resolution အလွန်ကြီးသော image ကို
-                 * မူရင်းအရွယ်အစားအတိုင်း decode မလုပ်ရန်။
+                 * ပုံကို crop မလုပ်ဘဲ poster အပြည့်ပြမည်။
+                 * XML ရဲ့ fitCenter နဲ့အတူထားခြင်းဖြင့်
+                 * ပုံ ratio မတူသော်လည်း ခေါင်း/အောက်ပိုင်း
+                 * မပြတ်တော့ပါ။
+                 */
+                .fitCenter()
+
+                /*
+                 * Original poster ကြီးလွန်းလျှင်
+                 * မူရင်း resolution အတိုင်း decode မလုပ်ဘဲ
+                 * grid အတွက်လုံလောက်သော size သုံးမည်။
                  */
                 .override(480, 720)
 
                 /*
-                 * Poster များအတွက် RGB_565 သုံးခြင်းဖြင့်
-                 * bitmap memory ကို အကြမ်းဖျင်း တစ်ဝက်ခန့်
-                 * လျှော့နိုင်သည်။
+                 * RGB_565 သုံးခြင်းဖြင့် poster bitmap memory ကို
+                 * ARGB_8888 ထက် လျှော့သုံးနိုင်သည်။
                  */
                 .format(
                         DecodeFormat.PREFER_RGB_565
                 )
 
+                /*
+                 * Network poster များကို memory/disk cache မှ
+                 * ပြန်သုံးနိုင်စေရန်။
+                 */
                 .diskCacheStrategy(
                         DiskCacheStrategy.AUTOMATIC
                 )
@@ -245,10 +257,17 @@ public void onBindViewHolder(
                 .error(R.color.card_bg)
 
                 /*
-                 * Grid scroll လုပ်ချိန် poster အများကြီး
-                 * cross-fade မလုပ်စေရန်။
+                 * Image အသစ် load ပြီးချိန်မှာ 180ms အတွင်း
+                 * အနည်းငယ်နူးညံ့စွာ ပေါ်လာမည်။
+                 *
+                 * Memory cache မှလာသောပုံမှာ Glide က transition
+                 * မလုပ်သောကြောင့် ပြန် scroll လုပ်ချိန်မှာ
+                 * animation မကြာခဏထပ်မဖြစ်ပါ။
                  */
-                .dontAnimate();
+                .transition(
+                        DrawableTransitionOptions
+                                .withCrossFade(180)
+                );
 
 
         /*
