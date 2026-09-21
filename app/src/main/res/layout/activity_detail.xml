@@ -177,53 +177,40 @@
 
 
             <LinearLayout
-    android:id="@+id/mainActions"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_marginTop="16dp"
-    android:orientation="vertical">
+                android:id="@+id/mainActions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:orientation="vertical">
 
-    <Button
-        android:id="@+id/playButton"
-        android:layout_width="match_parent"
-        android:layout_height="40dp"
-        android:background="@drawable/play_button_bg"
-        android:backgroundTint="@null"
-        android:elevation="0dp"
-        android:gravity="center"
-        android:minHeight="0dp"
-        android:minWidth="0dp"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:text="▶  PLAY"
-        android:textAllCaps="false"
-        android:textColor="@color/white"
-        android:textSize="15sp"
-        android:textStyle="bold"
-        android:visibility="gone" />
+                <Button
+                    android:id="@+id/playButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:backgroundTint="@color/brand_red"
+                    android:minHeight="0dp"
+                    android:text="▶  PLAY"
+                    android:textAllCaps="false"
+                    android:textColor="@color/white"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
 
-    <Button
-        android:id="@+id/downloadButton"
-        android:layout_width="match_parent"
-        android:layout_height="40dp"
-        android:layout_marginTop="8dp"
-        android:background="@drawable/download_button_bg"
-        android:backgroundTint="@null"
-        android:elevation="0dp"
-        android:gravity="center"
-        android:minHeight="0dp"
-        android:minWidth="0dp"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:text="↓  DOWNLOAD"
-        android:textAllCaps="false"
-        android:textColor="@color/white"
-        android:textSize="15sp"
-        android:textStyle="bold"
-        android:visibility="gone" />
+                <Button
+                    android:id="@+id/downloadButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="8dp"
+                    android:backgroundTint="@color/card_bg"
+                    android:minHeight="0dp"
+                    android:text="↓  DOWNLOAD"
+                    android:textAllCaps="false"
+                    android:textColor="@color/white"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
 
-</LinearLayout>
-
+            </LinearLayout>
 
             <!--
                 Java code က shareButton နဲ့ telegramButton ID တွေကို
