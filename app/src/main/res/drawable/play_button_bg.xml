@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- နှိပ်ထားချိန် -->
+    <item android:state_pressed="true">
+        <shape android:shape="rectangle">
+
+            <gradient
+                android:angle="0"
+                android:startColor="@color/play_pressed_start"
+                android:endColor="@color/play_pressed_end"
+                android:type="linear" />
+
+            <corners android:radius="9dp" />
+
+        </shape>
+    </item>
+
+    <!-- ပုံမှန်အခြေအနေ -->
+    <item>
+        <shape android:shape="rectangle">
+
+            <gradient
+                android:angle="0"
+                android:startColor="@color/play_gradient_start"
+                android:endColor="@color/play_gradient_end"
+                android:type="linear" />
+
+            <corners android:radius="9dp" />
+
+        </shape>
+    </item>
+
+</selector>
