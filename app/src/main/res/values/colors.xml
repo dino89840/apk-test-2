@@ -4,10 +4,25 @@
     <color name="black">#000000</color>
     <color name="white">#FFFFFF</color>
 
-    <color name="dark_bg">#090B10</color>
-    <color name="card_bg">#151820</color>
+    <!-- ပုံ (၁) နှင့်နီးစပ်သော app background -->
+    <color name="dark_bg">#272730</color>
 
-    <color name="gray_text">#A8ADB8</color>
+    <!-- Cards နှင့် secondary surfaces -->
+    <color name="card_bg">#34343E</color>
+
+    <color name="gray_text">#B8B8C2</color>
     <color name="brand_red">#E50914</color>
+
+    <!-- Play button gradient -->
+    <color name="play_gradient_start">#4052F4</color>
+    <color name="play_gradient_end">#1598F5</color>
+
+    <!-- Play button နှိပ်ထားချိန် -->
+    <color name="play_pressed_start">#3545D8</color>
+    <color name="play_pressed_end">#1281D5</color>
+
+    <!-- Download button -->
+    <color name="download_button">#383842</color>
+    <color name="download_button_pressed">#484854</color>
 
 </resources>
