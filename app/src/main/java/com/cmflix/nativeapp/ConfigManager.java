@@ -23,7 +23,8 @@ public final class ConfigManager {
      * ဒီတစ်နေရာတည်းမှာသာ သတ်မှတ်ထားသည်။
      */
     private static final String CONFIG_URL =
-            "raw.githubusercontent.com/cmflix/cmflix/main/config.json";
+            "https://raw.githubusercontent.com/" +
+                    "cmflix/cmflix/refs/main/config.json";
 
     private static final long CONFIG_CACHE_TTL_MS =
             24L * 60L * 60L * 1000L;
