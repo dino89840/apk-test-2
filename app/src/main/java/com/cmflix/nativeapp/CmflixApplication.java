@@ -18,11 +18,27 @@ public void onCreate() {
 
     /*
      * LocalStore က history key ဆောက်ရာမှာ
-     * SessionManager.getUserId() ကိုသုံးမှာဖြစ်သောကြောင့်
-     * SessionManager ကိုအရင် initialize လုပ်ရမည်။
+     * SessionManager.getUserId() ကိုသုံးသောကြောင့်
+     * SessionManager ကိုအရင် initialize လုပ်မည်။
      */
     SessionManager.initialize(this);
     LocalStore.initialize(this);
+
+    /*
+     * Cached config ကို memory ထဲ load လုပ်ပြီး
+     * cache မရှိလျှင် သို့မဟုတ် 24 hours ကျော်လျှင်
+     * GitHub config ကို background မှာ refresh လုပ်မည်။
+     */
+    ConfigManager.initialize(this);
+
+    /*
+     * API public cache နဲ့ SessionManager initialization ကို
+     * application startup မှာ centralized လုပ်ထားမည်။
+     *
+     * Activity တွေထဲက existing initialize calls တွေက
+     * idempotent ဖြစ်လို့ မဖျက်လည်းရသည်။
+     */
+    ApiClient.initialize(this);
 
     registerActivityLifecycleCallbacks(this);
 }
