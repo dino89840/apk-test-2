@@ -53,11 +53,7 @@ android {
                         .replace("\"", "\\\"")}\""
         )
 
-        buildConfigField(
-                "String",
-                "API_BASE_URL",
-                "\"https://kkflix.xubi.org/api/\""
-        )
+        
     }
 
     buildFeatures {
