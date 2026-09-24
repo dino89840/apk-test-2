@@ -435,9 +435,15 @@ private static String cacheKey(
             HttpURLConnection connection = null;
 
             try {
-                URL url = new URL(
-                        BuildConfig.API_BASE_URL + path
-                );
+                String apiBaseUrl =
+        ConfigManager.requireApiBaseUrl();
+
+URL url =
+        new URL(
+                apiBaseUrl +
+                        normalizePath(path)
+        );
+
 
                 connection =
                         (HttpURLConnection) url.openConnection();
@@ -642,6 +648,25 @@ private static String cacheKey(
             return body.toString();
         }
     }
+private static String normalizePath(
+        String path
+) {
+    if (path == null) {
+        return "";
+    }
+
+    String normalized =
+            path.trim();
+
+    while (
+            normalized.startsWith("/")
+    ) {
+        normalized =
+                normalized.substring(1);
+    }
+
+    return normalized;
+}
 
     public static String encode(String value) {
         try {
