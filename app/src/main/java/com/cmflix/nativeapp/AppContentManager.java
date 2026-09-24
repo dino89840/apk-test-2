@@ -413,11 +413,15 @@ public final class AppContentManager {
             );
         }
 
-        URL url =
-                new URL(
-                        BuildConfig.API_BASE_URL +
-                                path
-                );
+        String apiBaseUrl =
+        ConfigManager.requireApiBaseUrl();
+
+URL url =
+        new URL(
+                apiBaseUrl +
+                        normalizePath(path)
+        );
+
 
         HttpURLConnection connection =
                 (HttpURLConnection)
@@ -557,6 +561,25 @@ public final class AppContentManager {
             return result.toString();
         }
     }
+private static String normalizePath(
+        String path
+) {
+    if (path == null) {
+        return "";
+    }
+
+    String normalized =
+            path.trim();
+
+    while (
+            normalized.startsWith("/")
+    ) {
+        normalized =
+                normalized.substring(1);
+    }
+
+    return normalized;
+}
 
     public static void clearCache(
             Context context
