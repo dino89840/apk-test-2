@@ -40,7 +40,18 @@ public final class ApiClient {
  * pagination page-1 cache များကို ပြန်မယူစေရန်ဖြစ်သည်။
  */
 private static final String CACHE_PREFS =
-        "cmflix_public_api_cache_v2";
+        "cmflix_public_api_cache_v3";
+
+private static final String[] LEGACY_CACHE_PREFS = {
+        "cmflix_public_api_cache_v1",
+        "cmflix_public_api_cache_v2"
+};
+
+private static final String CACHE_MIGRATION_PREFS =
+        "cmflix_cache_security_migration";
+
+private static final String KEY_SENSITIVE_CACHE_CLEARED =
+        "sensitive_cache_cleared_v3";
 
 private static SharedPreferences cachePreferences;
 
@@ -50,12 +61,57 @@ private static Context applicationContext;
     public static synchronized void initialize(
         Context context
 ) {
+    if (context == null) {
+        return;
+    }
+
     applicationContext =
             context.getApplicationContext();
 
     SessionManager.initialize(
             applicationContext
     );
+
+    /*
+     * App version အဟောင်းက video_url/download_url ပါသော
+     * detail response များကို SharedPreferences ထဲ
+     * သိမ်းထားနိုင်သောကြောင့် တစ်ကြိမ်ရှင်းမယ်။
+     */
+    SharedPreferences migrationPreferences =
+            applicationContext
+                    .getSharedPreferences(
+                            CACHE_MIGRATION_PREFS,
+                            Context.MODE_PRIVATE
+                    );
+
+    boolean alreadyCleared =
+            migrationPreferences.getBoolean(
+                    KEY_SENSITIVE_CACHE_CLEARED,
+                    false
+            );
+
+    if (!alreadyCleared) {
+        for (String legacyName :
+                LEGACY_CACHE_PREFS) {
+
+            applicationContext
+                    .getSharedPreferences(
+                            legacyName,
+                            Context.MODE_PRIVATE
+                    )
+                    .edit()
+                    .clear()
+                    .commit();
+        }
+
+        migrationPreferences
+                .edit()
+                .putBoolean(
+                        KEY_SENSITIVE_CACHE_CLEARED,
+                        true
+                )
+                .commit();
+    }
 
     if (cachePreferences == null) {
         cachePreferences =
@@ -66,6 +122,7 @@ private static Context applicationContext;
                         );
     }
 }
+
 
 
     public static void get(
@@ -250,20 +307,33 @@ private static boolean isPublicCacheablePath(
         return false;
     }
 
-    String normalized = path.trim();
+    String normalized =
+            path.trim();
 
     /*
-     * Movie detail response ကို cache လုပ်မည်။
+     * titles/{slug} detail response ကို
+     * လုံးဝ cache မလုပ်ပါ။
+     *
+     * အနာဂတ် backend regression တစ်ခုကြောင့်
+     * media URL ပြန်ပါလာခဲ့သော်လည်း XML ထဲ
+     * မသိမ်းမိစေရန်ဖြစ်သည်။
      */
     if (
-            normalized.startsWith("titles/") &&
-            normalized.length() >
-                    "titles/".length()
+            normalized.startsWith(
+                    "titles/"
+            )
     ) {
-        return true;
+        return false;
     }
 
-    if (!normalized.startsWith("titles?")) {
+    /*
+     * Category list page-1 ကိုသာ cache လုပ်မယ်။
+     */
+    if (
+            !normalized.startsWith(
+                    "titles?"
+            )
+    ) {
         return false;
     }
 
@@ -275,7 +345,9 @@ private static boolean isPublicCacheablePath(
     String page = "";
     String search = "";
 
-    for (String part : query.split("&")) {
+    for (String part :
+            query.split("&")) {
+
         int separator =
                 part.indexOf("=");
 
@@ -301,13 +373,126 @@ private static boolean isPublicCacheablePath(
         }
     }
 
-    /*
-     * Category ပထမ page နှင့် search မပါသည့်
-     * request ကိုသာ cache လုပ်မည်။
-     */
     return "1".equals(page) &&
             search.trim().isEmpty();
 }
+private static boolean hasSensitiveMediaValue(
+        JSONObject object
+) {
+    if (object == null) {
+        return false;
+    }
+
+    String[] sensitiveKeys = {
+            "video_url",
+            "download_url",
+            "videoUrl",
+            "downloadUrl",
+            "stream_url",
+            "streamUrl",
+            "playback_url",
+            "playbackUrl"
+    };
+
+    for (String key : sensitiveKeys) {
+        if (!object.has(key)) {
+            continue;
+        }
+
+        Object value =
+                object.opt(key);
+
+        if (
+                value != null &&
+                value != JSONObject.NULL &&
+                !String.valueOf(value)
+                        .trim()
+                        .isEmpty()
+        ) {
+            return true;
+        }
+    }
+
+    JSONArray names =
+            object.names();
+
+    if (names == null) {
+        return false;
+    }
+
+    for (
+            int index = 0;
+            index < names.length();
+            index++
+    ) {
+        String key =
+                names.optString(
+                        index,
+                        ""
+                );
+
+        Object value =
+                object.opt(key);
+
+        if (
+                value instanceof JSONObject &&
+                hasSensitiveMediaValue(
+                        (JSONObject) value
+                )
+        ) {
+            return true;
+        }
+
+        if (
+                value instanceof JSONArray &&
+                hasSensitiveMediaValue(
+                        (JSONArray) value
+                )
+        ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+private static boolean hasSensitiveMediaValue(
+        JSONArray array
+) {
+    if (array == null) {
+        return false;
+    }
+
+    for (
+            int index = 0;
+            index < array.length();
+            index++
+    ) {
+        Object value =
+                array.opt(index);
+
+        if (
+                value instanceof JSONObject &&
+                hasSensitiveMediaValue(
+                        (JSONObject) value
+                )
+        ) {
+            return true;
+        }
+
+        if (
+                value instanceof JSONArray &&
+                hasSensitiveMediaValue(
+                        (JSONArray) value
+                )
+        ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 private static boolean shouldPersistPublicResponse(
         String path,
         JSONObject json
@@ -319,41 +504,46 @@ private static boolean shouldPersistPublicResponse(
         return false;
     }
 
+    /*
+     * Response အတွင်း media URL အစစ်တစ်ခုခုပါလာရင်
+     * ဘယ် endpoint ဖြစ်ဖြစ် disk ထဲမသိမ်းပါ။
+     */
+    if (hasSensitiveMediaValue(json)) {
+        return false;
+    }
+
     String normalized =
             path.trim();
 
     /*
-     * titles/{slug} က movie detail ဖြစ်သောကြောင့်
-     * သတ်မှတ်ထားသော TTL အတိုင်း cache လုပ်နိုင်သည်။
+     * Detail response ကို ဘယ်တော့မှမသိမ်းပါ။
      */
     if (
-            normalized.startsWith("titles/") &&
-            normalized.length() >
-                    "titles/".length()
+            normalized.startsWith(
+                    "titles/"
+            )
     ) {
-        return true;
+        return false;
     }
 
-    /*
-     * Search၊ favorites နှင့် တခြား responses
-     * ကို ဒီ cache ထဲ မထည့်ပါ။
-     */
-    if (!normalized.startsWith("titles?")) {
+    if (
+            !normalized.startsWith(
+                    "titles?"
+            )
+    ) {
         return false;
     }
 
     /*
-     * hasMore=false ဆိုသည်မှာ response တစ်ခုတည်းနဲ့
-     * category အကုန်ပါပြီးသားဖြစ်သည်။
-     *
-     * ဒါကြောင့် cached page 1 + fresh page 2
-     * ရောသွားနိုင်သောအခြေအနေ မရှိတော့ပါ။
+     * Single-page list ဖြစ်ပြီး sensitive media URL
+     * မပါမှသာ cache လုပ်မယ်။
      */
     return !json.optBoolean(
             "hasMore",
             false
     );
 }
+
 
 
 private static String cacheKey(
