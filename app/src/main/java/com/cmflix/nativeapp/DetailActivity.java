@@ -1880,7 +1880,7 @@ private boolean isZeroMetadataValue(
 
     playButton.setEnabled(false);
     playButton.setAlpha(0.6f);
-    playButton.setText("Loading…");
+    playButton.setText("PLAY");
 
     JSONObject body =
             new JSONObject();
