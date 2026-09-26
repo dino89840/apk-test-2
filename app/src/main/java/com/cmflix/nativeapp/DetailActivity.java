@@ -1222,20 +1222,31 @@ if (posterUrl.isEmpty()) {
 
         firstEpisodeId = "";
 
-        firstVideoUrl = item.optString(
-                "video_url",
-                ""
-        );
+        /*
+ * Public detail response မှ media URL မယူတော့ပါ။
+ * PLAY နှိပ်မှ /api/play မှ server-side
+ * authorization ဖြင့်ရယူမယ်။
+ */
+firstVideoUrl = "";
+
 
         firstVideoType = item.optString(
                 "video_type",
                 "auto"
         );
 
-        boolean hasVideo = item.optBoolean(
+        boolean hasVideo =
+        item.optBoolean(
                 "has_video",
-                !firstVideoUrl.isEmpty()
+                false
         );
+
+playButton.setVisibility(
+        hasVideo
+                ? View.VISIBLE
+                : View.GONE
+);
+
 
         if (hasVideo) {
     playButton.setEnabled(true);
@@ -1824,144 +1835,206 @@ private boolean isZeroMetadataValue(
     }
 
     private void playVideo(
-        String url,
-        String type,
+        String ignoredPublicUrl,
+        String ignoredPublicType,
         String episodeId
 ) {
-    if ("lugyi".equalsIgnoreCase(titleCategory)) {
-        if (!SessionManager.isLoggedIn()) {
-            loginRequestedForPlayback = true;
+    if (
+            titleId == null ||
+            titleId.trim().isEmpty()
+    ) {
+        Toast.makeText(
+                this,
+                "Title ID မရှိပါ။",
+                Toast.LENGTH_SHORT
+        ).show();
 
-            authLauncher.launch(
-                    new Intent(
-                            this,
-                            AuthActivity.class
-                    )
-            );
-
-            return;
-        }
-
-        /*
-         * Cached VIP သက်တမ်းမရှိ/ကုန်နေပါက
-         * server ကို request မပို့ခင် Premium dialog ပြမယ်။
-         */
-        if (
-                SessionManager.getVipUntil()
-                        <= System.currentTimeMillis()
-        ) {
-            PremiumDialog.show(this);
-            return;
-        }
-
-        requestProtectedPlayback(episodeId);
         return;
     }
 
-    openPlayer(url, type);
-}
+    if (!NetworkUtils.isOnline(this)) {
+        Toast.makeText(
+                this,
+                "Video ဖွင့်ရန် အင်တာနက်ချိတ်ဆက်ပါ။",
+                Toast.LENGTH_LONG
+        ).show();
 
-
-    private void requestProtectedPlayback(String episodeId) {
-        if (titleId.isEmpty()) {
-            Toast.makeText(
-                    this,
-                    "Title ID မရှိပါ။",
-                    Toast.LENGTH_SHORT
-            ).show();
-
-            return;
-        }
-
-        playButton.setEnabled(false);
-playButton.setAlpha(0.65f);
-
-
-        JSONObject body = new JSONObject();
-
-        try {
-            body.put(
-                    "titleId",
-                    titleId
-            );
-
-            if (episodeId != null && !episodeId.isEmpty()) {
-                body.put(
-                        "episodeId",
-                        episodeId
-                );
-            }
-        } catch (Exception error) {
-            restorePlayButtonText();
-
-            Toast.makeText(
-                    this,
-                    safeMessage(error),
-                    Toast.LENGTH_LONG
-            ).show();
-
-            return;
-        }
-
-        ApiClient.post(
-                "play",
-                body,
-                new ApiClient.Callback() {
-                    @Override
-                    public void onSuccess(JSONObject json) {
-                        runOnUiThread(() -> {
-                            restorePlayButtonText();
-
-                            String videoUrl =
-                                    json.optString(
-                                            "videoUrl",
-                                            ""
-                                    );
-
-                            String videoType =
-                                    json.optString(
-                                            "videoType",
-                                            "auto"
-                                    );
-
-                            if (videoUrl.isEmpty()) {
-                                Toast.makeText(
-                                        DetailActivity.this,
-                                        "Video link မရပါ။",
-                                        Toast.LENGTH_LONG
-                                ).show();
-
-                                return;
-                            }
-
-                            openPlayer(
-                                    videoUrl,
-                                    videoType
-                            );
-                        });
-                    }
-
-                    @Override
-                    public void onError(Exception error) {
-                        runOnUiThread(() -> {
-                            restorePlayButtonText();
-
-                            Toast.makeText(
-                                    DetailActivity.this,
-                                    safeMessage(error),
-                                    Toast.LENGTH_LONG
-                            ).show();
-                        });
-                    }
-                }
-        );
+        return;
     }
 
-    private void restorePlayButtonText() {
-    playButton.setEnabled(true);
-    playButton.setAlpha(1f);
-    updatePlayButtonText();
+    /*
+     * Stream URL မရခင် login လိုမယ်။
+     */
+    if (!SessionManager.isLoggedIn()) {
+        loginRequestedForPlayback = true;
+
+        authLauncher.launch(
+                new Intent(
+                        this,
+                        AuthActivity.class
+                )
+        );
+
+        return;
+    }
+
+    playButton.setEnabled(false);
+    playButton.setAlpha(0.6f);
+    playButton.setText("Loading…");
+
+    JSONObject body =
+            new JSONObject();
+
+    try {
+        body.put(
+                "titleId",
+                titleId.trim()
+        );
+
+        String normalizedEpisodeId =
+                episodeId == null
+                        ? ""
+                        : episodeId.trim();
+
+        if (!normalizedEpisodeId.isEmpty()) {
+            body.put(
+                    "episodeId",
+                    normalizedEpisodeId
+            );
+        }
+
+        body.put(
+                "deviceId",
+                SessionManager.getDeviceId()
+        );
+    } catch (Exception error) {
+        restorePlayButton();
+
+        Toast.makeText(
+                this,
+                "Playback request မတည်ဆောက်နိုင်ပါ။",
+                Toast.LENGTH_SHORT
+        ).show();
+
+        return;
+    }
+
+    ApiClient.post(
+            "play",
+            body,
+            new ApiClient.Callback() {
+                @Override
+                public void onSuccess(
+                        JSONObject json
+                ) {
+                    String videoUrl =
+                            json.optString(
+                                    "videoUrl",
+                                    json.optString(
+                                            "video_url",
+                                            ""
+                                    )
+                            ).trim();
+
+                    String videoType =
+                            json.optString(
+                                    "videoType",
+                                    json.optString(
+                                            "video_type",
+                                            "auto"
+                                    )
+                            ).trim();
+
+                    runOnUiThread(() -> {
+                        restorePlayButton();
+
+                        if (videoUrl.isEmpty()) {
+                            Toast.makeText(
+                                    DetailActivity.this,
+                                    "Video link မရပါ။",
+                                    Toast.LENGTH_LONG
+                            ).show();
+
+                            return;
+                        }
+
+                        Intent playerIntent =
+                                new Intent(
+                                        DetailActivity.this,
+                                        PlayerActivity.class
+                                );
+
+                        playerIntent.putExtra(
+                                "video_url",
+                                videoUrl
+                        );
+
+                        playerIntent.putExtra(
+                                "video_type",
+                                videoType.isEmpty()
+                                        ? "auto"
+                                        : videoType
+                        );
+
+                        playerIntent.putExtra(
+                                "title_id",
+                                titleId
+                        );
+
+                        startActivity(
+                                playerIntent
+                        );
+                    });
+                }
+
+                @Override
+                public void onError(
+                        Exception error
+                ) {
+                    runOnUiThread(() -> {
+                        restorePlayButton();
+
+                        String message =
+                                error == null ||
+                                error.getMessage() == null ||
+                                error.getMessage()
+                                        .trim()
+                                        .isEmpty()
+                                        ? "Video ဖွင့်၍မရပါ။"
+                                        : error.getMessage();
+
+                        if (
+                                message.contains(
+                                        "VIP"
+                                ) ||
+                                message.contains(
+                                        "vip"
+                                )
+                        ) {
+                            PremiumDialog.show(
+                                    DetailActivity.this
+                            );
+
+                            return;
+                        }
+
+                        Toast.makeText(
+                                DetailActivity.this,
+                                message,
+                                Toast.LENGTH_LONG
+                        ).show();
+                    });
+                }
+            }
+    );
 }
+
+private void restorePlayButton() {
+    playButton.setEnabled(true);
+    playButton.setAlpha(1.0f);
+    playButton.setText("PLAY");
+}
+
 
 private void updatePlayButtonText() {
     if (
