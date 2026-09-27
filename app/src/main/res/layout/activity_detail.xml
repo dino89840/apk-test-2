@@ -116,44 +116,117 @@
     android:textStyle="bold" />
 
 <!--
-    Movies ဖြစ်လျှင် year/rating ကို ဒီတန်းမှာပြမည်။
-    VIP 18+ ဖြစ်လျှင် year/rating အစား VIP badge ကိုပြမည်။
-    Free 18+ ဖြစ်လျှင် တန်းတစ်ခုလုံး နေရာမယူပါ။
+    Movies/Horror category တွင် badge, year နှင့် rating ကို
+    သီးခြား spacing နှင့် box များဖြင့်ပြမည်။
+
+    Series/Nosub နှင့် Lugyi/Mmsub တို့တွင်
+    year/rating box များကို Java ဘက်မှ GONE လုပ်ထားမည်။
 -->
-<LinearLayout
-    android:id="@+id/detailMetaRow"
+<HorizontalScrollView
+    android:id="@+id/detailMetaScroll"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:gravity="center_vertical"
-    android:orientation="horizontal"
-    android:paddingTop="7dp">
+    android:layout_marginTop="8dp"
+    android:clipToPadding="false"
+    android:fillViewport="false"
+    android:overScrollMode="never"
+    android:scrollbars="none">
 
-    <TextView
-        android:id="@+id/detailVipBadge"
+    <LinearLayout
+        android:id="@+id/detailMetaRow"
         android:layout_width="wrap_content"
-        android:layout_height="24dp"
-        android:background="@drawable/vip_badge_bg"
-        android:elevation="7dp"
-        android:gravity="center"
-        android:minWidth="42dp"
-        android:paddingStart="10dp"
-        android:paddingEnd="10dp"
-        android:text="Horror"
-        android:textColor="@color/white"
-        android:textSize="11sp"
-        android:textStyle="bold"
-        android:visibility="gone" />
-
-    <TextView
-        android:id="@+id/detailMeta"
-        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:textColor="@color/gray_text"
-        android:textSize="13sp"
-        android:visibility="gone" />
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingEnd="8dp">
 
-</LinearLayout>
+        <TextView
+            android:id="@+id/detailVipBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="28dp"
+            android:layout_marginEnd="10dp"
+            android:background="@drawable/vip_badge_bg"
+            android:elevation="7dp"
+            android:gravity="center"
+            android:minWidth="48dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:text="Horror"
+            android:textColor="@color/white"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/detailYearBox"
+            android:layout_width="wrap_content"
+            android:layout_height="28dp"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/detail_meta_box_bg"
+            android:gravity="center_vertical"
+            android:minWidth="72dp"
+            android:orientation="horizontal"
+            android:paddingStart="9dp"
+            android:paddingEnd="10dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:contentDescription="@null"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_calendar_premium" />
+
+            <TextView
+                android:id="@+id/detailYear"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:includeFontPadding="false"
+                android:singleLine="true"
+                android:text="2026"
+                android:textColor="#F4C95D"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/detailRatingBox"
+            android:layout_width="wrap_content"
+            android:layout_height="28dp"
+            android:background="@drawable/detail_meta_box_bg"
+            android:gravity="center_vertical"
+            android:minWidth="58dp"
+            android:orientation="horizontal"
+            android:paddingStart="9dp"
+            android:paddingEnd="10dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:contentDescription="@null"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_star_premium" />
+
+            <TextView
+                android:id="@+id/detailRating"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:includeFontPadding="false"
+                android:singleLine="true"
+                android:text="7"
+                android:textColor="#F4C95D"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</HorizontalScrollView>
 
 
             <!-- Genre chips: Action, Drama စသည်တို့သာ ပြမည် -->
