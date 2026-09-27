@@ -198,19 +198,22 @@ public void onBindViewHolder(
                 buildMetadata(item, localKind)
         );
 
-        boolean vipTitle =
-                "lugyi".equalsIgnoreCase(
-                        item.optString(
-                                "category",
-                                ""
-                        )
-                );
-
-        holder.vipRibbon.setVisibility(
-                vipTitle
-                        ? View.VISIBLE
-                        : View.GONE
+        String badgeLabel =
+        getCategoryBadgeLabel(
+                item.optString(
+                        "category",
+                        ""
+                )
         );
+
+holder.vipRibbon.setText(badgeLabel);
+
+holder.vipRibbon.setVisibility(
+        badgeLabel.isEmpty()
+                ? View.GONE
+                : View.VISIBLE
+);
+
 
         String posterUrl =
                 item.optString(
@@ -381,6 +384,38 @@ public void onBindViewHolder(
                 View.VISIBLE
         );
     }
+private String getCategoryBadgeLabel(
+        String category
+) {
+    if (
+            "movies".equalsIgnoreCase(
+                    category
+            ) ||
+            "movie".equalsIgnoreCase(
+                    category
+            )
+    ) {
+        return "Horror";
+    }
+
+    if (
+            "series".equalsIgnoreCase(
+                    category
+            )
+    ) {
+        return "Nosub";
+    }
+
+    if (
+            "lugyi".equalsIgnoreCase(
+                    category
+            )
+    ) {
+        return "Mmsub";
+    }
+
+    return "";
+}
 
     private String buildMetadata(
             JSONObject item,
