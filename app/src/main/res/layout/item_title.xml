@@ -48,7 +48,7 @@
             android:minWidth="38dp"
             android:paddingStart="8dp"
             android:paddingEnd="8dp"
-            android:text="VIP"
+            android:text="Horror"
             android:textColor="@color/white"
             android:textSize="10sp"
             android:textStyle="bold"
