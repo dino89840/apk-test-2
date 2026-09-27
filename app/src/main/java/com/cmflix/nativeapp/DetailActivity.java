@@ -4,7 +4,6 @@ import android.content.ClipData;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
-import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -57,10 +56,8 @@ private TextView episodesLabel;
     private Button shareButton;
     private Button telegramButton;
 
-    private LinearLayout genresContainer;
     private LinearLayout episodesContainer;
 
-    private View genresScroll;
 
     private String firstVideoUrl = "";
     private String firstVideoType = "auto";
@@ -153,52 +150,71 @@ private TextView episodesLabel;
     }
 
     private void bindViews() {
-    backdrop = findViewById(R.id.backdrop);
-    poster = findViewById(R.id.detailPoster);
+    backdrop = findViewById(
+            R.id.backdrop
+    );
 
-    title = findViewById(R.id.detailTitle);
+    poster = findViewById(
+            R.id.detailPoster
+    );
 
-detailVipBadge = findViewById(
-        R.id.detailVipBadge
-);
+    title = findViewById(
+            R.id.detailTitle
+    );
 
-detailYear = findViewById(
-        R.id.detailYear
-);
+    detailVipBadge = findViewById(
+            R.id.detailVipBadge
+    );
 
-detailRating = findViewById(
-        R.id.detailRating
-);
+    detailYear = findViewById(
+            R.id.detailYear
+    );
 
-detailYearBox = findViewById(
-        R.id.detailYearBox
-);
+    detailRating = findViewById(
+            R.id.detailRating
+    );
 
-detailRatingBox = findViewById(
-        R.id.detailRatingBox
-);
+    detailYearBox = findViewById(
+            R.id.detailYearBox
+    );
 
-overview = findViewById(
-        R.id.detailOverview
-);
+    detailRatingBox = findViewById(
+            R.id.detailRatingBox
+    );
 
-episodesLabel = findViewById(
-        R.id.episodesLabel
-);
+    overview = findViewById(
+            R.id.detailOverview
+    );
 
+    episodesLabel = findViewById(
+            R.id.episodesLabel
+    );
 
+    playButton = findViewById(
+            R.id.playButton
+    );
 
-    playButton = findViewById(R.id.playButton);
-    downloadButton = findViewById(R.id.downloadButton);
-    favoriteButton = findViewById(R.id.favoriteButton);
-    shareButton = findViewById(R.id.shareButton);
-    telegramButton = findViewById(R.id.telegramButton);
+    downloadButton = findViewById(
+            R.id.downloadButton
+    );
 
-    genresScroll = findViewById(R.id.genresScroll);
+    favoriteButton = findViewById(
+            R.id.favoriteButton
+    );
 
-    genresContainer = findViewById(R.id.genresContainer);
-    episodesContainer = findViewById(R.id.episodesContainer);
+    shareButton = findViewById(
+            R.id.shareButton
+    );
+
+    telegramButton = findViewById(
+            R.id.telegramButton
+    );
+
+    episodesContainer = findViewById(
+            R.id.episodesContainer
+    );
 }
+
 
 
 
@@ -1082,21 +1098,12 @@ currentTitleName = currentTitle;
 title.setText(currentTitle);
 
 /*
- * TMDB metadata သုံးထားသော Movies category မှာသာ
- * year, rating နှင့် genres ကိုပြပါမယ်။
+ * Category badge:
  *
- * Free 18+ (series) နှင့် VIP 18+ (lugyi) မှာ
- * API က null/0 တန်ဖိုးတွေ ပြန်လာနိုင်သောကြောင့်
- * metadata အားလုံးကိုဖျောက်ထားပါမယ်။
+ * movies/movie = Horror
+ * series       = Nosub
+ * lugyi        = Mmsub
  */
-boolean movieTitle =
-        "movies".equalsIgnoreCase(
-                titleCategory
-        ) ||
-        "movie".equalsIgnoreCase(
-                titleCategory
-        );
-
 String detailBadgeLabel =
         getCategoryBadgeLabel(
                 titleCategory
@@ -1118,6 +1125,10 @@ detailVipBadge.setVisibility(
  */
 LocalStore.rememberRecentlyViewed(item);
 
+/*
+ * Horror, Nosub, Mmsub category အားလုံးအတွက်
+ * API response ထဲက year/rating ကိုဖတ်မယ်။
+ */
 String year =
         cleanMetadataValue(
                 item,
@@ -1130,39 +1141,29 @@ String rating =
                 "rating"
         );
 
-String genres =
-        cleanMetadataValue(
-                item,
-                "genres"
-        );
-
 /*
- * 0, 0.0 rating တွေကို valid rating အဖြစ်မပြပါ။
- */
-if (isZeroMetadataValue(rating)) {
-    rating = "";
-}
-
-/*
- * 0 year ကိုလည်း UI မှာမပြပါ။
+ * 0, 0.0, 0.00 စတဲ့တန်ဖိုးတွေကို
+ * metadata မရှိခြင်းအဖြစ်သတ်မှတ်မယ်။
  */
 if (isZeroMetadataValue(year)) {
     year = "";
 }
 
+if (isZeroMetadataValue(rating)) {
+    rating = "";
+}
+
 /*
- * Movies/Horror category မှာသာ Year နှင့် Rating ကို
- * သီးခြား premium metadata box များဖြင့်ပြမည်။
+ * Category ကိုမကန့်သတ်တော့ပါ။
  *
- * Rating စာသားထဲတွင် emoji star မထည့်တော့ပါ။
- * Star icon ကို XML Vector Drawable ဖြင့်ပြထားသည်။
+ * Horror, Nosub, Mmsub မည်သည့် category ဖြစ်ဖြစ်
+ * year/rating တန်ဖိုးရှိလျှင် ပြမည်။
+ * တန်ဖိုးမရှိလျှင် သက်ဆိုင်ရာ box ကို GONE လုပ်မည်။
  */
 boolean showYear =
-        movieTitle &&
         !year.isEmpty();
 
 boolean showRating =
-        movieTitle &&
         !rating.isEmpty();
 
 detailYear.setText(
@@ -1187,17 +1188,6 @@ detailRatingBox.setVisibility(
         showRating
                 ? View.VISIBLE
                 : View.GONE
-);
-
-/*
- * Movies category မှာပဲ genres ပြပါမယ်။
- * series/lugyi ဖြစ်လျှင် empty string ပို့ပြီး
- * label နဲ့ scroll container နှစ်ခုလုံးဖျောက်မယ်။
- */
-bindGenres(
-        movieTitle
-                ? genres
-                : ""
 );
 
 
@@ -1771,89 +1761,7 @@ private boolean isZeroMetadataValue(
     }
 }
 
-    private void bindGenres(String genres) {
-    genresContainer.removeAllViews();
-
-    /*
-     * Genre data မရှိလျှင် genre chip container ကိုဖျောက်မည်။
-     * "Genres" label ကို XML မှဖယ်ထားသောကြောင့်
-     * HorizontalScrollView ကိုသာ ထိန်းချုပ်ရန်လိုသည်။
-     */
-    if (genres == null || genres.trim().isEmpty()) {
-        genresScroll.setVisibility(View.GONE);
-        return;
-    }
-
-    String[] genreItems = genres.split(",");
-
-    for (String genreValue : genreItems) {
-        String genre = genreValue.trim();
-
-        if (genre.isEmpty()) {
-            continue;
-        }
-
-        TextView chip = new TextView(this);
-
-        chip.setText(genre);
-        chip.setTextColor(Color.WHITE);
-        chip.setTextSize(13);
-        chip.setSingleLine(true);
-
-        chip.setPadding(
-                dp(14),
-                dp(8),
-                dp(14),
-                dp(8)
-        );
-
-        GradientDrawable background =
-                new GradientDrawable();
-
-        background.setShape(
-                GradientDrawable.RECTANGLE
-        );
-
-        background.setColor(
-                Color.parseColor("#1A1D24")
-        );
-
-        background.setCornerRadius(
-                dp(50)
-        );
-
-        background.setStroke(
-                dp(1),
-                Color.parseColor("#3A404C")
-        );
-
-        chip.setBackground(background);
-
-        LinearLayout.LayoutParams params =
-                new LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.WRAP_CONTENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                );
-
-        params.setMarginEnd(dp(8));
-
-        genresContainer.addView(
-                chip,
-                params
-        );
-    }
-
-    /*
-     * Valid genre တစ်ခုမှမရှိလျှင် container ကိုဖျောက်မည်။
-     * ရှိလျှင် Action, Drama စသည့် chip များကိုပြမည်။
-     */
-    genresScroll.setVisibility(
-            genresContainer.getChildCount() > 0
-                    ? View.VISIBLE
-                    : View.GONE
-    );
-}
-
+   
 
     private void shareCurrentTitle() {
         String currentTitle =
