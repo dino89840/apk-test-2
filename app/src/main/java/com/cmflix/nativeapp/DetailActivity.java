@@ -41,7 +41,12 @@ private ImageView poster;
 private TextView title;
 private TextView detailVipBadge;
 
-private TextView meta;
+private TextView detailYear;
+private TextView detailRating;
+
+private View detailYearBox;
+private View detailRatingBox;
+
 private TextView overview;
 private TextView episodesLabel;
 
@@ -152,14 +157,35 @@ private TextView episodesLabel;
     poster = findViewById(R.id.detailPoster);
 
     title = findViewById(R.id.detailTitle);
-    detailVipBadge = findViewById(
-            R.id.detailVipBadge
-    );
 
-    meta = findViewById(R.id.detailMeta);
-    overview = findViewById(R.id.detailOverview);
+detailVipBadge = findViewById(
+        R.id.detailVipBadge
+);
 
-    episodesLabel = findViewById(R.id.episodesLabel);
+detailYear = findViewById(
+        R.id.detailYear
+);
+
+detailRating = findViewById(
+        R.id.detailRating
+);
+
+detailYearBox = findViewById(
+        R.id.detailYearBox
+);
+
+detailRatingBox = findViewById(
+        R.id.detailRatingBox
+);
+
+overview = findViewById(
+        R.id.detailOverview
+);
+
+episodesLabel = findViewById(
+        R.id.episodesLabel
+);
+
 
 
     playButton = findViewById(R.id.playButton);
@@ -1124,31 +1150,41 @@ if (isZeroMetadataValue(year)) {
     year = "";
 }
 
-StringBuilder metaText =
-        new StringBuilder();
-
-if (movieTitle && !year.isEmpty()) {
-    metaText.append(year);
-}
-
-if (movieTitle && !rating.isEmpty()) {
-    if (metaText.length() > 0) {
-        metaText.append("  •  ");
-    }
-
-    metaText
-            .append("★ ")
-            .append(rating);
-}
-
-String finalMetaText =
-        metaText.toString();
-
-meta.setText(finalMetaText);
-
-meta.setVisibility(
+/*
+ * Movies/Horror category မှာသာ Year နှင့် Rating ကို
+ * သီးခြား premium metadata box များဖြင့်ပြမည်။
+ *
+ * Rating စာသားထဲတွင် emoji star မထည့်တော့ပါ။
+ * Star icon ကို XML Vector Drawable ဖြင့်ပြထားသည်။
+ */
+boolean showYear =
         movieTitle &&
-        !finalMetaText.isEmpty()
+        !year.isEmpty();
+
+boolean showRating =
+        movieTitle &&
+        !rating.isEmpty();
+
+detailYear.setText(
+        showYear
+                ? year
+                : ""
+);
+
+detailRating.setText(
+        showRating
+                ? rating
+                : ""
+);
+
+detailYearBox.setVisibility(
+        showYear
+                ? View.VISIBLE
+                : View.GONE
+);
+
+detailRatingBox.setVisibility(
+        showRating
                 ? View.VISIBLE
                 : View.GONE
 );
