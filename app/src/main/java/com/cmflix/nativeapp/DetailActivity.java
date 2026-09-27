@@ -453,6 +453,57 @@ runOnUiThread(() -> {
                 }
         );
     }
+    private String getCategoryBadgeLabel(
+        String category
+) {
+    if (
+            "movies".equalsIgnoreCase(
+                    category
+            ) ||
+            "movie".equalsIgnoreCase(
+                    category
+            )
+    ) {
+        return "Horror";
+    }
+
+    if (
+            "series".equalsIgnoreCase(
+                    category
+            )
+    ) {
+        return "Nosub";
+    }
+
+    if (
+            "lugyi".equalsIgnoreCase(
+                    category
+            )
+    ) {
+        return "Mmsub";
+    }
+
+    return "";
+}
+
+private boolean requiresVipAccess(
+        String category
+) {
+    return
+            "movies".equalsIgnoreCase(
+                    category
+            ) ||
+            "movie".equalsIgnoreCase(
+                    category
+            ) ||
+            "series".equalsIgnoreCase(
+                    category
+            ) ||
+            "lugyi".equalsIgnoreCase(
+                    category
+            );
+}
+
     private String resolveFinalDownloadUrl(
             String originalUrl
     ) throws Exception {
@@ -1020,19 +1071,19 @@ boolean movieTitle =
                 titleCategory
         );
 
-boolean vipTitle =
-        "lugyi".equalsIgnoreCase(
+String detailBadgeLabel =
+        getCategoryBadgeLabel(
                 titleCategory
         );
 
-/*
- * VIP badge ကို title ဘေးမှာမပြတော့ဘဲ
- * title အောက် metadata row ထဲမှာပြမယ်။
- */
+detailVipBadge.setText(
+        detailBadgeLabel
+);
+
 detailVipBadge.setVisibility(
-        vipTitle
-                ? View.VISIBLE
-                : View.GONE
+        detailBadgeLabel.isEmpty()
+                ? View.GONE
+                : View.VISIBLE
 );
 
 /*
