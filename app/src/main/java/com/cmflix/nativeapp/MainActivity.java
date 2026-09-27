@@ -166,9 +166,9 @@ private final Set<String>
     private int requestGeneration = 0;
 
     private final String[][] categories = {
-        {"Movies", "movies"},
-        {"Free 18+", "series"},
-        {"18+ VIP", "lugyi"},
+        {"Horror", "movies"},
+        {"Nosub 18+", "series"},
+        {"Mmsub 18+", "lugyi"},
         {"Continue", "continue"},
         {"Recent", "recent"},
         {"Downloads", "downloads"},
