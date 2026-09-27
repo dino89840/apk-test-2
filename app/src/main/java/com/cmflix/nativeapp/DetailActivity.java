@@ -1,5 +1,4 @@
 package com.cmflix.nativeapp;
-
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.Intent;
@@ -1372,7 +1371,7 @@ playButton.setVisibility(
 
         if (!firstVideoUrl.isEmpty()) {
             if ("lugyi".equalsIgnoreCase(titleCategory)) {
-                playButton.setText("VIP PLAY FIRST EPISODE");
+                playButton.setText("PLAY FIRST EPISODE");
             } else {
                 playButton.setText("PLAY FIRST EPISODE");
             }
@@ -2074,8 +2073,8 @@ private void updatePlayButtonText() {
     if (vip) {
         playButton.setText(
                 isSeries
-                        ? "VIP PLAY FIRST EPISODE"
-                        : "VIP PLAY"
+                        ? "PLAY FIRST EPISODE"
+                        : "PLAY"
         );
     } else {
         playButton.setText(
