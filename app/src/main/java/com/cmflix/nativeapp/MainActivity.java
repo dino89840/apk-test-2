@@ -2520,27 +2520,46 @@ private boolean matchesSearch(
             search == null
                     ? ""
                     : search.trim()
-                    .toLowerCase(
-                            java.util.Locale.US
-                    );
+                            .toLowerCase(
+                                    java.util.Locale.ROOT
+                            );
 
     if (query.isEmpty()) {
         return true;
     }
 
-    String searchableText =
-            (
-                    item.optString("title", "") + " " +
-                    item.optString("year", "") + " " +
-                    item.optString("rating", "") + " " +
-                    item.optString("category", "") + " " +
-                    item.optString("genres", "")
-            ).toLowerCase(
-                    java.util.Locale.US
-            );
+    String[] keys = {
+            "title",
+            "original_title",
+            "actress",
+            "year",
+            "release_date"
+    };
 
-    return searchableText.contains(query);
+    for (String key : keys) {
+        if (!item.has(key) || item.isNull(key)) {
+            continue;
+        }
+
+        String value =
+                item.optString(key, "")
+                        .trim()
+                        .toLowerCase(
+                                java.util.Locale.ROOT
+                        );
+
+        if (
+                !value.isEmpty() &&
+                !"null".equals(value) &&
+                value.contains(query)
+        ) {
+            return true;
+        }
+    }
+
+    return false;
 }
+
 
     private int dp(int value) {
         return Math.round(
