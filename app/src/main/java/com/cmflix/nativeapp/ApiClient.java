@@ -16,8 +16,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import android.content.SharedPreferences;
-
 import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 
 
 public final class ApiClient {
@@ -27,6 +31,14 @@ public final class ApiClient {
 
     private static final ExecutorService EXECUTOR =
             Executors.newFixedThreadPool(4);
+private static final Object SINGLE_FLIGHT_LOCK =
+        new Object();
+
+private static final Map<
+        String,
+        List<Callback>
+        > SINGLE_FLIGHT_REQUESTS =
+        new HashMap<>();
 
     public interface Callback {
         void onSuccess(JSONObject json);
@@ -311,23 +323,28 @@ private static boolean isPublicCacheablePath(
             path.trim();
 
     /*
-     * titles/{slug} detail response ကို
-     * လုံးဝ cache မလုပ်ပါ။
+     * Public title detail ကို local device cache
+     * လုပ်ခွင့်ပေးမယ်။
      *
-     * အနာဂတ် backend regression တစ်ခုကြောင့်
-     * media URL ပြန်ပါလာခဲ့သော်လည်း XML ထဲ
-     * မသိမ်းမိစေရန်ဖြစ်သည်။
+     * Response ထဲ media URL ပါ/မပါကို
+     * shouldPersistPublicResponse() က ထပ်စစ်ပေးမယ်။
      */
     if (
             normalized.startsWith(
                     "titles/"
             )
     ) {
-        return false;
+        String slug =
+                normalized.substring(
+                        "titles/".length()
+                ).trim();
+
+        return !slug.isEmpty();
     }
 
     /*
-     * Category list page-1 ကိုသာ cache လုပ်မယ်။
+     * Search result မဟုတ်သော category page-1 ကိုသာ
+     * local cache candidate အဖြစ် လက်ခံမယ်။
      */
     if (
             !normalized.startsWith(
@@ -376,6 +393,7 @@ private static boolean isPublicCacheablePath(
     return "1".equals(page) &&
             search.trim().isEmpty();
 }
+
 private static boolean hasSensitiveMediaValue(
         JSONObject object
 ) {
@@ -505,8 +523,9 @@ private static boolean shouldPersistPublicResponse(
     }
 
     /*
-     * Response အတွင်း media URL အစစ်တစ်ခုခုပါလာရင်
-     * ဘယ် endpoint ဖြစ်ဖြစ် disk ထဲမသိမ်းပါ။
+     * video/download/playback URL တစ်ခုခုပါလာရင်
+     * ဘယ် public endpoint ဖြစ်ဖြစ် disk cache
+     * လုံးဝမလုပ်ပါ။
      */
     if (hasSensitiveMediaValue(json)) {
         return false;
@@ -516,14 +535,23 @@ private static boolean shouldPersistPublicResponse(
             path.trim();
 
     /*
-     * Detail response ကို ဘယ်တော့မှမသိမ်းပါ။
+     * Public detail response ကို cache လုပ်ခွင့်ပေးမယ်။
+     *
+     * Sensitive media URL စစ်ပြီးသားဖြစ်သောကြောင့်
+     * metadata, poster, overview, has_video စတာတွေသာ
+     * device ထဲသိမ်းမယ်။
      */
     if (
             normalized.startsWith(
                     "titles/"
             )
     ) {
-        return false;
+        JSONObject item =
+                json.optJSONObject(
+                        "item"
+                );
+
+        return item != null;
     }
 
     if (
@@ -535,14 +563,18 @@ private static boolean shouldPersistPublicResponse(
     }
 
     /*
-     * Single-page list ဖြစ်ပြီး sensitive media URL
-     * မပါမှသာ cache လုပ်မယ်။
+     * လက်ရှိ pagination implementation ကို မဖျက်စီးအောင်
+     * single-page category response ကိုသာ cache လုပ်မယ်။
+     *
+     * hasMore=true page-1 ကို cache လုပ်လျှင်
+     * page-1 အဟောင်းနှင့် page-2 အသစ် ရောနိုင်ပါတယ်။
      */
     return !json.optBoolean(
             "hasMore",
             false
     );
 }
+
 
 
 
@@ -598,6 +630,140 @@ private static String cacheKey(
     ) {
         request("DELETE", path, null, callback);
     }
+public static void postSingleFlight(
+        String path,
+        JSONObject body,
+        Callback callback
+) {
+    if (callback == null) {
+        return;
+    }
+
+    String normalizedPath =
+            normalizePath(path);
+
+    String bodyText =
+            body == null
+                    ? "{}"
+                    : body.toString();
+
+    /*
+     * Session မတူသော user နှစ်ယောက်ရဲ့ request
+     * တစ်ခုတည်းဖြစ်မသွားစေရန် cookie ကို key ထဲထည့်မယ်။
+     *
+     * Key က memory ထဲမှာပဲရှိပြီး disk ထဲမသိမ်းပါ။
+     */
+    String requestKey =
+            cacheKey(
+                    SessionManager.getCookie() +
+                    "\n" +
+                    normalizedPath +
+                    "\n" +
+                    bodyText
+            );
+
+    boolean shouldStartRequest = false;
+
+    synchronized (SINGLE_FLIGHT_LOCK) {
+        List<Callback> waitingCallbacks =
+                SINGLE_FLIGHT_REQUESTS.get(
+                        requestKey
+                );
+
+        if (waitingCallbacks != null) {
+            waitingCallbacks.add(callback);
+            return;
+        }
+
+        waitingCallbacks =
+                new ArrayList<>();
+
+        waitingCallbacks.add(callback);
+
+        SINGLE_FLIGHT_REQUESTS.put(
+                requestKey,
+                waitingCallbacks
+        );
+
+        shouldStartRequest = true;
+    }
+
+    if (!shouldStartRequest) {
+        return;
+    }
+
+    request(
+            "POST",
+            normalizedPath,
+            body,
+            new Callback() {
+                @Override
+                public void onSuccess(
+                        JSONObject json
+                ) {
+                    List<Callback> callbacks =
+                            removeSingleFlightCallbacks(
+                                    requestKey
+                            );
+
+                    for (Callback item : callbacks) {
+                        try {
+                            /*
+                             * Callback တစ်ခုက JSONObject ကို
+                             * ပြင်သော်လည်း ကျန် callback မထိခိုက်စေရန်
+                             * copy တစ်ခုစီပို့မယ်။
+                             */
+                            item.onSuccess(
+                                    new JSONObject(
+                                            json.toString()
+                                    )
+                            );
+                        } catch (Exception callbackError) {
+                            try {
+                                item.onError(
+                                        callbackError
+                                );
+                            } catch (Exception ignored) {
+                            }
+                        }
+                    }
+                }
+
+                @Override
+                public void onError(
+                        Exception error
+                ) {
+                    List<Callback> callbacks =
+                            removeSingleFlightCallbacks(
+                                    requestKey
+                            );
+
+                    for (Callback item : callbacks) {
+                        try {
+                            item.onError(error);
+                        } catch (Exception ignored) {
+                        }
+                    }
+                }
+            }
+    );
+}
+
+private static List<Callback>
+removeSingleFlightCallbacks(
+        String requestKey
+) {
+    synchronized (SINGLE_FLIGHT_LOCK) {
+        List<Callback> callbacks =
+                SINGLE_FLIGHT_REQUESTS.remove(
+                        requestKey
+                );
+
+        return callbacks == null
+                ? new ArrayList<>()
+                : callbacks;
+    }
+}
 
     private static void request(
         String method,
