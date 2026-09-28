@@ -1899,7 +1899,7 @@ adapter.submitList(
                                                 ? "Favorite မရှိသေးပါ။"
                                                 : search.isEmpty()
                                                 ? "ဇာတ်ကား မရှိသေးပါ။"
-                                                : "ရှာထားသော ဇာတ်ကား မတွေ့ပါ။"
+                                                : "ရှာဖွေခြင်း မတွေ့ရှိပါ။"
                                 );
 
                                 errorText.setVisibility(
