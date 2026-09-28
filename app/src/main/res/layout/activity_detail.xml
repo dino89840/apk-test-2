@@ -191,10 +191,11 @@
 
         </LinearLayout>
 
-        <LinearLayout
+                <LinearLayout
             android:id="@+id/detailRatingBox"
             android:layout_width="wrap_content"
             android:layout_height="28dp"
+            android:layout_marginEnd="8dp"
             android:background="@drawable/detail_meta_box_bg"
             android:gravity="center_vertical"
             android:minWidth="58dp"
@@ -223,6 +224,40 @@
                 android:textStyle="bold" />
 
         </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/detailActressBox"
+            android:layout_width="wrap_content"
+            android:layout_height="28dp"
+            android:background="@drawable/detail_meta_box_bg"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="9dp"
+            android:paddingEnd="10dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:contentDescription="@null"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_person_premium" />
+
+            <TextView
+                android:id="@+id/detailActress"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:maxWidth="200dp"
+                android:singleLine="true"
+                android:textColor="#F4C95D"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
 
     </LinearLayout>
 
