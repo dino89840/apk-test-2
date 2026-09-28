@@ -47,7 +47,7 @@
                 android:fontFamily="sans-serif-medium"
                 android:gravity="start|center_vertical"
                 android:text="Login"
-                android:textColor="#FFFFFF"
+                android:textColor="#000000"
                 android:textSize="24sp"
                 android:textStyle="bold" />
 
@@ -251,7 +251,7 @@
             android:background="@android:color/transparent"
             android:text="New User? Register"
             android:textAllCaps="false"
-            android:textColor="#FFFFFF"
+            android:textColor="#000000"
             android:textSize="15sp"
             android:textStyle="bold" />
 
