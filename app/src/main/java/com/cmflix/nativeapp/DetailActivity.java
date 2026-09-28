@@ -279,13 +279,17 @@ private TextView episodesLabel;
 }
 
     private void requestDownload() {
-        boolean downloadableCategory =
-                "series".equalsIgnoreCase(
-                        titleCategory
-                ) ||
-                "lugyi".equalsIgnoreCase(
-                        titleCategory
-                );
+    if (!downloadButton.isEnabled()) {
+        return;
+    }
+
+    boolean downloadableCategory =
+            "series".equalsIgnoreCase(
+                    titleCategory
+            ) ||
+            "lugyi".equalsIgnoreCase(
+                    titleCategory
+            );
 
         if (!downloadableCategory) {
     Toast.makeText(
@@ -355,10 +359,11 @@ if (!SessionManager.isLoggedIn()) {
             return;
         }
 
-        ApiClient.post(
-                "download",
-                body,
-                new ApiClient.Callback() {
+        ApiClient.postSingleFlight(
+        "download",
+        body,
+        new ApiClient.Callback() {
+
                     @Override
                     public void onSuccess(
                             JSONObject json
@@ -1949,10 +1954,11 @@ private boolean isZeroMetadataValue(
         return;
     }
 
-    ApiClient.post(
-            "play",
-            body,
-            new ApiClient.Callback() {
+    ApiClient.postSingleFlight(
+        "play",
+        body,
+        new ApiClient.Callback() {
+
                 @Override
                 public void onSuccess(
                         JSONObject json
