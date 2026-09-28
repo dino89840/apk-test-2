@@ -46,6 +46,9 @@ private TextView detailRating;
 private View detailYearBox;
 private View detailRatingBox;
 
+private TextView detailActress;
+private View detailActressBox;
+
 private TextView overview;
 private TextView episodesLabel;
 
@@ -180,6 +183,13 @@ private TextView episodesLabel;
 
     detailRatingBox = findViewById(
             R.id.detailRatingBox
+    );
+    detailActress = findViewById(
+            R.id.detailActress
+    );
+
+    detailActressBox = findViewById(
+            R.id.detailActressBox
     );
 
     overview = findViewById(
@@ -1186,6 +1196,32 @@ detailYearBox.setVisibility(
 
 detailRatingBox.setVisibility(
         showRating
+                ? View.VISIBLE
+                : View.GONE
+);
+/*
+ * မင်းသမီးနာမည်။
+ * Rating ရှိရင် rating ဘေးမှာပြမည်။
+ * Rating မရှိရင် ratingBox GONE ဖြစ်လို့
+ * date ဘေးကို အလိုအလျောက်ရောက်မည်။
+ */
+String actress =
+        cleanMetadataValue(
+                item,
+                "actress"
+        );
+
+boolean showActress =
+        !actress.isEmpty();
+
+detailActress.setText(
+        showActress
+                ? actress
+                : ""
+);
+
+detailActressBox.setVisibility(
+        showActress
                 ? View.VISIBLE
                 : View.GONE
 );
