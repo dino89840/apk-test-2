@@ -2097,7 +2097,7 @@ private void updatePlayButtonText() {
 
     if (resumePosition > 0L) {
         playButton.setText(
-                (vip ? "VIP " : "") +
+                
                         "RESUME • " +
                         formatWatchTime(
                                 resumePosition
