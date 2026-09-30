@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<!--
+    DrawerLayout: main content + hamburger navigation drawer.
+    The drawer itself is a plain menu (drawer_menu.xml) and
+    triggers no network request when opened.
+-->
+<androidx.drawerlayout.widget.DrawerLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/drawerLayout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/dark_bg">
+
+<LinearLayout
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/dark_bg"
@@ -16,14 +27,19 @@
         android:paddingEnd="10dp"
         android:paddingBottom="8dp">
 
-        <ImageView
-    android:layout_width="42dp"
-    android:layout_height="42dp"
-    android:contentDescription="@string/app_name"
-    android:scaleType="fitCenter"
-    android:adjustViewBounds="true"
-    android:src="@drawable/my_logo" />
+        <ImageButton
+            android:id="@+id/drawerButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Open menu"
+            android:padding="9dp"
+            android:src="@drawable/ic_menu_hamburger" />
 
+        <!--
+            App logo ကို drawer header မှာထားပြီးဖြစ်၍
+            top bar မှာ ထပ်မထားပါ (uncluttered)။
+        -->
 
         <EditText
             android:id="@+id/searchInput"
@@ -158,8 +174,8 @@
 
     
     <!--
-        Local full-grid view (Continue / Recent / Downloads / Favorites)
-        မှာ chip တွေအစား back header ပြမည်။
+        Full-grid view (Horror / 18+ / Continue / Recent /
+        Downloads / Favorites) မှာ back header ပြမည်။
     -->
     <LinearLayout
         android:id="@+id/localHeader"
@@ -193,25 +209,11 @@
 
     </LinearLayout>
 
-    <HorizontalScrollView
-    android:id="@+id/categoryScroll"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:fillViewport="false"
-    android:scrollbars="none">
-
-    <LinearLayout
-        android:id="@+id/categoryBar"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="10dp"
-        android:paddingTop="5dp"
-        android:paddingEnd="10dp"
-        android:paddingBottom="7dp" />
-
-</HorizontalScrollView>
+    <!--
+        Category chips removed: categories now live in the bottom
+        navigation (Home / Horror / 18+ Nosub / 18+ Mmsub) and in
+        the hamburger drawer. No count badges anymore.
+    -->
 
 <LinearLayout
     android:layout_width="match_parent"
@@ -220,18 +222,6 @@
     android:orientation="horizontal"
     android:paddingStart="16dp"
     android:paddingEnd="16dp">
-
-    <!--
-        MainActivity.java က sectionTitle ID ကိုအသုံးပြုထားသောကြောင့်
-        View ကိုလုံးဝမဖျက်ဘဲ GONE လုပ်ထားသည်။
-        GONE ဖြစ်သောကြောင့် စာလည်းမမြင်ရ၊ နေရာလည်းမယူပါ။
-    -->
-    <TextView
-        android:id="@+id/sectionTitle"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:text="Movies"
-        android:visibility="gone" />
 
     <!--
         Continue / Recent / Downloads စသော local category များတွင်
@@ -310,7 +300,7 @@
 
     </FrameLayout>
 
-    <!-- Premium bottom navigation: Home / Search / Downloads / Profile -->
+    <!-- Premium bottom navigation: Home / Horror / 18+ Nosub / 18+ Mmsub -->
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
@@ -355,7 +345,7 @@
         </LinearLayout>
 
         <LinearLayout
-            android:id="@+id/navSearch"
+            android:id="@+id/navHorror"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -368,23 +358,23 @@
             android:paddingBottom="4dp">
 
             <ImageView
-                android:id="@+id/navSearchIcon"
+                android:id="@+id/navHorrorIcon"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_nav_search" />
+                android:src="@drawable/ic_nav_film" />
 
             <TextView
-                android:id="@+id/navSearchLabel"
+                android:id="@+id/navHorrorLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:paddingTop="3dp"
-                android:text="Search"
+                android:text="Horror"
                 android:textSize="11sp" />
 
         </LinearLayout>
 
         <LinearLayout
-            android:id="@+id/navDownloads"
+            android:id="@+id/navNosub"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -397,23 +387,23 @@
             android:paddingBottom="4dp">
 
             <ImageView
-                android:id="@+id/navDownloadsIcon"
+                android:id="@+id/navNosubIcon"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_nav_downloads" />
+                android:src="@drawable/ic_nav_play" />
 
             <TextView
-                android:id="@+id/navDownloadsLabel"
+                android:id="@+id/navNosubLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:paddingTop="3dp"
-                android:text="Downloads"
+                android:text="18+ Nosub"
                 android:textSize="11sp" />
 
         </LinearLayout>
 
         <LinearLayout
-            android:id="@+id/navProfile"
+            android:id="@+id/navMmsub"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -426,17 +416,17 @@
             android:paddingBottom="4dp">
 
             <ImageView
-                android:id="@+id/navProfileIcon"
+                android:id="@+id/navMmsubIcon"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_nav_profile" />
+                android:src="@drawable/ic_nav_play" />
 
             <TextView
-                android:id="@+id/navProfileLabel"
+                android:id="@+id/navMmsubLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:paddingTop="3dp"
-                android:text="Profile"
+                android:text="18+ Mmsub"
                 android:textSize="11sp" />
 
         </LinearLayout>
@@ -444,3 +434,8 @@
     </LinearLayout>
 
 </LinearLayout>
+
+<!-- Hamburger navigation drawer (menu only, no network on open). -->
+<include layout="@layout/drawer_menu" />
+
+</androidx.drawerlayout.widget.DrawerLayout>

@@ -4,6 +4,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -11,38 +12,65 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import org.json.JSONObject;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /*
  * Home feed ရဲ့ ထိပ်ပိုင်း header (ConcatAdapter ရဲ့
- * ပထမ adapter)။ Continue Watching / Recently Viewed
- * horizontal rows များနှင့် My Favorites navigation row
- * ကိုပြသည်။
+ * ပထမ adapter)။ Section တစ်ခုချင်းစီ (ဥပမာ Continue
+ * Watching, Horror နောက်ဆုံး ၁၀ ကား) ကို title +
+ * "More >" + horizontal poster row အဖြစ် ပြသည်။
  *
- * Data အားလုံး LocalStore (ဖုန်းတွင်း) ကသာ ရသည် —
- * network request အသစ် လုံးဝမရှိပါ။
+ * Section များသည် dynamic ဖြစ်သည် — MainActivity က
+ * setSections() ဖြင့် ပေးသည်။ Item မရှိသော section
+ * များကို Activity ဘက်က filter လုပ်ပြီးသားဖြစ်သည်။
+ *
+ * 18+ section များ: PIN မဖွင့်ရသေးလျှင် Activity က
+ * section list ထဲထည့်မပေးပါ (poster/title leak
+ * မဖြစ်စေရန်)။ Network data လိုသော section များ
+ * (Horror / 18+) အတွက် Activity က session cache မှ
+ * ပေးသည် — ဒီ adapter က request အသစ်မခေါ်ပါ။
+ *
+ * Horizontal row များတွင် setHasFixedSize(true)
+ * မခေါ်ရ (wrap_content height နှင့် တွဲလျှင်
+ * lintVitalRelease က InvalidSetHasFixedSize ဖြင့်
+ * build ကျသည်)။
  */
 public class HomeRowsAdapter
         extends RecyclerView.Adapter<HomeRowsAdapter.Holder> {
 
+    public static class HomeSection {
+        public final String id;
+        public final String title;
+        public final List<JSONObject> items;
+
+        public HomeSection(
+                String id,
+                String title,
+                List<JSONObject> items
+        ) {
+            this.id = id;
+            this.title = title;
+            this.items =
+                    items != null
+                            ? items
+                            : Collections.emptyList();
+        }
+    }
+
     public interface Listener {
         void onItemClick(JSONObject item);
 
-        void onSeeAllContinue();
-
-        void onSeeAllRecent();
-
-        void onOpenFavorites();
+        void onSectionMore(HomeSection section);
     }
 
     private final Listener listener;
 
-    private List<JSONObject> continueItems =
+    private List<HomeSection> sections =
             Collections.emptyList();
-    private List<JSONObject> recentItems =
-            Collections.emptyList();
-    private boolean showFavorites = false;
 
     public HomeRowsAdapter(Listener listener) {
         this.listener = listener;
@@ -54,15 +82,7 @@ public class HomeRowsAdapter
      */
     @Override
     public int getItemCount() {
-        if (
-                !continueItems.isEmpty() ||
-                        !recentItems.isEmpty() ||
-                        showFavorites
-        ) {
-            return 1;
-        }
-
-        return 0;
+        return sections.isEmpty() ? 0 : 1;
     }
 
     @Override
@@ -70,22 +90,15 @@ public class HomeRowsAdapter
         return 1001;
     }
 
-    public void setData(
-            List<JSONObject> newContinueItems,
-            List<JSONObject> newRecentItems,
-            boolean newShowFavorites
+    public void setSections(
+            List<HomeSection> newSections
     ) {
         boolean hadItem = getItemCount() > 0;
 
-        continueItems =
-                newContinueItems != null
-                        ? newContinueItems
+        sections =
+                newSections != null
+                        ? new ArrayList<>(newSections)
                         : Collections.emptyList();
-        recentItems =
-                newRecentItems != null
-                        ? newRecentItems
-                        : Collections.emptyList();
-        showFavorites = newShowFavorites;
 
         boolean hasItem = getItemCount() > 0;
 
@@ -104,16 +117,21 @@ public class HomeRowsAdapter
             @NonNull ViewGroup parent,
             int viewType
     ) {
-        View view =
-                LayoutInflater
-                        .from(parent.getContext())
-                        .inflate(
-                                R.layout.home_rows_header,
-                                parent,
-                                false
-                        );
+        LinearLayout container =
+                new LinearLayout(parent.getContext());
 
-        return new Holder(view, listener);
+        container.setLayoutParams(
+                new RecyclerView.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+        );
+
+        container.setOrientation(
+                LinearLayout.VERTICAL
+        );
+
+        return new Holder(container, listener);
     }
 
     @Override
@@ -121,24 +139,23 @@ public class HomeRowsAdapter
             @NonNull Holder holder,
             int position
     ) {
-        holder.bind(
-                continueItems,
-                recentItems,
-                showFavorites
-        );
+        holder.bind(sections);
     }
 
     static class Holder
             extends RecyclerView.ViewHolder {
 
-        private final LinearLayout continueSection;
-        private final LinearLayout recentSection;
-        private final LinearLayout favoritesNavRow;
-        private final RecyclerView continueRow;
-        private final RecyclerView recentRow;
+        private final LinearLayout container;
+        private final Listener listener;
 
-        private final TitleAdapter continueAdapter;
-        private final TitleAdapter recentAdapter;
+        /*
+         * Section id -> ပြန်သုံးနိုင်သော section view။
+         * Rebind တွင် adapter အသစ်မဆောက်ဘဲ item list
+         * သာအသစ်ပေးသောကြောင့် row တစ်ခုချင်းစီရဲ့
+         * scroll position မပျက်ပါ။
+         */
+        private final Map<String, SectionView> sectionViews =
+                new LinkedHashMap<>();
 
         Holder(
                 @NonNull View itemView,
@@ -146,120 +163,162 @@ public class HomeRowsAdapter
         ) {
             super(itemView);
 
-            continueSection =
-                    itemView.findViewById(
-                            R.id.continueSection
-                    );
-            recentSection =
-                    itemView.findViewById(
-                            R.id.recentSection
-                    );
-            favoritesNavRow =
-                    itemView.findViewById(
-                            R.id.favoritesNavRow
-                    );
-            continueRow =
-                    itemView.findViewById(
-                            R.id.continueRow
-                    );
-            recentRow =
-                    itemView.findViewById(
-                            R.id.recentRow
-                    );
-
-            TitleAdapter.Listener openDetail =
-                    listener::onItemClick;
-
-            continueAdapter =
-                    new TitleAdapter(
-                            openDetail,
-                            item -> {
-                            },
-                            R.layout.item_title_row
-                    );
-            recentAdapter =
-                    new TitleAdapter(
-                            openDetail,
-                            item -> {
-                            },
-                            R.layout.item_title_row
-                    );
-
-            continueRow.setLayoutManager(
-                    new LinearLayoutManager(
-                            itemView.getContext(),
-                            LinearLayoutManager.HORIZONTAL,
-                            false
-                    )
-            );
-            continueRow.setAdapter(continueAdapter);
-            continueRow.setNestedScrollingEnabled(false);
-
-            recentRow.setLayoutManager(
-                    new LinearLayoutManager(
-                            itemView.getContext(),
-                            LinearLayoutManager.HORIZONTAL,
-                            false
-                    )
-            );
-            recentRow.setAdapter(recentAdapter);
-            recentRow.setNestedScrollingEnabled(false);
-
-            itemView.findViewById(R.id.seeAllContinue)
-                    .setOnClickListener(
-                            view ->
-                                    listener.onSeeAllContinue()
-                    );
-            itemView.findViewById(R.id.seeAllRecent)
-                    .setOnClickListener(
-                            view ->
-                                    listener.onSeeAllRecent()
-                    );
-            favoritesNavRow.setOnClickListener(
-                    view ->
-                            listener.onOpenFavorites()
-            );
+            this.container = (LinearLayout) itemView;
+            this.listener = listener;
         }
 
-        void bind(
-                List<JSONObject> newContinueItems,
-                List<JSONObject> newRecentItems,
-                boolean newShowFavorites
+        void bind(List<HomeSection> sections) {
+            /*
+             * မလိုတော့သော section view များကို
+             * ဖြုတ်မည်။
+             */
+            List<String> wantedIds = new ArrayList<>();
+
+            for (HomeSection section : sections) {
+                wantedIds.add(section.id);
+            }
+
+            List<String> toRemove = new ArrayList<>();
+
+            for (String id : sectionViews.keySet()) {
+                if (!wantedIds.contains(id)) {
+                    toRemove.add(id);
+                }
+            }
+
+            for (String id : toRemove) {
+                SectionView old =
+                        sectionViews.remove(id);
+
+                if (old != null) {
+                    container.removeView(old.root);
+                }
+            }
+
+            /*
+             * Section အစဉ်လိုက် view များ ရှိနေအောင်
+             * စီမည် (ရှိပြီးသားကို ပြန်သုံးမည်)။
+             */
+            for (
+                    int index = 0;
+                    index < sections.size();
+                    index++
+            ) {
+                HomeSection section =
+                        sections.get(index);
+
+                SectionView sectionView =
+                        sectionViews.get(section.id);
+
+                if (sectionView == null) {
+                    sectionView =
+                            new SectionView(
+                                    container,
+                                    listener
+                            );
+
+                    sectionViews.put(
+                            section.id,
+                            sectionView
+                    );
+                }
+
+                sectionView.bind(section);
+
+                View root = sectionView.root;
+
+                int currentIndex =
+                        container.indexOfChild(root);
+
+                if (currentIndex != index) {
+                    container.removeView(root);
+                    container.addView(root, index);
+                }
+            }
+        }
+    }
+
+    /*
+     * Section တစ်ခုစာအတွက် ပြန်သုံးနိုင်သော view set:
+     * title + "More >" + horizontal RecyclerView။
+     */
+    static class SectionView {
+        final LinearLayout root;
+
+        private final Listener listener;
+        private final TextView titleView;
+        private final TextView moreView;
+        private final RecyclerView row;
+        private final TitleAdapter rowAdapter;
+
+        SectionView(
+                ViewGroup parent,
+                Listener listener
         ) {
-            boolean showContinue =
-                    !newContinueItems.isEmpty();
-            boolean showRecent =
-                    !newRecentItems.isEmpty();
+            this.listener = listener;
 
-            continueSection.setVisibility(
-                    showContinue
-                            ? View.VISIBLE
-                            : View.GONE
-            );
-            recentSection.setVisibility(
-                    showRecent
-                            ? View.VISIBLE
-                            : View.GONE
-            );
-            favoritesNavRow.setVisibility(
-                    newShowFavorites
-                            ? View.VISIBLE
-                            : View.GONE
+            root =
+                    (LinearLayout)
+                            LayoutInflater
+                                    .from(parent.getContext())
+                                    .inflate(
+                                            R.layout.home_section,
+                                            parent,
+                                            false
+                                    );
+
+            titleView =
+                    root.findViewById(
+                            R.id.sectionTitle
+                    );
+
+            moreView =
+                    root.findViewById(
+                            R.id.sectionMore
+                    );
+
+            row = root.findViewById(R.id.sectionRow);
+
+            rowAdapter =
+                    new TitleAdapter(
+                            listener::onItemClick,
+                            item -> {
+                            },
+                            R.layout.item_title_row
+                    );
+
+            row.setLayoutManager(
+                    new LinearLayoutManager(
+                            parent.getContext(),
+                            LinearLayoutManager.HORIZONTAL,
+                            false
+                    )
             );
 
-            if (showContinue) {
-                continueAdapter.submitList(
-                        newContinueItems
-                );
-                continueAdapter.refreshProgressSnapshot();
-            }
+            row.setAdapter(rowAdapter);
+            row.setNestedScrollingEnabled(false);
 
-            if (showRecent) {
-                recentAdapter.submitList(
-                        newRecentItems
-                );
-                recentAdapter.refreshProgressSnapshot();
-            }
+            /*
+             * wrap_content height ရှိသော horizontal row
+             * တွင် setHasFixedSize(true) မခေါ်ရ —
+             * lintVitalRelease ကျမည်။
+             */
+
+            parent.addView(root);
+        }
+
+        void bind(HomeSection section) {
+            titleView.setText(section.title);
+
+            moreView.setOnClickListener(
+                    view ->
+                            listener.onSectionMore(
+                                    section
+                            )
+            );
+
+            rowAdapter.submitList(section.items);
+            rowAdapter.refreshProgressSnapshot();
         }
     }
 }
