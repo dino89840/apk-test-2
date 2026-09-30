@@ -603,6 +603,55 @@ bindVipState(
                 false
         );
 
+        /*
+         * PIN က device ထဲမှာပဲ သိမ်းထားကြောင်း
+         * premium ဆန်ဆန် info note ပြမည်။
+         */
+        LinearLayout infoRow =
+                new LinearLayout(this);
+
+        infoRow.setOrientation(
+                LinearLayout.HORIZONTAL
+        );
+
+        infoRow.setGravity(Gravity.CENTER_VERTICAL);
+
+        ImageView infoIcon = new ImageView(this);
+
+        infoIcon.setImageResource(
+                R.drawable.ic_info_pin
+        );
+
+        LinearLayout.LayoutParams infoIconParams =
+                new LinearLayout.LayoutParams(
+                        dp(15),
+                        dp(15)
+                );
+
+        infoIconParams.setMarginEnd(dp(7));
+        infoIcon.setLayoutParams(infoIconParams);
+
+        TextView infoText = createText(
+                "PIN ကို ဒီဖုန်းထဲမှာပဲ သိမ်းပါတယ်။ " +
+                        "Clear data / reinstall လုပ်ရင် " +
+                        "ပျက်သွားပါမယ်။",
+                11,
+                Color.parseColor("#A8ADB8"),
+                false
+        );
+
+        infoText.setLayoutParams(
+                new LinearLayout.LayoutParams(
+                        0,
+                        ViewGroup.LayoutParams
+                                .WRAP_CONTENT,
+                        1f
+                )
+        );
+
+        infoRow.addView(infoIcon);
+        infoRow.addView(infoText);
+
         EditText newPin =
                 createPinInput("New 4-digit PIN");
 
@@ -628,7 +677,8 @@ bindVipState(
 
         container.addView(title);
         addTopMargin(container, message, 6);
-        addTopMargin(container, newPin, 15);
+        addTopMargin(container, infoRow, 10);
+        addTopMargin(container, newPin, 12);
         addTopMargin(container, confirmPin, 9);
         addTopMargin(container, errorText, 8);
         addTopMargin(container, saveButton, 12);
