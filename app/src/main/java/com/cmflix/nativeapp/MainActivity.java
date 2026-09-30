@@ -103,6 +103,23 @@ public class MainActivity extends AppCompatActivity {
             homeSectionCache = new HashMap<>();
     private final Set<String> homeSectionLoading =
             new HashSet<>();
+
+    /*
+     * Home loading gate: section ၃ ခု အကုန် settle
+     * ဖြစ်မှ (သို့မဟုတ် timeout) home ကိုပြမည်။
+     * Request အသစ်မရှိ — UI reveal ကိုသာ gate လုပ်သည်။
+     */
+    private static final long HOME_GATE_TIMEOUT_MS =
+            10000L;
+
+    private View homeLoadingOverlay;
+    private boolean homeGateOpen = false;
+
+    private final Handler homeGateHandler =
+            new Handler(Looper.getMainLooper());
+
+    private final Runnable homeGateTimeoutRunnable =
+            this::openHomeGate;
 private LinearLayout searchHistoryContainer;
 /*
  * ဇာတ်ကားအသစ်တင်ပြီး ၂၀ မိနစ်အတွင်း
@@ -355,6 +372,9 @@ gridToggleButton.setOnClickListener(
 shimmerContainer =
         findViewById(R.id.shimmerContainer);
 
+        homeLoadingOverlay =
+                findViewById(R.id.homeLoadingOverlay);
+
 accountButton =
         findViewById(R.id.accountButton);
 
@@ -400,6 +420,7 @@ refreshSearchHistory();
         updateAccountButtons();
 refreshProfileIfNeeded();
 resetAndLoad();
+startHomeGate();
 
 /*
  * Cached vipUntil ကိုပဲဖတ်သောကြောင့်
@@ -467,6 +488,10 @@ protected void onPause() {
 protected void onDestroy() {
     notificationHandler.removeCallbacksAndMessages(
             null
+    );
+
+    homeGateHandler.removeCallbacks(
+            homeGateTimeoutRunnable
     );
 
     if (shimmerContainer != null) {
@@ -1231,6 +1256,69 @@ private static List<JSONObject> firstN(
 
 
 /*
+ * Home loading gate: section ၃ ခု အကုန် settle ဖြစ်မှ
+ * (သို့မဟုတ် timeout) home content ကိုပြမည်။
+ */
+private void startHomeGate() {
+    homeGateOpen = false;
+
+    homeLoadingOverlay.setAlpha(1f);
+    homeLoadingOverlay.setVisibility(
+            View.VISIBLE
+    );
+
+    homeGateHandler.removeCallbacks(
+            homeGateTimeoutRunnable
+    );
+
+    homeGateHandler.postDelayed(
+            homeGateTimeoutRunnable,
+            HOME_GATE_TIMEOUT_MS
+    );
+
+    /*
+     * Cache အကုန်ပူနေလျှင် loading set လွတ်နေမည် —
+     * overlay တန်းပျောက်မည်။
+     */
+    checkHomeGate();
+}
+
+private void checkHomeGate() {
+    if (homeGateOpen) {
+        return;
+    }
+
+    if (homeSectionLoading.isEmpty()) {
+        openHomeGate();
+    }
+}
+
+private void openHomeGate() {
+    if (homeGateOpen) {
+        return;
+    }
+
+    homeGateOpen = true;
+
+    homeGateHandler.removeCallbacks(
+            homeGateTimeoutRunnable
+    );
+
+    homeLoadingOverlay.animate()
+            .alpha(0f)
+            .setDuration(300L)
+            .withEndAction(
+                    () ->
+                            homeLoadingOverlay
+                                    .setVisibility(
+                                            View.GONE
+                                    )
+            )
+            .start();
+}
+
+
+/*
  * Home section အတွက် content category page-1 ကို
  * session မှာ တစ်ကြိမ်တည်း fetch လုပ်သည်။
  * ApiClient.getCached (20-min disk cache) သုံးသည် —
@@ -1302,15 +1390,20 @@ private void ensureHomeSectionLoaded(String value) {
                         if (homeMode) {
                             refreshHomeSections();
                         }
+
+                        checkHomeGate();
                     });
                 }
 
                 @Override
                 public void onError(Exception error) {
                     runOnUiThread(
-                            () ->
-                                    homeSectionLoading
-                                            .remove(value)
+                            () -> {
+                                homeSectionLoading
+                                        .remove(value);
+
+                                checkHomeGate();
+                            }
                     );
                 }
             }

@@ -442,4 +442,42 @@
 <!-- Hamburger navigation drawer (menu only, no network on open). -->
 <include layout="@layout/drawer_menu" />
 
+<!--
+    Home loading gate: covers the screen with a spinner until all 3
+    home sections have settled (or timeout). Sections then appear
+    together instead of popping in one by one.
+-->
+<FrameLayout
+    android:id="@+id/homeLoadingOverlay"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#050609"
+    android:clickable="true"
+    android:focusable="true"
+    android:visibility="visible">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center_horizontal"
+        android:orientation="vertical">
+
+        <ProgressBar
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:indeterminateTint="#E8B93E" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:letterSpacing="0.12"
+            android:text="LOADING"
+            android:textColor="#8E94A3"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+</FrameLayout>
+
 </androidx.drawerlayout.widget.DrawerLayout>
