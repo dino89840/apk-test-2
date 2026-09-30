@@ -11,11 +11,21 @@
     android:layout_height="match_parent"
     android:background="@color/dark_bg">
 
-<LinearLayout
+<!--
+    DrawerLayout မှာ direct content child တစ်ခုပဲရှိစေရန်
+    app content နှင့် loading overlay ကို FrameLayout တစ်ခုထဲ
+    စုထားသည်။
+-->
+<FrameLayout
+    android:id="@+id/mainContentContainer"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@color/dark_bg"
-    android:orientation="vertical">
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/dark_bg"
+        android:orientation="vertical">
 
        <LinearLayout
         android:layout_width="match_parent"
@@ -425,47 +435,55 @@
 
     </LinearLayout>
 
-</LinearLayout>
+    </LinearLayout>
 
-<!-- Hamburger navigation drawer (menu only, no network on open). -->
-<include layout="@layout/drawer_menu" />
+    <!--
+        ဒီ overlay က app content ပေါ်မှာသာရှိမည်။
+        Drawer menu ပေါ်ကို ဖုံးပြီး click intercept
+        မလုပ်နိုင်တော့ပါ။
+    -->
+    <FrameLayout
+        android:id="@+id/homeLoadingOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#050609"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="visible">
 
-<!--
-    Home loading gate: covers the screen with a spinner until all 3
-    home sections have settled (or timeout). Sections then appear
-    together instead of popping in one by one.
--->
-<FrameLayout
-    android:id="@+id/homeLoadingOverlay"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="#050609"
-    android:clickable="true"
-    android:focusable="true"
-    android:visibility="visible">
-
-    <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:gravity="center_horizontal"
-        android:orientation="vertical">
-
-        <ProgressBar
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:indeterminateTint="#E8B93E" />
-
-        <TextView
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:letterSpacing="0.12"
-            android:text="LOADING"
-            android:textColor="#8E94A3"
-            android:textSize="12sp"
-            android:textStyle="bold" />
-    </LinearLayout>
+            android:layout_gravity="center"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+
+            <ProgressBar
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:indeterminateTint="#E8B93E" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:letterSpacing="0.12"
+                android:text="LOADING"
+                android:textColor="#8E94A3"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
+    </FrameLayout>
+
 </FrameLayout>
+
+<!--
+    Drawer view ကို MainContentContainer နောက်မှာထားသည်။
+    Drawer ဖွင့်ထားစဉ် drawer menu က loading overlay ထက်
+    အပေါ်မှာရှိမည်။
+-->
+<include layout="@layout/drawer_menu" />
 
 </androidx.drawerlayout.widget.DrawerLayout>
