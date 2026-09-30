@@ -941,7 +941,24 @@ private void enterCategory(
     category = value;
     homeMode = false;
 
-    localHeader.setVisibility(View.VISIBLE);
+    /*
+     * Network category full-grid (Horror / 18+ —
+     * Home "More ›" ကလာသော) တွင် hamburger +
+     * search bar သာ ပြမည်။ Banner / username /
+     * premium ကို refreshTopChromeVisibility() က ဝှက်ပြီး၊
+     * back/title header နှင့် grid toggle ကိုပါ
+     * နေရာကျဉ်းသဖြင့် ဝှက်မည်။
+     * Drawer ကဖွင့်သော local စာမျက်နှာများ
+     * (Continue Watching / Recently Viewed /
+     * Downloads / Favorites) တွင်မူ back header နှင့်
+     * CLEAR ကို ဆက်ပြမည်။
+     */
+    boolean minimalChrome =
+            isNetworkCategory(category);
+
+    localHeader.setVisibility(
+            minimalChrome ? View.GONE : View.VISIBLE
+    );
     localHeaderTitle.setText(label);
 
     boolean local = isLocalCategory(category);
@@ -952,11 +969,26 @@ private void enterCategory(
             local ? View.VISIBLE : View.GONE
     );
 
-    gridToggleButton.setVisibility(View.VISIBLE);
+    gridToggleButton.setVisibility(
+            minimalChrome ? View.GONE : View.VISIBLE
+    );
 
     refreshTopChromeVisibility();
     refreshSearchHistory();
     updateBottomNav();
+}
+
+
+/*
+ * Home "More ›" / bottom nav / search တို့မှ
+ * ဖွင့်သော network category များ။
+ */
+private boolean isNetworkCategory(
+        String value
+) {
+    return "movies".equals(value) ||
+            "series".equals(value) ||
+            "lugyi".equals(value);
 }
 
 
