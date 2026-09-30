@@ -25,7 +25,18 @@ public final class AppContentManager {
      * Cloudflare edge cache မှရယူမည်။
      */
     private static final long BANNER_CACHE_TTL_MS =
-            12L * 60L * 60L * 1000L;
+        12L * 60L * 60L * 1000L;
+
+/*
+ * Notification ကို Activity resume တိုင်း network
+ * validation မလုပ်ဘဲ device ထဲမှာ 30 minutes သုံးမည်။
+ *
+ * 30 minutes ကျော်မှ ETag ဖြင့် server ကို
+ * ပြန်စစ်မည်။
+ */
+private static final long NOTICE_CACHE_TTL_MS =
+        30L * 60L * 1000L;
+
 
     private static final String PREFS =
             "cmflix_app_content_v3";
@@ -40,7 +51,11 @@ public final class AppContentManager {
             "notice_body";
 
     private static final String KEY_NOTICE_ETAG =
-            "notice_etag";
+        "notice_etag";
+
+private static final String KEY_NOTICE_SAVED_AT =
+        "notice_saved_at";
+
 
     private static final ExecutorService EXECUTOR =
             Executors.newSingleThreadExecutor();
@@ -140,72 +155,105 @@ public final class AppContentManager {
      * JSON body download လုပ်စရာမလိုပါ။
      */
     public static void refreshNotification(
-            Context context,
-            Callback callback
-    ) {
-        Context appContext =
-                context.getApplicationContext();
+        Context context,
+        Callback callback
+) {
+    Context appContext =
+            context.getApplicationContext();
 
-        SharedPreferences preferences =
-                preferences(appContext);
+    SharedPreferences preferences =
+            preferences(appContext);
 
-        String cachedBody =
-                preferences.getString(
-                        KEY_NOTICE_BODY,
-                        ""
-                );
+    String cachedBody =
+            preferences.getString(
+                    KEY_NOTICE_BODY,
+                    ""
+            );
 
-        JSONObject cached =
-                parseCachedBody(
-                        preferences,
-                        KEY_NOTICE_BODY,
-                        cachedBody
-                );
+    JSONObject cached =
+            parseCachedBody(
+                    preferences,
+                    KEY_NOTICE_BODY,
+                    cachedBody
+            );
 
-        if (!NetworkUtils.isOnline(appContext)) {
-            if (cached != null) {
-                callback.onContent(cached);
-            } else {
-                callback.onError(
-                        new IllegalStateException(
-                                "အင်တာနက်ချိတ်ဆက်မှု မရှိပါ။"
-                        )
-                );
-            }
+    long savedAt =
+            preferences.getLong(
+                    KEY_NOTICE_SAVED_AT,
+                    0L
+            );
 
-            return;
-        }
+    boolean fresh =
+            cached != null &&
+            savedAt > 0L &&
+            System.currentTimeMillis() - savedAt
+                    < NOTICE_CACHE_TTL_MS;
 
-        /*
-         * Periodic timer နဲ့ Activity resume callback
-         * တစ်ချိန်တည်းဝင်လာလျှင် duplicate request
-         * မပို့စေရန်။
-         */
-        if (
-                !NOTICE_REQUEST_IN_FLIGHT
-                        .compareAndSet(
-                                false,
-                                true
-                        )
-        ) {
-            return;
-        }
-
-        EXECUTOR.execute(() -> {
-            try {
-                requestNotification(
-                        preferences,
-                        cachedBody,
-                        cached,
-                        callback
-                );
-            } finally {
-                NOTICE_REQUEST_IN_FLIGHT.set(
-                        false
-                );
-            }
-        });
+    /*
+     * 30 minutes အတွင်း cache ရှိနေရင်
+     * network request လုံးဝမပို့ပါ။
+     */
+    if (fresh) {
+        callback.onContent(cached);
+        return;
     }
+
+    /*
+     * Internet မရှိလျှင် ရှိပြီးသား notification ကို
+     * stale ဖြစ်နေလည်း ပြမည်။
+     */
+    if (!NetworkUtils.isOnline(appContext)) {
+        if (cached != null) {
+            callback.onContent(cached);
+        } else {
+            callback.onError(
+                    new IllegalStateException(
+                            "အင်တာနက်ချိတ်ဆက်မှု မရှိပါ။"
+                    )
+            );
+        }
+
+        return;
+    }
+
+    /*
+     * Activity callbacks တစ်ပြိုင်နက်ဝင်လာလျှင်
+     * duplicate network request မပို့စေရန်။
+     */
+    if (
+            !NOTICE_REQUEST_IN_FLIGHT
+                    .compareAndSet(
+                            false,
+                            true
+                    )
+    ) {
+        /*
+         * Request တစ်ခုလုပ်နေပြီး cache ရှိရင်
+         * ရှိပြီးသား content ကိုပြမည်။
+         */
+        if (cached != null) {
+            callback.onContent(cached);
+        }
+
+        return;
+    }
+
+    EXECUTOR.execute(() -> {
+        try {
+            requestNotification(
+                    preferences,
+                    cachedBody,
+                    cached,
+                    callback
+            );
+        } finally {
+            NOTICE_REQUEST_IN_FLIGHT.set(
+                    false
+            );
+        }
+    });
+}
+
 
     private static void requestBanner(
             SharedPreferences preferences,
@@ -315,19 +363,32 @@ public final class AppContentManager {
                     connection.getResponseCode();
 
             if (
-                    statusCode ==
-                            HttpURLConnection
-                                    .HTTP_NOT_MODIFIED
-            ) {
-                if (cached == null) {
-                    throw new IllegalStateException(
-                            "Cached notification မရှိပါ။"
-                    );
-                }
+        statusCode ==
+                HttpURLConnection
+                        .HTTP_NOT_MODIFIED
+) {
+    if (cached == null) {
+        throw new IllegalStateException(
+                "Cached notification မရှိပါ။"
+        );
+    }
 
-                callback.onContent(cached);
-                return;
-            }
+    /*
+     * Server က notification မပြောင်းသေးကြောင်း
+     * အတည်ပြုခဲ့သောကြောင့် local TTL ပြန်စမည်။
+     */
+    preferences
+            .edit()
+            .putLong(
+                    KEY_NOTICE_SAVED_AT,
+                    System.currentTimeMillis()
+            )
+            .apply();
+
+    callback.onContent(cached);
+    return;
+}
+
 
             if (
                     statusCode < 200 ||
@@ -356,12 +417,17 @@ public final class AppContentManager {
                     );
 
             SharedPreferences.Editor editor =
-                    preferences
-                            .edit()
-                            .putString(
-                                    KEY_NOTICE_BODY,
-                                    json.toString()
-                            );
+        preferences
+                .edit()
+                .putString(
+                        KEY_NOTICE_BODY,
+                        json.toString()
+                )
+                .putLong(
+                        KEY_NOTICE_SAVED_AT,
+                        System.currentTimeMillis()
+                );
+
 
             if (
                     responseETag != null &&
