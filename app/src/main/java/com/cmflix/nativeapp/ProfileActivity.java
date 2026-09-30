@@ -44,10 +44,12 @@ private boolean promoLoading = false;
 
 
 
-    private Button changePasswordButton;
-private Button adultPinButton;
-private Button logoutButton;
-private Button contactButton;
+    private View changePasswordButton;
+private View adultPinButton;
+private TextView adultPinStatus;
+private View logoutButton;
+private TextView logoutLabel;
+private View contactButton;
 
 
     private ProgressBar progress;
@@ -109,8 +111,14 @@ promoRedeemButton =
         adultPinButton =
                 findViewById(R.id.adultPinButton);
 
+        adultPinStatus =
+                findViewById(R.id.adultPinStatus);
+
         logoutButton =
         findViewById(R.id.profileLogoutButton);
+
+        logoutLabel =
+                findViewById(R.id.profileLogoutLabel);
 
 contactButton =
         findViewById(R.id.profileContactButton);
@@ -536,14 +544,14 @@ bindVipState(
      * ပြောင်း/ဖျက် ခွင့်ပြုမည်။
      */
     private void updateAdultPinButton() {
-        if (adultPinButton == null) {
+        if (adultPinStatus == null) {
             return;
         }
 
-        adultPinButton.setText(
-                SecureCredentialStore.hasAdultPin()
-                        ? "18+ PIN Lock: ON"
-                        : "Set 18+ PIN Lock"
+        boolean hasPin = SecureCredentialStore.hasAdultPin();
+        adultPinStatus.setText(hasPin ? "ON" : "OFF");
+        adultPinStatus.setTextColor(
+                hasPin ? 0xFFE8B84B : 0xFFA8ADB8
         );
     }
 
@@ -1227,7 +1235,7 @@ bindVipState(
         logoutButton.setEnabled(false);
         changePasswordButton.setEnabled(false);
 
-        logoutButton.setText("Please wait…");
+        logoutLabel.setText("Please wait…");
         progress.setVisibility(View.VISIBLE);
 
         ApiClient.post(
