@@ -28,9 +28,7 @@ import java.util.Map;
  * setSections() ဖြင့် ပေးသည်။ Item မရှိသော section
  * များကို Activity ဘက်က filter လုပ်ပြီးသားဖြစ်သည်။
  *
- * 18+ section များ: PIN မဖွင့်ရသေးလျှင် Activity က
- * section list ထဲထည့်မပေးပါ (poster/title leak
- * မဖြစ်စေရန်)။ Network data လိုသော section များ
+ * Network data လိုသော section များ
  * (Horror / 18+) အတွက် Activity က session cache မှ
  * ပေးသည် — ဒီ adapter က request အသစ်မခေါ်ပါ။
  *

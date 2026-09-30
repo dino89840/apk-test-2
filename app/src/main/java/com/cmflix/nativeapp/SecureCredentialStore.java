@@ -28,12 +28,6 @@ public final class SecureCredentialStore {
     private static final String KEY_IV =
             "remembered_password_iv";
 
-    private static final String KEY_ADULT_PIN_CIPHER =
-            "adult_pin_cipher";
-
-    private static final String KEY_ADULT_PIN_IV =
-            "adult_pin_iv";
-
     private static SharedPreferences preferences;
 
     private SecureCredentialStore() {
@@ -120,86 +114,6 @@ public final class SecureCredentialStore {
                 .edit()
                 .remove(KEY_CIPHER_TEXT)
                 .remove(KEY_IV)
-                .apply();
-    }
-
-    /*
-     * 18+ category များအတွက် 4-digit PIN lock။
-     * Device-level သိမ်းဆည်းမှုဖြစ်ပြီး
-     * account နှင့် မသက်ဆိုင်ပါ။
-     * Keystore AES/GCM ဖြင့်ပင် encrypt လုပ်ထားသည်။
-     */
-    public static synchronized boolean hasAdultPin() {
-        String cipherText =
-                prefs().getString(
-                        KEY_ADULT_PIN_CIPHER,
-                        ""
-                );
-
-        return cipherText != null &&
-                !cipherText.isEmpty();
-    }
-
-    public static synchronized void setAdultPin(
-            String pin
-    ) {
-        if (
-                pin == null ||
-                !pin.matches("\\d{4}")
-        ) {
-            clearAdultPin();
-            return;
-        }
-
-        try {
-            String[] encrypted =
-                    encrypt(pin);
-
-            prefs()
-                    .edit()
-                    .putString(
-                            KEY_ADULT_PIN_CIPHER,
-                            encrypted[0]
-                    )
-                    .putString(
-                            KEY_ADULT_PIN_IV,
-                            encrypted[1]
-                    )
-                    .apply();
-        } catch (Exception error) {
-            clearAdultPin();
-        }
-    }
-
-    public static synchronized boolean verifyAdultPin(
-            String pin
-    ) {
-        if (
-                pin == null ||
-                !hasAdultPin()
-        ) {
-            return false;
-        }
-
-        String stored =
-                decrypt(
-                        KEY_ADULT_PIN_CIPHER,
-                        KEY_ADULT_PIN_IV
-                );
-
-        if (stored == null) {
-            clearAdultPin();
-            return false;
-        }
-
-        return pin.equals(stored);
-    }
-
-    public static synchronized void clearAdultPin() {
-        prefs()
-                .edit()
-                .remove(KEY_ADULT_PIN_CIPHER)
-                .remove(KEY_ADULT_PIN_IV)
                 .apply();
     }
 

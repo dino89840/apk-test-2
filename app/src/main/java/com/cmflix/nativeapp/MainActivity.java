@@ -97,8 +97,7 @@ public class MainActivity extends AppCompatActivity {
     /*
      * Home sections အတွက် session cache:
      * content category ("movies" / "series" / "lugyi") ရဲ့
-     * page-1 item list။ 18+ အတွက် PIN unlock ပြီးမှ (သို့မဟုတ်
-     * PIN မသတ်မှတ်ရသေးလျှင်) သာ fetch လုပ်သည်။
+     * page-1 item list။
      */
     private final Map<String, List<JSONObject>>
             homeSectionCache = new HashMap<>();
@@ -124,6 +123,16 @@ private TextView clearSearchHistoryButton;
 private Button accountButton;
 private Button premiumButton;
 private ImageView vipPlanBanner;
+
+/*
+ * Top chrome (banner / account / premium button) များ၏
+ * Home ပေါ်မှာပြသင့်သော visibility။
+ * Full-grid view ဝင်လျှင် နေရာကျဉ်းသဖြင့်
+ * hamburger + search bar သာ ချန်ပြီး အားလုံးဝှက်မည်။
+ * Home ပြန်ရောက်လျှင် ဒီ flag များအတိုင်း ပြန်ပြမည်။
+ */
+private boolean vipBannerWanted = true;
+private boolean premiumButtonWanted = false;
 
 /*
  * Admin မှသတ်မှတ်ထားသော banner click link။
@@ -194,13 +203,6 @@ private long lastProfileRefreshAttemptAt = 0L;
 
     private String category = "movies";
     private String search = "";
-
-    /*
-     * 18+ tab များကို ဒီ app session မှာ
-     * PIN နဲ့ unlock လုပ်ပြီးပြီလား။
-     * App ပိတ်ပြီး ပြန်ဖွင့်တိုင်း reset ဖြစ်သည်။
-     */
-    private boolean adultUnlocked = false;
 
     private int currentPage = 0;
     private boolean hasMore = true;
@@ -894,43 +896,13 @@ protected void onDestroy() {
 
 
 /*
- * 18+ tab များ: "series" = Nosub 18+, "lugyi" = Mmsub 18+
- */
-private static boolean isAdultCategory(String value) {
-    return "series".equals(value) ||
-            "lugyi".equals(value);
-}
-
-
-/*
  * Category ဖွင့်ခြင်း၏ တစ်ခုတည်းသော တံခါးပေါက်။
- * 18+ category များ PIN lock ခံထားလျှင် PIN တောင်းမည်။
- * Unlock လုပ်ပြီးမှ category ပြောင်းမည်။
- *
- * Bottom nav, drawer, Home "More >" အားလုံး ဒီကနေဖြတ်သည် —
- * PIN check လွတ်သွားစရာ လမ်းမရှိပါ။
+ * Bottom nav, drawer, Home "More >" အားလုံး ဒီကနေဖြတ်သည်။
  */
 private void openCategory(
         String value,
         String label
 ) {
-    if (
-            isAdultCategory(value) &&
-                    SecureCredentialStore.hasAdultPin() &&
-                    !adultUnlocked
-    ) {
-        AdultPinDialog.show(
-                MainActivity.this,
-                () -> {
-                    adultUnlocked = true;
-                    openCategory(value, label);
-                    refreshHomeSections();
-                }
-        );
-
-        return;
-    }
-
     switchCategory(value, label);
 }
 
@@ -969,7 +941,24 @@ private void enterCategory(
     category = value;
     homeMode = false;
 
-    localHeader.setVisibility(View.VISIBLE);
+    /*
+     * Network category full-grid (Horror / 18+ —
+     * Home "More ›" ကလာသော) တွင် hamburger +
+     * search bar သာ ပြမည်။ Banner / username /
+     * premium ကို refreshTopChromeVisibility() က ဝှက်ပြီး၊
+     * back/title header နှင့် grid toggle ကိုပါ
+     * နေရာကျဉ်းသဖြင့် ဝှက်မည်။
+     * Drawer ကဖွင့်သော local စာမျက်နှာများ
+     * (Continue Watching / Recently Viewed /
+     * Downloads / Favorites) တွင်မူ back header နှင့်
+     * CLEAR ကို ဆက်ပြမည်။
+     */
+    boolean minimalChrome =
+            isNetworkCategory(category);
+
+    localHeader.setVisibility(
+            minimalChrome ? View.GONE : View.VISIBLE
+    );
     localHeaderTitle.setText(label);
 
     boolean local = isLocalCategory(category);
@@ -980,10 +969,26 @@ private void enterCategory(
             local ? View.VISIBLE : View.GONE
     );
 
-    gridToggleButton.setVisibility(View.VISIBLE);
+    gridToggleButton.setVisibility(
+            minimalChrome ? View.GONE : View.VISIBLE
+    );
 
+    refreshTopChromeVisibility();
     refreshSearchHistory();
     updateBottomNav();
+}
+
+
+/*
+ * Home "More ›" / bottom nav / search တို့မှ
+ * ဖွင့်သော network category များ။
+ */
+private boolean isNetworkCategory(
+        String value
+) {
+    return "movies".equals(value) ||
+            "series".equals(value) ||
+            "lugyi".equals(value);
 }
 
 
@@ -1002,11 +1007,49 @@ private void goHome() {
     localClearButton.setVisibility(View.GONE);
     gridToggleButton.setVisibility(View.GONE);
 
+    refreshTopChromeVisibility();
     refreshSearchHistory();
     updateBottomNav();
 
     recycler.scrollToPosition(0);
     resetAndLoad();
+}
+
+
+/*
+ * Top chrome visibility ကို လက်ရှိ view state
+ * (Home / full-grid) နှင့်အညီ ချိန်ညှိသည်။
+ *
+ * Full-grid view တွင် banner / account (username) /
+ * premium button များကို ဝှက်ပြီး hamburger +
+ * search bar သာ ချန်မည် (နေရာကျဉ်းသဖြင့်)။
+ * Home တွင် remote config / login state အတိုင်း ပြန်ပြမည်။
+ * Request / cache / banner fetch logic ကို မထိပါ။
+ */
+private void refreshTopChromeVisibility() {
+    boolean fullGrid = !homeMode;
+
+    if (vipPlanBanner != null) {
+        vipPlanBanner.setVisibility(
+                !fullGrid && vipBannerWanted
+                        ? View.VISIBLE
+                        : View.GONE
+        );
+    }
+
+    if (accountButton != null) {
+        accountButton.setVisibility(
+                fullGrid ? View.GONE : View.VISIBLE
+        );
+    }
+
+    if (premiumButton != null) {
+        premiumButton.setVisibility(
+                !fullGrid && premiumButtonWanted
+                        ? View.VISIBLE
+                        : View.GONE
+        );
+    }
 }
 
 
@@ -1060,14 +1103,19 @@ private void openSectionMore(String sectionId) {
 
 /*
  * Home sections ကို တည်ဆောက်သည်။
- * - Continue Watching / Recently Viewed / Downloads:
- *   LocalStore (ဖုန်းတွင်း) ကသာ — request 0
+ * အစဉ်:
+ * 1. Continue Watching (ရှိမှသာ၊ အပေါ်ဆုံး)
+ * 2. Horror latest-10
+ * 3. Nosub 18+ latest-10
+ * 4. Mmsub 18+ latest-10
+ *
+ * Recently Viewed / Downloads / Favorites များသည်
+ * Home တွင်မပြဘဲ hamburger drawer မှသာ ဝင်သည်။
+ *
+ * - Continue Watching: LocalStore (ဖုန်းတွင်း) ကသာ — request 0
  * - Horror / 18+ latest-10: session cache; cache
  *   မရှိသေးလျှင် page-1 ကို တစ်ကြိမ်တည်း fetch
  *   (20-min disk cache ရှိ)။
- * - 18+ sections: PIN သတ်မှတ်ထားပြီး session unlock
- *   မလုပ်ရသေးလျှင် လုံးဝမထည့်ပါ (poster/title leak
- *   မဖြစ်စေရန်) — fetch လည်း မလုပ်ပါ။
  */
 private void refreshHomeSections() {
     if (headerAdapter == null) {
@@ -1123,66 +1171,34 @@ private void refreshHomeSections() {
         );
     }
 
-    boolean adultVisible =
-            !SecureCredentialStore.hasAdultPin() ||
-                    adultUnlocked;
-
-    if (adultVisible) {
-        List<JSONObject> nosubItems =
-                firstN(
-                        homeSectionCache.get("series"),
-                        10
-                );
-
-        if (!nosubItems.isEmpty()) {
-            sections.add(
-                    new HomeRowsAdapter.HomeSection(
-                            "series",
-                            "Nosub 18+",
-                            nosubItems
-                    )
+    List<JSONObject> nosubItems =
+            firstN(
+                    homeSectionCache.get("series"),
+                    10
             );
-        }
 
-        List<JSONObject> mmsubItems =
-                firstN(
-                        homeSectionCache.get("lugyi"),
-                        10
-                );
-
-        if (!mmsubItems.isEmpty()) {
-            sections.add(
-                    new HomeRowsAdapter.HomeSection(
-                            "lugyi",
-                            "Mmsub 18+",
-                            mmsubItems
-                    )
-            );
-        }
-    }
-
-    List<JSONObject> recentItems =
-            LocalStore.getRecentlyViewed();
-
-    if (!recentItems.isEmpty()) {
+    if (!nosubItems.isEmpty()) {
         sections.add(
                 new HomeRowsAdapter.HomeSection(
-                        "recent",
-                        "Recently Viewed",
-                        recentItems
+                        "series",
+                        "Nosub 18+",
+                        nosubItems
                 )
         );
     }
 
-    List<JSONObject> downloadItems =
-            LocalStore.getDownloadHistory();
+    List<JSONObject> mmsubItems =
+            firstN(
+                    homeSectionCache.get("lugyi"),
+                    10
+            );
 
-    if (!downloadItems.isEmpty()) {
+    if (!mmsubItems.isEmpty()) {
         sections.add(
                 new HomeRowsAdapter.HomeSection(
-                        "downloads",
-                        "Downloads",
-                        downloadItems
+                        "lugyi",
+                        "Mmsub 18+",
+                        mmsubItems
                 )
         );
     }
@@ -1194,11 +1210,8 @@ private void refreshHomeSections() {
      * ယခု fetch လုပ်မည် (session မှာ တစ်ကြိမ်တည်း)။
      */
     ensureHomeSectionLoaded("movies");
-
-    if (adultVisible) {
-        ensureHomeSectionLoaded("series");
-        ensureHomeSectionLoaded("lugyi");
-    }
+    ensureHomeSectionLoaded("series");
+    ensureHomeSectionLoaded("lugyi");
 }
 
 
@@ -1712,17 +1725,17 @@ private void applyRemoteBanner(
                     ? "https://t.me/iqowoq"
                     : link;
 
-    if (!enabled) {
-        vipPlanBanner.setVisibility(
-                View.GONE
-        );
+    /*
+     * Remote banner enabled flag ကို သိမ်းပြီး
+     * လက်ရှိ view state နဲ့အညီ visibility ချိန်မည်
+     * (full-grid တွင် အမြဲဝှက်ထားမည်)။
+     */
+    vipBannerWanted = enabled;
+    refreshTopChromeVisibility();
 
+    if (!enabled) {
         return;
     }
-
-    vipPlanBanner.setVisibility(
-            View.VISIBLE
-    );
 
     if (imageUrl.isEmpty()) {
         vipPlanBanner.setImageResource(
@@ -1939,9 +1952,8 @@ private void setupDoubleBackExit() {
     );
 
     if (!loggedIn) {
-        premiumButton.setVisibility(
-                View.GONE
-        );
+        premiumButtonWanted = false;
+        refreshTopChromeVisibility();
 
         return;
     }
@@ -1950,9 +1962,8 @@ private void setupDoubleBackExit() {
             SessionManager.getPremiumLabel()
     );
 
-    premiumButton.setVisibility(
-            View.VISIBLE
-    );
+    premiumButtonWanted = true;
+    refreshTopChromeVisibility();
 }
 
 private void openLogin() {
