@@ -52,6 +52,14 @@ public class SplashActivity extends AppCompatActivity {
     private boolean introDone = false;
     private boolean preloadTimedOut = false;
 
+    /*
+     * Exit fade စပြီးပြီလား — mainActivityOpened နဲ့ ခွဲထားရမည်။
+     * Fade မစခင် mainActivityOpened ကို true ထားမိလျှင်
+     * openMainActivity() က စောစော return သွားပြီး
+     * MainActivity လုံးဝမပွင့်ဘဲ အမဲစခရင်ပဲ ကျန်ခဲ့မည်။
+     */
+    private boolean exitStarted = false;
+
     private final AtomicInteger preloadPending =
             new AtomicInteger(
                     HOME_SECTION_VALUES.length
@@ -358,7 +366,7 @@ public class SplashActivity extends AppCompatActivity {
      * exit fade စမည်။
      */
     private void maybeOpenMain() {
-        if (mainActivityOpened || isFinishing()) {
+        if (exitStarted || isFinishing()) {
             return;
         }
 
@@ -370,7 +378,7 @@ public class SplashActivity extends AppCompatActivity {
             return;
         }
 
-        mainActivityOpened = true;
+        exitStarted = true;
 
         handler.removeCallbacks(
                 openMainRunnable
