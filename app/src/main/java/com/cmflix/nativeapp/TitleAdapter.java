@@ -178,12 +178,9 @@ public void refreshProgressSnapshot() {
 
     /*
      * Home horizontal row card များ ဖုန်းအရွယ်အစား
-     * မရွေး ၃ ကား အပြည့်မြင်ရအောင် item width ကို
-     * row ရဲ့ အကျယ်အတိုင်း ချိန်ညှိသည်
-     * (fixed 124dp အစား)။
-     * ၃ ကားအပြည့် + ၄ ကားမြောက် အစွန်း
-     * နည်းနည်း ပေါ်မည် (ဘေးတိုက်ဆွဲနိုင်ကြောင်း
-     * အရိပ်အမြွက်)။
+     * မရွေး တစ်တန်းမှာ ၃ ကား အတိအကျ အပြည့်
+     * မြင်ရအောင် item width ကို row ရဲ့
+     * အကျယ်အတိုင်း ချိန်ညှိသည် (fixed 124dp အစား)။
      * Grid layout (item_title) ကို မထိပါ။
      */
     private void applyResponsiveRowWidth(
@@ -213,7 +210,7 @@ public void refreshProgressSnapshot() {
         }
 
         int itemTotalPx =
-                (int) (rowContentPx / 3.15f);
+                (int) (rowContentPx / 3.0f);
 
         /*
          * Card ရဲ့ start/end margin 4dp+4dp နှုတ်မည်။
