@@ -75,6 +75,14 @@
             android:textColor="#737680"
             android:textSize="10sp" />
 
+        <!-- Home sections pre-warm indicator (gold spinner). -->
+        <ProgressBar
+            android:id="@+id/splashLoadingSpinner"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginTop="26dp"
+            android:indeterminateTint="#E8B93E" />
+
     </LinearLayout>
 
 </FrameLayout>

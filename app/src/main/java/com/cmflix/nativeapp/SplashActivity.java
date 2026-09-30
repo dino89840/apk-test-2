@@ -18,17 +18,53 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.splashscreen.SplashScreen;
 
+import org.json.JSONObject;
+
+import java.util.concurrent.atomic.AtomicInteger;
+
 public class SplashActivity extends AppCompatActivity {
 
-    private static final long FINISH_DELAY_MS = 2100L;
+    /*
+     * Home section ၃ ခု (movies / series / lugyi) ကို
+     * splash ပြနေချိန်မှာ pre-warm လုပ်မည်။
+     * MainActivity ရဲ့ getCached call တွေနဲ့ path/TTL အတူတူ
+     * ဖြစ်သောကြောင့် disk cache ပူသွားပြီး home မှာ
+     * section ၃ ခု တစ်ပြိုင်နက် ပေါ်မည်။
+     * Request အသစ်/endpoint အပြောင်း လုံးဝမရှိပါ။
+     */
+    private static final long PRELOAD_CACHE_MS =
+            20L * 60L * 1000L;
+
+    private static final long PRELOAD_TIMEOUT_MS =
+            8000L;
+
+    private static final String[] HOME_SECTION_VALUES = {
+            "movies",
+            "series",
+            "lugyi"
+    };
 
     private final Handler handler =
             new Handler(Looper.getMainLooper());
 
     private boolean mainActivityOpened = false;
 
+    private boolean introDone = false;
+    private boolean preloadTimedOut = false;
+
+    private final AtomicInteger preloadPending =
+            new AtomicInteger(
+                    HOME_SECTION_VALUES.length
+            );
+
     private final Runnable openMainRunnable =
             this::openMainActivity;
+
+    private final Runnable preloadTimeoutRunnable =
+            () -> {
+                preloadTimedOut = true;
+                maybeOpenMain();
+            };
 
     @Override
     protected void onCreate(
@@ -233,34 +269,37 @@ public class SplashActivity extends AppCompatActivity {
                 )
         );
 
+        /*
+         * Intro ပြီးမှ main ဖွင့်နိုင်မည် —
+         * preload စောင့်နေရင်လည်း intro အရင်ပြီးရမည်။
+         */
+        introAnimation.addListener(
+                new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(
+                            Animator animation
+                    ) {
+                        introDone = true;
+                        maybeOpenMain();
+                    }
+                }
+        );
+
         introAnimation.start();
 
         /*
-         * နောက်ဆုံးမှာ splash တစ်ခုလုံး fade + zoom out။
+         * Home section ၃ ခုကို splash ပြနေချိန်
+         * pre-warm လုပ်မည် (disk cache ပူသွားရန်)။
+         */
+        preloadHomeSections();
+
+        /*
+         * Preload ကြာနေလျှင် timeout နဲ့ ဆက်သွားမည် —
+         * splash မှာ ပိတ်မိနေတာမျိုး မဖြစ်စေရန်။
          */
         handler.postDelayed(
-                () -> {
-                    splashRoot.animate()
-                            .alpha(0f)
-                            .scaleX(1.04f)
-                            .scaleY(1.04f)
-                            .setDuration(350L)
-                            .setInterpolator(
-                                    new DecelerateInterpolator()
-                            )
-                            .setListener(
-                                    new AnimatorListenerAdapter() {
-                                        @Override
-                                        public void onAnimationEnd(
-                                                Animator animation
-                                        ) {
-                                            openMainActivity();
-                                        }
-                                    }
-                            )
-                            .start();
-                },
-                FINISH_DELAY_MS - 350L
+                preloadTimeoutRunnable,
+                PRELOAD_TIMEOUT_MS
         );
 
         /*
@@ -269,8 +308,102 @@ public class SplashActivity extends AppCompatActivity {
          */
         handler.postDelayed(
                 openMainRunnable,
-                FINISH_DELAY_MS + 150L
+                PRELOAD_TIMEOUT_MS + 2000L
         );
+    }
+
+    /*
+     * MainActivity နဲ့ path/TTL အတူတူ —
+     * getCached က disk cache ကို သူ့ဟာသူ ရေးသွားမည်။
+     */
+    private void preloadHomeSections() {
+        ApiClient.initialize(this);
+
+        for (String value : HOME_SECTION_VALUES) {
+            String path =
+                    "titles?category=" +
+                            ApiClient.encode(value) +
+                            "&page=1";
+
+            ApiClient.getCached(
+                    path,
+                    PRELOAD_CACHE_MS,
+                    new ApiClient.Callback() {
+                        @Override
+                        public void onSuccess(
+                                JSONObject json
+                        ) {
+                            onPreloadSettled();
+                        }
+
+                        @Override
+                        public void onError(
+                                Exception error
+                        ) {
+                            onPreloadSettled();
+                        }
+                    }
+            );
+        }
+    }
+
+    private void onPreloadSettled() {
+        if (preloadPending.decrementAndGet() == 0) {
+            handler.post(this::maybeOpenMain);
+        }
+    }
+
+    /*
+     * Intro ပြီးပြီး preload စုံမှ (သို့မဟုတ် timeout)
+     * exit fade စမည်။
+     */
+    private void maybeOpenMain() {
+        if (mainActivityOpened || isFinishing()) {
+            return;
+        }
+
+        if (!introDone) {
+            return;
+        }
+
+        if (!preloadTimedOut && preloadPending.get() > 0) {
+            return;
+        }
+
+        mainActivityOpened = true;
+
+        handler.removeCallbacks(
+                openMainRunnable
+        );
+        handler.removeCallbacks(
+                preloadTimeoutRunnable
+        );
+
+        View splashRoot =
+                findViewById(R.id.splashRoot);
+
+        /*
+         * Splash တစ်ခုလုံး fade + zoom out ပြီးမှ main ဖွင့်။
+         */
+        splashRoot.animate()
+                .alpha(0f)
+                .scaleX(1.04f)
+                .scaleY(1.04f)
+                .setDuration(350L)
+                .setInterpolator(
+                        new DecelerateInterpolator()
+                )
+                .setListener(
+                        new AnimatorListenerAdapter() {
+                            @Override
+                            public void onAnimationEnd(
+                                    Animator animation
+                            ) {
+                                openMainActivity();
+                            }
+                        }
+                )
+                .start();
     }
 
     private void openMainActivity() {
@@ -282,6 +415,9 @@ public class SplashActivity extends AppCompatActivity {
 
         handler.removeCallbacks(
                 openMainRunnable
+        );
+        handler.removeCallbacks(
+                preloadTimeoutRunnable
         );
 
         Intent intent =
