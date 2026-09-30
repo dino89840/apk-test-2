@@ -1421,11 +1421,22 @@ private void ensureHomeSectionLoaded(String value) {
     ) {
         int color =
                 active
-                        ? Color.parseColor("#8B5CF6")
+                        ? Color.parseColor("#E8B93E")
                         : Color.parseColor("#8A8F9C");
 
         icon.setColorFilter(color);
         label.setTextColor(color);
+
+        if (active) {
+            /*
+             * Premium gold tile behind the active tab icon
+             * (same tile as the drawer menu icons).
+             */
+            icon.setBackgroundResource(
+                    R.drawable.drawer_icon_tile);
+        } else {
+            icon.setBackgroundResource(0);
+        }
     }
 
     /*

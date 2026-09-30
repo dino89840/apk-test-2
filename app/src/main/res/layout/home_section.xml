@@ -47,7 +47,7 @@
         android:id="@+id/sectionRow"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:clipToPadding="false"
+        android:clipToPadding="true"
         android:overScrollMode="never"
         android:paddingStart="8dp"
         android:paddingEnd="8dp"

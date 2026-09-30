@@ -330,8 +330,9 @@
 
             <ImageView
                 android:id="@+id/navHomeIcon"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:padding="7dp"
                 android:src="@drawable/ic_nav_home" />
 
             <TextView
@@ -359,8 +360,9 @@
 
             <ImageView
                 android:id="@+id/navHorrorIcon"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:padding="7dp"
                 android:src="@drawable/ic_nav_film" />
 
             <TextView
@@ -388,8 +390,9 @@
 
             <ImageView
                 android:id="@+id/navNosubIcon"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:padding="7dp"
                 android:src="@drawable/ic_nav_play" />
 
             <TextView
@@ -417,8 +420,9 @@
 
             <ImageView
                 android:id="@+id/navMmsubIcon"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:padding="7dp"
                 android:src="@drawable/ic_nav_play" />
 
             <TextView
