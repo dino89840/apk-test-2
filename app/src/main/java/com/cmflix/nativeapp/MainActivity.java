@@ -160,6 +160,13 @@ private final Set<String>
     private String category = "movies";
     private String search = "";
 
+    /*
+     * 18+ tab များကို ဒီ app session မှာ
+     * PIN နဲ့ unlock လုပ်ပြီးပြီလား။
+     * App ပိတ်ပြီး ပြန်ဖွင့်တိုင်း reset ဖြစ်သည်။
+     */
+    private boolean adultUnlocked = false;
+
     private int currentPage = 0;
     private boolean hasMore = true;
     private boolean isLoading = false;
@@ -594,41 +601,78 @@ recycler.getRecycledViewPool()
                 return;
             }
 
-            if (value.equals(category)) {
+            /*
+             * 18+ tab များ (Nosub 18+ / Mmsub 18+) ကို
+             * PIN lock ခံထားလျှင် PIN တောင်းမည်။
+             * Unlock လုပ်ပြီးမှ category ပြောင်းမည်။
+             */
+            if (
+                    isAdultCategory(value) &&
+                    SecureCredentialStore.hasAdultPin() &&
+                    !adultUnlocked
+            ) {
+                AdultPinDialog.show(
+                        MainActivity.this,
+                        () -> {
+                            adultUnlocked = true;
+                            switchCategory(value, label);
+                        }
+                );
                 return;
             }
 
-            category = value;
-            search = "";
-
-            searchInput.setText("");
-
-            boolean local =
-                    isLocalCategory(category);
-
-            searchInput.setVisibility(
-                    View.VISIBLE
-            );
-
-            sectionTitle.setText(label);
-
-            localClearButton.setVisibility(
-                    local
-                            ? View.VISIBLE
-                            : View.GONE
-            );
-
-            refreshSearchHistory();
-            updateCategoryButtons();
-
-            recycler.scrollToPosition(0);
-            resetAndLoad();
+            switchCategory(value, label);
         });
 
         categoryBar.addView(button);
     }
 
     updateCategoryButtons();
+}
+
+
+/*
+ * 18+ tab များ: "series" = Nosub 18+, "lugyi" = Mmsub 18+
+ */
+private static boolean isAdultCategory(String value) {
+    return "series".equals(value) ||
+            "lugyi".equals(value);
+}
+
+
+private void switchCategory(
+        String value,
+        String label
+) {
+    if (value.equals(category)) {
+        return;
+    }
+
+    category = value;
+    search = "";
+
+    searchInput.setText("");
+
+    boolean local =
+            isLocalCategory(category);
+
+    searchInput.setVisibility(
+            View.VISIBLE
+    );
+
+    sectionTitle.setText(label);
+
+    localClearButton.setVisibility(
+            local
+                    ? View.VISIBLE
+                    : View.GONE
+    );
+
+    refreshSearchHistory();
+    updateCategoryButtons();
+
+    recycler.scrollToPosition(0);
+    resetAndLoad();
 }
 
 

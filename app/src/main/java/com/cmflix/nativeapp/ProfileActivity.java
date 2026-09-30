@@ -5,6 +5,7 @@ import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.text.InputFilter;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
@@ -44,6 +45,7 @@ private boolean promoLoading = false;
 
 
     private Button changePasswordButton;
+private Button adultPinButton;
 private Button logoutButton;
 private Button contactButton;
 
@@ -104,6 +106,9 @@ promoRedeemButton =
         changePasswordButton =
                 findViewById(R.id.changePasswordButton);
 
+        adultPinButton =
+                findViewById(R.id.adultPinButton);
+
         logoutButton =
         findViewById(R.id.profileLogoutButton);
 
@@ -130,6 +135,12 @@ contactButton =
     changePasswordButton.setOnClickListener(
             view -> showChangePasswordDialog()
     );
+
+    adultPinButton.setOnClickListener(
+            view -> showAdultPinDialog()
+    );
+
+    updateAdultPinButton();
 
     logoutButton.setOnClickListener(
             view -> showLogoutDialog()
@@ -517,6 +528,310 @@ bindVipState(
             }
     );
 }
+
+    /*
+     * 18+ PIN Lock စီမံခန့်ခွဲမှု။
+     * PIN မရှိသေးလျှင် အသစ်သတ်မှတ်ခိုင်းပြီး
+     * ရှိပြီးလျှင် အရင် verify လုပ်ပြီးမှ
+     * ပြောင်း/ဖျက် ခွင့်ပြုမည်။
+     */
+    private void updateAdultPinButton() {
+        if (adultPinButton == null) {
+            return;
+        }
+
+        adultPinButton.setText(
+                SecureCredentialStore.hasAdultPin()
+                        ? "18+ PIN Lock: ON"
+                        : "Set 18+ PIN Lock"
+        );
+    }
+
+    private EditText createPinInput(String hint) {
+        EditText input =
+                createPasswordInput(hint);
+
+        input.setInputType(
+                InputType.TYPE_CLASS_NUMBER |
+                        InputType
+                                .TYPE_NUMBER_VARIATION_PASSWORD
+        );
+
+        input.setFilters(
+                new InputFilter[]{
+                        new InputFilter.LengthFilter(4)
+                }
+        );
+
+        input.setGravity(Gravity.CENTER);
+        input.setTextSize(20);
+        input.setLetterSpacing(0.3f);
+
+        return input;
+    }
+
+    private void showAdultPinDialog() {
+        if (SecureCredentialStore.hasAdultPin()) {
+            showAdultPinVerifyDialog();
+        } else {
+            showAdultPinCreateDialog();
+        }
+    }
+
+    private void showAdultPinCreateDialog() {
+        boolean isChange =
+                SecureCredentialStore.hasAdultPin();
+
+        Dialog dialog = createBaseDialog();
+        LinearLayout container =
+                createDialogContainer();
+
+        TextView title = createText(
+                isChange
+                        ? "Change 18+ PIN"
+                        : "Set 18+ PIN Lock",
+                19,
+                Color.WHITE,
+                true
+        );
+
+        TextView message = createText(
+                "Nosub 18+ / Mmsub 18+ tab တွေဖွင့်တိုင်း " +
+                        "ဒီ 4-digit PIN တောင်းမယ်။",
+                12,
+                Color.parseColor("#A8ADB8"),
+                false
+        );
+
+        EditText newPin =
+                createPinInput("New 4-digit PIN");
+
+        EditText confirmPin =
+                createPinInput("Confirm PIN");
+
+        TextView errorText = createText(
+                "",
+                12,
+                Color.parseColor("#FF7A7A"),
+                false
+        );
+
+        Button saveButton = createDialogButton(
+                isChange ? "Change PIN" : "Set PIN",
+                Color.parseColor("#079E86")
+        );
+
+        Button cancelButton = createDialogButton(
+                "Cancel",
+                Color.parseColor("#2A2D35")
+        );
+
+        container.addView(title);
+        addTopMargin(container, message, 6);
+        addTopMargin(container, newPin, 15);
+        addTopMargin(container, confirmPin, 9);
+        addTopMargin(container, errorText, 8);
+        addTopMargin(container, saveButton, 12);
+        addTopMargin(container, cancelButton, 8);
+
+        dialog.setContentView(container);
+
+        cancelButton.setOnClickListener(
+                view -> dialog.dismiss()
+        );
+
+        saveButton.setOnClickListener(view -> {
+            String first =
+                    newPin.getText()
+                            .toString()
+                            .trim();
+
+            String second =
+                    confirmPin.getText()
+                            .toString()
+                            .trim();
+
+            if (!first.matches("\\d{4}")) {
+                errorText.setText(
+                        "PIN က ဂဏန်း ၄ လုံး ဖြစ်ရမယ်။"
+                );
+                return;
+            }
+
+            if (!first.equals(second)) {
+                errorText.setText(
+                        "PIN နှစ်ခု တူမနေဘူး။"
+                );
+                return;
+            }
+
+            SecureCredentialStore.setAdultPin(first);
+            updateAdultPinButton();
+            dialog.dismiss();
+
+            Toast.makeText(
+                    this,
+                    "18+ PIN သတ်မှတ်ပြီးပါပြီ။",
+                    Toast.LENGTH_SHORT
+            ).show();
+        });
+
+        showSizedDialog(
+                dialog,
+                0.84f,
+                370
+        );
+    }
+
+    private void showAdultPinVerifyDialog() {
+        Dialog dialog = createBaseDialog();
+        LinearLayout container =
+                createDialogContainer();
+
+        TextView title = createText(
+                "18+ PIN Lock",
+                19,
+                Color.WHITE,
+                true
+        );
+
+        TextView message = createText(
+                "ဆက်လုပ်ဖို့ လက်ရှိ PIN ထည့်ပါ။",
+                12,
+                Color.parseColor("#A8ADB8"),
+                false
+        );
+
+        EditText currentPin =
+                createPinInput("Current PIN");
+
+        TextView errorText = createText(
+                "",
+                12,
+                Color.parseColor("#FF7A7A"),
+                false
+        );
+
+        Button continueButton = createDialogButton(
+                "Continue",
+                Color.parseColor("#079E86")
+        );
+
+        Button cancelButton = createDialogButton(
+                "Cancel",
+                Color.parseColor("#2A2D35")
+        );
+
+        container.addView(title);
+        addTopMargin(container, message, 6);
+        addTopMargin(container, currentPin, 15);
+        addTopMargin(container, errorText, 8);
+        addTopMargin(container, continueButton, 12);
+        addTopMargin(container, cancelButton, 8);
+
+        dialog.setContentView(container);
+
+        cancelButton.setOnClickListener(
+                view -> dialog.dismiss()
+        );
+
+        continueButton.setOnClickListener(view -> {
+            String pin =
+                    currentPin.getText()
+                            .toString()
+                            .trim();
+
+            if (
+                    SecureCredentialStore
+                            .verifyAdultPin(pin)
+            ) {
+                dialog.dismiss();
+                showAdultPinManageDialog();
+            } else {
+                errorText.setText(
+                        "PIN မှားနေပါတယ်။"
+                );
+                currentPin.setText("");
+            }
+        });
+
+        showSizedDialog(
+                dialog,
+                0.84f,
+                370
+        );
+    }
+
+    private void showAdultPinManageDialog() {
+        Dialog dialog = createBaseDialog();
+        LinearLayout container =
+                createDialogContainer();
+
+        TextView title = createText(
+                "18+ PIN Lock",
+                19,
+                Color.WHITE,
+                true
+        );
+
+        TextView message = createText(
+                "PIN ကို ပြောင်းမလား၊ ဖျက်မလား ရွေးပါ။",
+                12,
+                Color.parseColor("#A8ADB8"),
+                false
+        );
+
+        Button changeButton = createDialogButton(
+                "Change PIN",
+                Color.parseColor("#079E86")
+        );
+
+        Button removeButton = createDialogButton(
+                "Remove PIN",
+                Color.parseColor("#A63A3A")
+        );
+
+        Button cancelButton = createDialogButton(
+                "Cancel",
+                Color.parseColor("#2A2D35")
+        );
+
+        container.addView(title);
+        addTopMargin(container, message, 6);
+        addTopMargin(container, changeButton, 15);
+        addTopMargin(container, removeButton, 8);
+        addTopMargin(container, cancelButton, 8);
+
+        dialog.setContentView(container);
+
+        cancelButton.setOnClickListener(
+                view -> dialog.dismiss()
+        );
+
+        changeButton.setOnClickListener(view -> {
+            dialog.dismiss();
+            showAdultPinCreateDialog();
+        });
+
+        removeButton.setOnClickListener(view -> {
+            SecureCredentialStore.clearAdultPin();
+            updateAdultPinButton();
+            dialog.dismiss();
+
+            Toast.makeText(
+                    this,
+                    "18+ PIN ဖျက်ပြီးပါပြီ။",
+                    Toast.LENGTH_SHORT
+            ).show();
+        });
+
+        showSizedDialog(
+                dialog,
+                0.84f,
+                370
+        );
+    }
+
 
     private void showChangePasswordDialog() {
     if (passwordLoading) {
