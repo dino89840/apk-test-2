@@ -143,6 +143,97 @@ private static Context applicationContext;
     ) {
         request("GET", path, null, callback);
     }
+    private static void getSingleFlight(
+        String path,
+        Callback callback
+) {
+    if (callback == null) {
+        return;
+    }
+
+    String normalizedPath =
+            normalizePath(path);
+
+    String requestKey =
+            cacheKey(
+                    "GET\n" +
+                    SessionManager.getCookie() +
+                    "\n" +
+                    normalizedPath
+            );
+
+    synchronized (SINGLE_FLIGHT_LOCK) {
+        List<Callback> waitingCallbacks =
+                SINGLE_FLIGHT_REQUESTS.get(
+                        requestKey
+                );
+
+        if (waitingCallbacks != null) {
+            waitingCallbacks.add(callback);
+            return;
+        }
+
+        waitingCallbacks =
+                new ArrayList<>();
+
+        waitingCallbacks.add(callback);
+
+        SINGLE_FLIGHT_REQUESTS.put(
+                requestKey,
+                waitingCallbacks
+        );
+    }
+
+    request(
+            "GET",
+            normalizedPath,
+            null,
+            new Callback() {
+                @Override
+                public void onSuccess(
+                        JSONObject json
+                ) {
+                    List<Callback> callbacks =
+                            removeSingleFlightCallbacks(
+                                    requestKey
+                            );
+
+                    for (Callback item : callbacks) {
+                        try {
+                            item.onSuccess(
+                                    new JSONObject(
+                                            json.toString()
+                                    )
+                            );
+                        } catch (Exception error) {
+                            try {
+                                item.onError(error);
+                            } catch (Exception ignored) {
+                            }
+                        }
+                    }
+                }
+
+                @Override
+                public void onError(
+                        Exception error
+                ) {
+                    List<Callback> callbacks =
+                            removeSingleFlightCallbacks(
+                                    requestKey
+                            );
+
+                    for (Callback item : callbacks) {
+                        try {
+                            item.onError(error);
+                        } catch (Exception ignored) {
+                        }
+                    }
+                }
+            }
+    );
+}
+
     public static void getCached(
         String path,
         long maxAgeMillis,
@@ -222,9 +313,10 @@ private static Context applicationContext;
             return;
         }
 
-        get(
-                path,
-                new Callback() {
+        getSingleFlight(
+        path,
+        new Callback() {
+
                     @Override
 public void onSuccess(
         JSONObject json
