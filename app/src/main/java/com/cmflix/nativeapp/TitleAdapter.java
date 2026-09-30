@@ -42,6 +42,13 @@ public class TitleAdapter
     private final RemoveFavoriteListener
             removeFavoriteListener;
 
+    /*
+     * Home horizontal rows အတွက် fixed-width layout
+     * (item_title_row) ကိုလည်း ဒီ adapter တစ်ခုတည်းနဲ့
+     * ပြန်သုံးနိုင်ရန်။
+     */
+    private final int layoutRes;
+
     private boolean favoriteMode = false;
 private static final Object
         PAYLOAD_PROGRESS =
@@ -94,11 +101,24 @@ private Map<String, long[]>
         Listener listener,
         RemoveFavoriteListener removeFavoriteListener
 ) {
+    this(
+            listener,
+            removeFavoriteListener,
+            R.layout.item_title
+    );
+}
+
+public TitleAdapter(
+        Listener listener,
+        RemoveFavoriteListener removeFavoriteListener,
+        int layoutRes
+) {
     super(DIFF_CALLBACK);
 
     this.listener = listener;
     this.removeFavoriteListener =
             removeFavoriteListener;
+    this.layoutRes = layoutRes;
 
     progressSnapshot =
             LocalStore.getProgressSnapshot();
@@ -143,7 +163,7 @@ public void refreshProgressSnapshot() {
                 LayoutInflater
                         .from(parent.getContext())
                         .inflate(
-                                R.layout.item_title,
+                                layoutRes,
                                 parent,
                                 false
                         );

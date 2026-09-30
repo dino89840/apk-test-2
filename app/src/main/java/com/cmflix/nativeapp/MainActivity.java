@@ -31,6 +31,7 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.ConcatAdapter;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -58,6 +59,35 @@ public class MainActivity extends AppCompatActivity {
     private ShimmerFrameLayout shimmerContainer;
     private EditText searchInput;
     private LinearLayout categoryBar;
+
+    /*
+     * Premium bottom-nav restructure:
+     * homeMode = Home tab (content chips + home rows + grid),
+     * !homeMode = local full-grid view (Continue / Recent /
+     * Downloads / Favorites) with back header.
+     */
+    private boolean homeMode = true;
+    private String lastContentCategory = "movies";
+
+    private android.widget.HorizontalScrollView categoryScroll;
+    private LinearLayout localHeader;
+    private TextView localHeaderTitle;
+
+    private HomeRowsAdapter headerAdapter;
+    private ConcatAdapter concatAdapter;
+
+    private View navHome;
+    private View navSearch;
+    private View navDownloads;
+    private View navProfile;
+    private android.widget.ImageView navHomeIcon;
+    private android.widget.ImageView navSearchIcon;
+    private android.widget.ImageView navDownloadsIcon;
+    private android.widget.ImageView navProfileIcon;
+    private TextView navHomeLabel;
+    private TextView navSearchLabel;
+    private TextView navDownloadsLabel;
+    private TextView navProfileLabel;
 private LinearLayout searchHistoryContainer;
 /*
  * ဇာတ်ကားအသစ်တင်ပြီး ၂၀ မိနစ်အတွင်း
@@ -187,6 +217,17 @@ private final Set<String>
         {"Favorites", "favorites"}
 };
 
+    /*
+     * Home chip row မှာ content category ၃ ခုသာ ပြမည်။
+     * Continue / Recent / Downloads / Favorites တွေကို
+     * bottom nav + home rows မှတစ်ဆင့် ဝင်ရောက်မည်။
+     */
+    private final String[][] homeCategories = {
+        {"Horror", "movies"},
+        {"Nosub 18+", "series"},
+        {"Mmsub 18+", "lugyi"},
+};
+
 
     private final ActivityResultLauncher<Intent>
             authLauncher =
@@ -250,6 +291,38 @@ protected void onCreate(Bundle savedInstanceState) {
         categoryBar =
         findViewById(R.id.categoryBar);
 
+        categoryScroll =
+                findViewById(R.id.categoryScroll);
+
+        localHeader =
+                findViewById(R.id.localHeader);
+
+        localHeaderTitle =
+                findViewById(R.id.localHeaderTitle);
+
+        findViewById(R.id.localBackButton)
+                .setOnClickListener(
+                        view -> goHome()
+                );
+
+        navHome = findViewById(R.id.navHome);
+        navSearch = findViewById(R.id.navSearch);
+        navDownloads = findViewById(R.id.navDownloads);
+        navProfile = findViewById(R.id.navProfile);
+        navHomeIcon = findViewById(R.id.navHomeIcon);
+        navSearchIcon = findViewById(R.id.navSearchIcon);
+        navDownloadsIcon =
+                findViewById(R.id.navDownloadsIcon);
+        navProfileIcon =
+                findViewById(R.id.navProfileIcon);
+        navHomeLabel = findViewById(R.id.navHomeLabel);
+        navSearchLabel =
+                findViewById(R.id.navSearchLabel);
+        navDownloadsLabel =
+                findViewById(R.id.navDownloadsLabel);
+        navProfileLabel =
+                findViewById(R.id.navProfileLabel);
+
 searchHistoryContainer =
         findViewById(
                 R.id.searchHistoryContainer
@@ -297,6 +370,8 @@ vipPlanBanner =
 setupAccountButtons();
 setupVipBanner();
 setupDoubleBackExit();
+setupBottomNav();
+setupHomeBackHandler();
 setupLocalFeatureControls();
 
 /*
@@ -360,6 +435,8 @@ protected void onResume() {
         adapter.refreshProgressSnapshot();
     }
 
+    refreshHomeRows();
+
     /*
      * Foreground ဝင်တာနဲ့ notification ကို
      * ချက်ချင်း ETag validation လုပ်မည်။
@@ -397,6 +474,41 @@ protected void onDestroy() {
 
 
 
+    /*
+     * Grid item နှိပ်လျှင် DetailActivity ဖွင့်မည်။
+     * Home rows များမှလည်း ဒီ method အတူတူကိုသုံးသည်။
+     */
+    private void openDetail(JSONObject item) {
+        Intent intent =
+                new Intent(
+                        MainActivity.this,
+                        DetailActivity.class
+                );
+
+        String slug =
+                item.optString(
+                        "slug",
+                        ""
+                ).trim();
+
+        if (slug.isEmpty()) {
+            Toast.makeText(
+                    MainActivity.this,
+                    "ဒီ local item မှာ slug မရှိပါ။",
+                    Toast.LENGTH_SHORT
+            ).show();
+
+            return;
+        }
+
+        intent.putExtra(
+                "slug",
+                slug
+        );
+
+        startActivity(intent);
+    }
+
     private void setupRecycler() {
     int spanCount = computeSpanCount();
 
@@ -416,40 +528,86 @@ protected void onDestroy() {
     recycler.setItemAnimator(null);
 
     adapter = new TitleAdapter(
-            item -> {
-                Intent intent =
-                        new Intent(
-                                MainActivity.this,
-                                DetailActivity.class
-                        );
-
-                String slug =
-                        item.optString(
-                                "slug",
-                                ""
-                        ).trim();
-
-                if (slug.isEmpty()) {
-                    Toast.makeText(
-                            MainActivity.this,
-                            "ဒီ local item မှာ slug မရှိပါ။",
-                            Toast.LENGTH_SHORT
-                    ).show();
-
-                    return;
-                }
-
-                intent.putExtra(
-                        "slug",
-                        slug
-                );
-
-                startActivity(intent);
-            },
+            this::openDetail,
             this::removeFavoriteFromList
     );
 
-    recycler.setAdapter(adapter);
+    /*
+     * Home feed: ထိပ်မှာ Continue Watching / Recently Viewed
+     * rows (headerAdapter) + အောက်မှာ content grid (adapter)
+     * တစ်ခုတည်း scroll ဖြစ်အောင် ConcatAdapter သုံးသည်။
+     * Header က grid column အပြည့်ယူမည်။
+     */
+    headerAdapter =
+            new HomeRowsAdapter(
+                    new HomeRowsAdapter.Listener() {
+                        @Override
+                        public void onItemClick(
+                                JSONObject item
+                        ) {
+                            openDetail(item);
+                        }
+
+                        @Override
+                        public void onSeeAllContinue() {
+                            switchCategory(
+                                    "continue",
+                                    "Continue Watching"
+                            );
+                        }
+
+                        @Override
+                        public void onSeeAllRecent() {
+                            switchCategory(
+                                    "recent",
+                                    "Recently Viewed"
+                            );
+                        }
+
+                        @Override
+                        public void onOpenFavorites() {
+                            if (
+                                    !SessionManager
+                                            .isLoggedIn()
+                            ) {
+                                openLogin();
+                                return;
+                            }
+
+                            switchCategory(
+                                    "favorites",
+                                    "Favorites"
+                            );
+                        }
+                    }
+            );
+
+    concatAdapter =
+            new ConcatAdapter(
+                    headerAdapter,
+                    adapter
+            );
+
+    recycler.setAdapter(concatAdapter);
+
+    layoutManager.setSpanSizeLookup(
+            new GridLayoutManager.SpanSizeLookup() {
+                @Override
+                public int getSpanSize(int position) {
+                    if (
+                            headerAdapter != null &&
+                                    position <
+                                            headerAdapter
+                                                    .getItemCount()
+                    ) {
+                        return layoutManager
+                                .getSpanCount();
+                    }
+
+                    return 1;
+                }
+            }
+    );
 
     recycler.addOnScrollListener(
             new RecyclerView.OnScrollListener() {
@@ -634,7 +792,7 @@ protected void onDestroy() {
      */
     refreshLocalCategoryCounts();
 
-    for (String[] item : categories) {
+    for (String[] item : homeCategories) {
         String label = item[0];
         String value = item[1];
 
@@ -675,14 +833,6 @@ protected void onDestroy() {
         );
 
         button.setOnClickListener(view -> {
-            if (
-                    "favorites".equals(value) &&
-                    !SessionManager.isLoggedIn()
-            ) {
-                openLogin();
-                return;
-            }
-
             /*
              * 18+ tab များ (Nosub 18+ / Mmsub 18+) ကို
              * PIN lock ခံထားလျှင် PIN တောင်းမည်။
@@ -731,6 +881,31 @@ private void switchCategory(
     }
 
     category = value;
+
+    /*
+     * Content category (Horror / Nosub 18+ / Mmsub 18+)
+     * ဆိုလျှင် Home mode, ကျန်တဲ့ Continue / Recent /
+     * Downloads / Favorites ဆိုလျှင် back header ပါသော
+     * full-grid mode ဖြစ်မည်။
+     */
+    homeMode = isContentCategory(value);
+
+    if (homeMode) {
+        lastContentCategory = value;
+    }
+
+    categoryScroll.setVisibility(
+            homeMode ? View.VISIBLE : View.GONE
+    );
+
+    localHeader.setVisibility(
+            homeMode ? View.GONE : View.VISIBLE
+    );
+
+    if (!homeMode) {
+        localHeaderTitle.setText(label);
+    }
+
     search = "";
 
     searchInput.setText("");
@@ -752,10 +927,188 @@ private void switchCategory(
 
     refreshSearchHistory();
     updateCategoryButtons();
+    updateBottomNav();
 
     recycler.scrollToPosition(0);
     resetAndLoad();
 }
+
+
+    /*
+     * Home chip ၃ ခုရဲ့ category များလား။
+     */
+    private static boolean isContentCategory(String value) {
+        return "movies".equals(value) ||
+                "series".equals(value) ||
+                "lugyi".equals(value);
+    }
+
+    private void goHome() {
+        switchCategory(
+                lastContentCategory,
+                categoryLabel(lastContentCategory)
+        );
+    }
+
+    /*
+     * Home rows (Continue Watching / Recently Viewed) ကို
+     * LocalStore ကသာ ပြန်ဖတ်သည် — network request
+     * လုံးဝမရှိပါ။ Search ရိုက်နေချိန်၊ local full-grid
+     * mode တို့မှာ rows တွေကို ဖျောက်ထားမည်။
+     */
+    private void refreshHomeRows() {
+        if (headerAdapter == null) {
+            return;
+        }
+
+        boolean searching =
+                search != null &&
+                        !search.trim().isEmpty();
+
+        if (!homeMode || searching) {
+            headerAdapter.setData(
+                    null,
+                    null,
+                    false
+            );
+            return;
+        }
+
+        headerAdapter.setData(
+                LocalStore.getContinueWatching(),
+                LocalStore.getRecentlyViewed(),
+                SessionManager.isLoggedIn()
+        );
+    }
+
+    private void setupBottomNav() {
+        navHome.setOnClickListener(
+                view -> {
+                    if (!homeMode) {
+                        goHome();
+                    } else {
+                        recycler.smoothScrollToPosition(0);
+                    }
+                }
+        );
+
+        navSearch.setOnClickListener(
+                view -> {
+                    searchInput.requestFocus();
+
+                    InputMethodManager imm =
+                            (InputMethodManager)
+                                    getSystemService(
+                                            Context.INPUT_METHOD_SERVICE
+                                    );
+
+                    if (imm != null) {
+                        imm.showSoftInput(
+                                searchInput,
+                                InputMethodManager
+                                        .SHOW_IMPLICIT
+                        );
+                    }
+                }
+        );
+
+        navDownloads.setOnClickListener(
+                view -> {
+                    if (
+                            !"downloads".equals(category)
+                    ) {
+                        switchCategory(
+                                "downloads",
+                                "Downloads"
+                        );
+                    } else {
+                        recycler.smoothScrollToPosition(0);
+                    }
+                }
+        );
+
+        navProfile.setOnClickListener(
+                view ->
+                        startActivity(
+                                new Intent(
+                                        MainActivity.this,
+                                        ProfileActivity.class
+                                )
+                        )
+        );
+
+        updateBottomNav();
+    }
+
+    private void updateBottomNav() {
+        setBottomNavItem(
+                navHomeIcon,
+                navHomeLabel,
+                homeMode
+        );
+
+        setBottomNavItem(
+                navDownloadsIcon,
+                navDownloadsLabel,
+                !homeMode &&
+                        "downloads".equals(category)
+        );
+
+        /* Search / Profile က momentary action များဖြစ်သောကြောင့်
+         * active state အမြဲမပြပါ။ */
+        setBottomNavItem(
+                navSearchIcon,
+                navSearchLabel,
+                false
+        );
+
+        setBottomNavItem(
+                navProfileIcon,
+                navProfileLabel,
+                false
+        );
+    }
+
+    private void setBottomNavItem(
+            android.widget.ImageView icon,
+            TextView label,
+            boolean active
+    ) {
+        int color =
+                active
+                        ? Color.parseColor("#8B5CF6")
+                        : Color.parseColor("#8A8F9C");
+
+        icon.setColorFilter(color);
+        label.setTextColor(color);
+    }
+
+    /*
+     * Local full-grid mode မှာ Back နှိပ်လျှင်
+     * app မပိတ်ဘဲ Home ပြန်သွားမည်။
+     * setupDoubleBackExit() ထက် နောက်မှ add ထားသောကြောင့်
+     * ဒီ callback က အရင်အလုပ်လုပ်မည် (LIFO)။
+     */
+    private void setupHomeBackHandler() {
+        getOnBackPressedDispatcher()
+                .addCallback(
+                        this,
+                        new OnBackPressedCallback(true) {
+                            @Override
+                            public void handleOnBackPressed() {
+                                if (!homeMode) {
+                                    goHome();
+                                    return;
+                                }
+
+                                setEnabled(false);
+                                getOnBackPressedDispatcher()
+                                        .onBackPressed();
+                                setEnabled(true);
+                            }
+                        }
+                );
+    }
 
 
     private void updateCategoryButtons() {
@@ -810,7 +1163,7 @@ private void switchCategory(
         background.setColor(
                 selected
                         ? Color.parseColor(
-                                "#E50914"
+                                "#8B5CF6"
                         )
                         : Color.parseColor(
                                 "#1A1D24"
@@ -1856,6 +2209,8 @@ refreshCategoryLabels();
 
     private void resetAndLoad() {
     requestGeneration++;
+
+    refreshHomeRows();
 
     adapter.setFavoriteMode(
             "favorites".equals(category)
