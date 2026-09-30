@@ -12,6 +12,7 @@ import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -70,15 +71,50 @@ public final class AdultPinDialog {
                 )
         );
 
+        LinearLayout titleRow =
+                new LinearLayout(context);
+
+        titleRow.setOrientation(
+                LinearLayout.HORIZONTAL
+        );
+
+        titleRow.setGravity(Gravity.CENTER);
+
+        titleRow.setLayoutParams(
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams
+                                .MATCH_PARENT,
+                        ViewGroup.LayoutParams
+                                .WRAP_CONTENT
+                )
+        );
+
+        ImageView lockIcon = new ImageView(context);
+
+        lockIcon.setImageResource(
+                R.drawable.ic_lock_pin
+        );
+
+        LinearLayout.LayoutParams iconParams =
+                new LinearLayout.LayoutParams(
+                        dp(context, 22),
+                        dp(context, 22)
+                );
+
+        iconParams.setMarginEnd(dp(context, 8));
+        lockIcon.setLayoutParams(iconParams);
+
         TextView title = new TextView(context);
-        title.setText("🔒 18+ PIN Lock");
+        title.setText("18+ PIN Lock");
         title.setTextSize(19);
         title.setTextColor(Color.WHITE);
         title.setTypeface(
                 title.getTypeface(),
                 android.graphics.Typeface.BOLD
         );
-        title.setGravity(Gravity.CENTER);
+
+        titleRow.addView(lockIcon);
+        titleRow.addView(title);
 
         TextView message = new TextView(context);
         message.setText(
@@ -154,7 +190,7 @@ public final class AdultPinDialog {
                         Color.parseColor("#2A2D35")
                 );
 
-        container.addView(title);
+        container.addView(titleRow);
         addTopMargin(
                 context,
                 container,
