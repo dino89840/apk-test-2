@@ -829,116 +829,181 @@ protected void onDestroy() {
      * ရှိပြီးသား navigation action များနှင့် ချိတ်သည်။
      * Drawer ဖွင့်ရုံဖြင့် network request မရှိပါ။
      */
-    private void setupDrawer() {
-        findViewById(R.id.drawerHome)
-                .setOnClickListener(
-                        view -> {
-                            closeDrawer();
-                            goHome();
-                        }
-                );
-
-        findViewById(R.id.drawerHorror)
-                .setOnClickListener(
-                        view -> {
-                            closeDrawer();
-                            openCategory(
-                                    "movies",
-                                    "Horror"
-                            );
-                        }
-                );
-
-        findViewById(R.id.drawerNosub)
-                .setOnClickListener(
-                        view -> {
-                            closeDrawer();
-                            openCategory(
-                                    "series",
-                                    "Nosub 18+"
-                            );
-                        }
-                );
-
-        findViewById(R.id.drawerMmsub)
-                .setOnClickListener(
-                        view -> {
-                            closeDrawer();
-                            openCategory(
-                                    "lugyi",
-                                    "Mmsub 18+"
-                            );
-                        }
-                );
-
-        findViewById(R.id.drawerContinue)
-                .setOnClickListener(
-                        view -> {
-                            closeDrawer();
-                            switchCategory(
-                                    "continue",
-                                    "Continue Watching"
-                            );
-                        }
-                );
-
-        findViewById(R.id.drawerRecent)
-                .setOnClickListener(
-                        view -> {
-                            closeDrawer();
-                            switchCategory(
-                                    "recent",
-                                    "Recently Viewed"
-                            );
-                        }
-                );
-
-        findViewById(R.id.drawerDownloads)
-                .setOnClickListener(
-                        view -> {
-                            closeDrawer();
-                            switchCategory(
-                                    "downloads",
-                                    "Downloads"
-                            );
-                        }
-                );
-
-        findViewById(R.id.drawerFavorites)
-                .setOnClickListener(
-                        view -> {
-                            closeDrawer();
-                            openFavorites();
-                        }
-                );
-
-        findViewById(R.id.drawerProfile)
-                .setOnClickListener(
-                        view -> {
-                            closeDrawer();
-
-                            startActivity(
-                                    new Intent(
-                                            MainActivity.this,
-                                            ProfileActivity.class
-                                    )
-                            );
-                        }
-                );
-    }
-
-    private void closeDrawer() {
-        if (
-                drawerLayout != null &&
-                        drawerLayout.isDrawerOpen(
-                                GravityCompat.START
-                        )
-        ) {
-            drawerLayout.closeDrawer(
-                    GravityCompat.START
+    /*
+ * Hamburger drawer item များကို destination action များနှင့်
+ * ချိတ်ထားသည်။
+ *
+ * Drawer ကို animation မသုံးဘဲ အရင်ပိတ်ပြီး action ကို
+ * UI queue မှာ run သောကြောင့် category change သို့မဟုတ်
+ * Activity launch ကို drawer animation က မတားနိုင်ပါ။
+ */
+private void setupDrawer() {
+    findViewById(R.id.drawerHome)
+            .setOnClickListener(
+                    view ->
+                            runDrawerAction(
+                                    this::goHome
+                            )
             );
-        }
+
+    findViewById(R.id.drawerHorror)
+            .setOnClickListener(
+                    view ->
+                            runDrawerAction(
+                                    () ->
+                                            openCategory(
+                                                    "movies",
+                                                    "Horror"
+                                            )
+                            )
+            );
+
+    findViewById(R.id.drawerNosub)
+            .setOnClickListener(
+                    view ->
+                            runDrawerAction(
+                                    () ->
+                                            openCategory(
+                                                    "series",
+                                                    "Nosub 18+"
+                                            )
+                            )
+            );
+
+    findViewById(R.id.drawerMmsub)
+            .setOnClickListener(
+                    view ->
+                            runDrawerAction(
+                                    () ->
+                                            openCategory(
+                                                    "lugyi",
+                                                    "Mmsub 18+"
+                                            )
+                            )
+            );
+
+    findViewById(R.id.drawerContinue)
+            .setOnClickListener(
+                    view ->
+                            runDrawerAction(
+                                    () ->
+                                            switchCategory(
+                                                    "continue",
+                                                    "Continue Watching"
+                                            )
+                            )
+            );
+
+    findViewById(R.id.drawerRecent)
+            .setOnClickListener(
+                    view ->
+                            runDrawerAction(
+                                    () ->
+                                            switchCategory(
+                                                    "recent",
+                                                    "Recently Viewed"
+                                            )
+                            )
+            );
+
+    findViewById(R.id.drawerDownloads)
+            .setOnClickListener(
+                    view ->
+                            runDrawerAction(
+                                    () ->
+                                            switchCategory(
+                                                    "downloads",
+                                                    "Downloads"
+                                            )
+                            )
+            );
+
+    findViewById(R.id.drawerFavorites)
+            .setOnClickListener(
+                    view ->
+                            runDrawerAction(
+                                    this::openFavorites
+                            )
+            );
+
+    findViewById(R.id.drawerProfile)
+            .setOnClickListener(
+                    view ->
+                            runDrawerAction(
+                                    this::openProfile
+                            )
+            );
+}
+
+
+/*
+ * Drawer item နှိပ်သောအခါ drawer ကိုချက်ချင်းပိတ်ပြီးမှ
+ * destination action ကို main UI queue တွင် run မည်။
+ */
+private void runDrawerAction(
+        Runnable action
+) {
+    if (action == null) {
+        return;
     }
+
+    if (drawerLayout == null) {
+        action.run();
+        return;
+    }
+
+    if (
+            drawerLayout.isDrawerOpen(
+                    GravityCompat.START
+            )
+    ) {
+        drawerLayout.closeDrawer(
+                GravityCompat.START,
+                false
+        );
+    }
+
+    drawerLayout.post(action);
+}
+
+
+/*
+ * Profile ကို login ဝင်ထားမှဖွင့်မည်။
+ * Login မဝင်ထားသေးလျှင် Auth screen ကိုဖွင့်မည်။
+ */
+private void openProfile() {
+    if (!SessionManager.isLoggedIn()) {
+        openLogin();
+        return;
+    }
+
+    Intent intent =
+            new Intent(
+                    MainActivity.this,
+                    ProfileActivity.class
+            );
+
+    startActivity(intent);
+}
+
+
+/*
+ * Back handler စသည်တို့က အသုံးပြုနိုင်ရန်
+ * closeDrawer method ကို ဆက်ထားသည်။
+ */
+private void closeDrawer() {
+    if (
+            drawerLayout != null &&
+                    drawerLayout.isDrawerOpen(
+                            GravityCompat.START
+                    )
+    ) {
+        drawerLayout.closeDrawer(
+                GravityCompat.START
+        );
+    }
+}
+
 
     private void openFavorites() {
         if (!SessionManager.isLoggedIn()) {
@@ -1295,10 +1360,25 @@ private static List<JSONObject> firstN(
  * Home loading gate: section ၃ ခု အကုန် settle ဖြစ်မှ
  * (သို့မဟုတ် timeout) home content ကိုပြမည်။
  */
+/*
+ * Home sections load စတင်သောအချိန် loading overlay ကိုပြမည်။
+ */
 private void startHomeGate() {
+    if (homeLoadingOverlay == null) {
+        homeGateOpen = true;
+        return;
+    }
+
     homeGateOpen = false;
 
+    /*
+     * အရင် animation ကျန်နေလျှင် ပယ်ဖျက်မည်။
+     */
+    homeLoadingOverlay.animate().cancel();
+
     homeLoadingOverlay.setAlpha(1f);
+    homeLoadingOverlay.setClickable(true);
+    homeLoadingOverlay.setFocusable(true);
     homeLoadingOverlay.setVisibility(
             View.VISIBLE
     );
@@ -1313,8 +1393,8 @@ private void startHomeGate() {
     );
 
     /*
-     * Cache အကုန်ပူနေလျှင် loading set လွတ်နေမည် —
-     * overlay တန်းပျောက်မည်။
+     * Cache ပူနေပြီး loading request မရှိလျှင်
+     * overlay ကိုချက်ချင်းပိတ်နိုင်ရန်။
      */
     checkHomeGate();
 }
@@ -1329,6 +1409,10 @@ private void checkHomeGate() {
     }
 }
 
+/*
+ * Loading ပြီးသောအချိန် overlay ကို fade-out လုပ်ပြီး
+ * GONE အဖြစ်သတ်မှတ်မည်။
+ */
 private void openHomeGate() {
     if (homeGateOpen) {
         return;
@@ -1340,18 +1424,40 @@ private void openHomeGate() {
             homeGateTimeoutRunnable
     );
 
+    if (homeLoadingOverlay == null) {
+        return;
+    }
+
+    /*
+     * Fade animation လုပ်နေစဉ်ကတည်းက touch interception
+     * ရပ်ထားမည်။
+     */
+    homeLoadingOverlay.setClickable(false);
+    homeLoadingOverlay.setFocusable(false);
+
+    homeLoadingOverlay.animate()
+            .cancel();
+
     homeLoadingOverlay.animate()
             .alpha(0f)
             .setDuration(300L)
             .withEndAction(
-                    () ->
-                            homeLoadingOverlay
-                                    .setVisibility(
-                                            View.GONE
-                                    )
+                    () -> {
+                        homeLoadingOverlay
+                                .setVisibility(
+                                        View.GONE
+                                );
+
+                        /*
+                         * နောက်တစ်ကြိမ်ပြန်သုံးချိန်အတွက်
+                         * alpha ကိုပြန်ထားမည်။
+                         */
+                        homeLoadingOverlay.setAlpha(1f);
+                    }
             )
             .start();
 }
+
 
 
 /*
