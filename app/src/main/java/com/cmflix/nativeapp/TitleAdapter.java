@@ -1,5 +1,6 @@
 package com.cmflix.nativeapp;
 
+import android.util.DisplayMetrics;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -168,7 +169,72 @@ public void refreshProgressSnapshot() {
                                 false
                         );
 
+        if (layoutRes == R.layout.item_title_row) {
+            applyResponsiveRowWidth(parent, view);
+        }
+
         return new Holder(view);
+    }
+
+    /*
+     * Home horizontal row card များ ဖုန်းအရွယ်အစား
+     * မရွေး ၃ ကား အပြည့်မြင်ရအောင် item width ကို
+     * row ရဲ့ အကျယ်အတိုင်း ချိန်ညှိသည်
+     * (fixed 124dp အစား)။
+     * ၃ ကားအပြည့် + ၄ ကားမြောက် အစွန်း
+     * နည်းနည်း ပေါ်မည် (ဘေးတိုက်ဆွဲနိုင်ကြောင်း
+     * အရိပ်အမြွက်)။
+     * Grid layout (item_title) ကို မထိပါ။
+     */
+    private void applyResponsiveRowWidth(
+            ViewGroup parent,
+            View view
+    ) {
+        DisplayMetrics dm =
+                parent.getResources()
+                        .getDisplayMetrics();
+
+        float density = dm.density;
+
+        int rowContentPx =
+                parent.getMeasuredWidth() -
+                        parent.getPaddingStart() -
+                        parent.getPaddingEnd();
+
+        if (rowContentPx <= 0) {
+            /*
+             * Row မတိုင်းတာရသေးလျှင် screen width မှ
+             * သိထားသော padding များ
+             * (main list 7dp*2 + row 8dp*2) နှုတ်မည်။
+             */
+            rowContentPx =
+                    dm.widthPixels -
+                            (int) (30 * density);
+        }
+
+        int itemTotalPx =
+                (int) (rowContentPx / 3.15f);
+
+        /*
+         * Card ရဲ့ start/end margin 4dp+4dp နှုတ်မည်။
+         */
+        int itemWidthPx =
+                itemTotalPx -
+                        (int) (8 * density);
+
+        if (
+                itemWidthPx > 0 &&
+                        view.getLayoutParams()
+                                instanceof
+                                RecyclerView.LayoutParams
+        ) {
+            RecyclerView.LayoutParams lp =
+                    (RecyclerView.LayoutParams)
+                            view.getLayoutParams();
+
+            lp.width = itemWidthPx;
+            view.setLayoutParams(lp);
+        }
     }
 @Override
 public void onBindViewHolder(
