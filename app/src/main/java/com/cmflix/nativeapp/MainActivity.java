@@ -182,29 +182,6 @@ private String vipBannerVersion = "1";
 private static String lastShownNoticeIdThisLaunch =
         "";
 
-private static final long
-        NOTIFICATION_REFRESH_INTERVAL_MS =
-        60L * 1000L;
-
-private final Handler notificationHandler =
-        new Handler(
-                Looper.getMainLooper()
-        );
-
-private final Runnable
-        notificationRefreshRunnable =
-        new Runnable() {
-            @Override
-            public void run() {
-                refreshRemoteNotification();
-
-                notificationHandler.postDelayed(
-                        this,
-                        NOTIFICATION_REFRESH_INTERVAL_MS
-                );
-            }
-        };
-
 private long lastBackPressedAt = 0L;
 
 private static final long BACK_EXIT_INTERVAL_MS =
@@ -483,25 +460,18 @@ protected void onResume() {
      * revalidate လုပ်မည်။ Unchanged ဖြစ်ရင် 304
      * response body မရှိသောကြောင့် traffic သေးသည်။
      */
-    notificationHandler.removeCallbacks(
-            notificationRefreshRunnable
-    );
+    refreshRemoteNotification();
 
-    notificationRefreshRunnable.run();
 }
 @Override
 protected void onPause() {
-    notificationHandler.removeCallbacks(
-            notificationRefreshRunnable
-    );
+    
 
     super.onPause();
 }
 @Override
 protected void onDestroy() {
-    notificationHandler.removeCallbacksAndMessages(
-            null
-    );
+    
 
     homeGateHandler.removeCallbacks(
             homeGateTimeoutRunnable
