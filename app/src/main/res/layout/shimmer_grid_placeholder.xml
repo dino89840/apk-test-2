@@ -34,7 +34,7 @@
                 android:background="@drawable/shimmer_card_bg" />
 
             <View
-                android:layout_width="70%"
+                android:layout_width="120dp"
                 android:layout_height="10dp"
                 android:layout_marginStart="8dp"
                 android:layout_marginTop="8dp"
@@ -56,58 +56,7 @@
                 android:background="@drawable/shimmer_card_bg" />
 
             <View
-                android:layout_width="70%"
-                android:layout_height="10dp"
-                android:layout_marginStart="8dp"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/shimmer_bar_bg" />
-        </LinearLayout>
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:orientation="horizontal">
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_margin="7dp"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1"
-                android:background="@drawable/shimmer_card_bg" />
-
-            <View
-                android:layout_width="70%"
-                android:layout_height="10dp"
-                android:layout_marginStart="8dp"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="8dp"
-                android:background="@drawable/shimmer_bar_bg" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_margin="7dp"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1"
-                android:background="@drawable/shimmer_card_bg" />
-
-            <View
-                android:layout_width="70%"
+                android:layout_width="120dp"
                 android:layout_height="10dp"
                 android:layout_marginStart="8dp"
                 android:layout_marginTop="8dp"
@@ -136,7 +85,7 @@
                 android:background="@drawable/shimmer_card_bg" />
 
             <View
-                android:layout_width="70%"
+                android:layout_width="120dp"
                 android:layout_height="10dp"
                 android:layout_marginStart="8dp"
                 android:layout_marginTop="8dp"
@@ -158,7 +107,58 @@
                 android:background="@drawable/shimmer_card_bg" />
 
             <View
-                android:layout_width="70%"
+                android:layout_width="120dp"
+                android:layout_height="10dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/shimmer_bar_bg" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_margin="7dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:background="@drawable/shimmer_card_bg" />
+
+            <View
+                android:layout_width="120dp"
+                android:layout_height="10dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/shimmer_bar_bg" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_margin="7dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:background="@drawable/shimmer_card_bg" />
+
+            <View
+                android:layout_width="120dp"
                 android:layout_height="10dp"
                 android:layout_marginStart="8dp"
                 android:layout_marginTop="8dp"
