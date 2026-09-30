@@ -193,7 +193,6 @@ public class HomeRowsAdapter
                     )
             );
             continueRow.setAdapter(continueAdapter);
-            continueRow.setHasFixedSize(true);
             continueRow.setNestedScrollingEnabled(false);
 
             recentRow.setLayoutManager(
@@ -204,7 +203,6 @@ public class HomeRowsAdapter
                     )
             );
             recentRow.setAdapter(recentAdapter);
-            recentRow.setHasFixedSize(true);
             recentRow.setNestedScrollingEnabled(false);
 
             itemView.findViewById(R.id.seeAllContinue)
