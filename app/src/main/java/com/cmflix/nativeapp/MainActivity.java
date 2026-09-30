@@ -103,7 +103,6 @@ public class MainActivity extends AppCompatActivity {
             homeSectionCache = new HashMap<>();
     private final Set<String> homeSectionLoading =
             new HashSet<>();
-    private int homeSectionGeneration = 0;
 private LinearLayout searchHistoryContainer;
 /*
  * ဇာတ်ကားအသစ်တင်ပြီး ၂၀ မိနစ်အတွင်း
@@ -1247,8 +1246,6 @@ private void ensureHomeSectionLoaded(String value) {
 
     homeSectionLoading.add(value);
 
-    final int generation = ++homeSectionGeneration;
-
     String path =
             "titles?category=" +
                     ApiClient.encode(value) +
@@ -1295,11 +1292,14 @@ private void ensureHomeSectionLoaded(String value) {
                                 list
                         );
 
-                        if (
-                                generation ==
-                                        homeSectionGeneration &&
-                                        homeMode
-                        ) {
+                        /*
+                         * Section ၃ ခု parallel fetch လုပ်သောကြောင့်
+                         * တစ်ခုချင်းစီ ပြီးတိုင်း Home ကို
+                         * ပြန်လည်ပြင်ဆင်မည် (homeMode ဖြစ်နေလျှင်)။
+                         * Generation check မလိုပါ — homeMode
+                         * စစ်ခြင်းက လုံလောက်သည်။
+                         */
+                        if (homeMode) {
                             refreshHomeSections();
                         }
                     });
