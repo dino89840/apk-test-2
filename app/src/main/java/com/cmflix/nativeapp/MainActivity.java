@@ -833,89 +833,139 @@ protected void onDestroy() {
         findViewById(R.id.drawerHome)
                 .setOnClickListener(
                         view -> {
+                            android.widget.Toast.makeText(MainActivity.this, "DBG tap drawerHome fin=" + isFinishing(), android.widget.Toast.LENGTH_SHORT).show();
                             closeDrawer();
+                            try {
                             goHome();
+                                android.widget.Toast.makeText(MainActivity.this, "DBG nav-ok drawerHome", android.widget.Toast.LENGTH_SHORT).show();
+                            } catch (Exception e) {
+                                android.widget.Toast.makeText(MainActivity.this, "DBG err drawerHome:" + e.getClass().getSimpleName(), android.widget.Toast.LENGTH_LONG).show();
+                            }
                         }
                 );
 
         findViewById(R.id.drawerHorror)
                 .setOnClickListener(
                         view -> {
+                            android.widget.Toast.makeText(MainActivity.this, "DBG tap drawerHorror fin=" + isFinishing(), android.widget.Toast.LENGTH_SHORT).show();
                             closeDrawer();
+                            try {
                             openCategory(
                                     "movies",
                                     "Horror"
                             );
+                                android.widget.Toast.makeText(MainActivity.this, "DBG nav-ok drawerHorror", android.widget.Toast.LENGTH_SHORT).show();
+                            } catch (Exception e) {
+                                android.widget.Toast.makeText(MainActivity.this, "DBG err drawerHorror:" + e.getClass().getSimpleName(), android.widget.Toast.LENGTH_LONG).show();
+                            }
                         }
                 );
 
         findViewById(R.id.drawerNosub)
                 .setOnClickListener(
                         view -> {
+                            android.widget.Toast.makeText(MainActivity.this, "DBG tap drawerNosub fin=" + isFinishing(), android.widget.Toast.LENGTH_SHORT).show();
                             closeDrawer();
+                            try {
                             openCategory(
                                     "series",
                                     "Nosub 18+"
                             );
+                                android.widget.Toast.makeText(MainActivity.this, "DBG nav-ok drawerNosub", android.widget.Toast.LENGTH_SHORT).show();
+                            } catch (Exception e) {
+                                android.widget.Toast.makeText(MainActivity.this, "DBG err drawerNosub:" + e.getClass().getSimpleName(), android.widget.Toast.LENGTH_LONG).show();
+                            }
                         }
                 );
 
         findViewById(R.id.drawerMmsub)
                 .setOnClickListener(
                         view -> {
+                            android.widget.Toast.makeText(MainActivity.this, "DBG tap drawerMmsub fin=" + isFinishing(), android.widget.Toast.LENGTH_SHORT).show();
                             closeDrawer();
+                            try {
                             openCategory(
                                     "lugyi",
                                     "Mmsub 18+"
                             );
+                                android.widget.Toast.makeText(MainActivity.this, "DBG nav-ok drawerMmsub", android.widget.Toast.LENGTH_SHORT).show();
+                            } catch (Exception e) {
+                                android.widget.Toast.makeText(MainActivity.this, "DBG err drawerMmsub:" + e.getClass().getSimpleName(), android.widget.Toast.LENGTH_LONG).show();
+                            }
                         }
                 );
 
         findViewById(R.id.drawerContinue)
                 .setOnClickListener(
                         view -> {
+                            android.widget.Toast.makeText(MainActivity.this, "DBG tap drawerContinue fin=" + isFinishing(), android.widget.Toast.LENGTH_SHORT).show();
                             closeDrawer();
+                            try {
                             switchCategory(
                                     "continue",
                                     "Continue Watching"
                             );
+                                android.widget.Toast.makeText(MainActivity.this, "DBG nav-ok drawerContinue", android.widget.Toast.LENGTH_SHORT).show();
+                            } catch (Exception e) {
+                                android.widget.Toast.makeText(MainActivity.this, "DBG err drawerContinue:" + e.getClass().getSimpleName(), android.widget.Toast.LENGTH_LONG).show();
+                            }
                         }
                 );
 
         findViewById(R.id.drawerRecent)
                 .setOnClickListener(
                         view -> {
+                            android.widget.Toast.makeText(MainActivity.this, "DBG tap drawerRecent fin=" + isFinishing(), android.widget.Toast.LENGTH_SHORT).show();
                             closeDrawer();
+                            try {
                             switchCategory(
                                     "recent",
                                     "Recently Viewed"
                             );
+                                android.widget.Toast.makeText(MainActivity.this, "DBG nav-ok drawerRecent", android.widget.Toast.LENGTH_SHORT).show();
+                            } catch (Exception e) {
+                                android.widget.Toast.makeText(MainActivity.this, "DBG err drawerRecent:" + e.getClass().getSimpleName(), android.widget.Toast.LENGTH_LONG).show();
+                            }
                         }
                 );
 
         findViewById(R.id.drawerDownloads)
                 .setOnClickListener(
                         view -> {
+                            android.widget.Toast.makeText(MainActivity.this, "DBG tap drawerDownloads fin=" + isFinishing(), android.widget.Toast.LENGTH_SHORT).show();
                             closeDrawer();
+                            try {
                             switchCategory(
                                     "downloads",
                                     "Downloads"
                             );
+                                android.widget.Toast.makeText(MainActivity.this, "DBG nav-ok drawerDownloads", android.widget.Toast.LENGTH_SHORT).show();
+                            } catch (Exception e) {
+                                android.widget.Toast.makeText(MainActivity.this, "DBG err drawerDownloads:" + e.getClass().getSimpleName(), android.widget.Toast.LENGTH_LONG).show();
+                            }
                         }
                 );
 
         findViewById(R.id.drawerFavorites)
                 .setOnClickListener(
                         view -> {
+                            android.widget.Toast.makeText(MainActivity.this, "DBG tap drawerFavorites fin=" + isFinishing(), android.widget.Toast.LENGTH_SHORT).show();
                             closeDrawer();
+                            try {
                             openFavorites();
+                                android.widget.Toast.makeText(MainActivity.this, "DBG nav-ok drawerFavorites", android.widget.Toast.LENGTH_SHORT).show();
+                            } catch (Exception e) {
+                                android.widget.Toast.makeText(MainActivity.this, "DBG err drawerFavorites:" + e.getClass().getSimpleName(), android.widget.Toast.LENGTH_LONG).show();
+                            }
                         }
                 );
 
         findViewById(R.id.drawerProfile)
                 .setOnClickListener(
                         view -> {
+                            android.widget.Toast.makeText(MainActivity.this, "DBG tap drawerProfile fin=" + isFinishing(), android.widget.Toast.LENGTH_SHORT).show();
                             closeDrawer();
+                            try {
 
                             startActivity(
                                     new Intent(
@@ -923,6 +973,10 @@ protected void onDestroy() {
                                             ProfileActivity.class
                                     )
                             );
+                                android.widget.Toast.makeText(MainActivity.this, "DBG nav-ok drawerProfile", android.widget.Toast.LENGTH_SHORT).show();
+                            } catch (Exception e) {
+                                android.widget.Toast.makeText(MainActivity.this, "DBG err drawerProfile:" + e.getClass().getSimpleName(), android.widget.Toast.LENGTH_LONG).show();
+                            }
                         }
                 );
     }
