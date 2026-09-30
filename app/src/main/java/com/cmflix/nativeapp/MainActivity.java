@@ -31,6 +31,8 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.GravityCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.recyclerview.widget.ConcatAdapter;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -41,6 +43,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -58,36 +61,50 @@ public class MainActivity extends AppCompatActivity {
     private ImageButton gridToggleButton;
     private ShimmerFrameLayout shimmerContainer;
     private EditText searchInput;
-    private LinearLayout categoryBar;
 
     /*
-     * Premium bottom-nav restructure:
-     * homeMode = Home tab (content chips + home rows + grid),
-     * !homeMode = local full-grid view (Continue / Recent /
-     * Downloads / Favorites) with back header.
+     * Home redesign (2026-09):
+     * homeMode = Home tab (sections: Continue Watching, Horror
+     * latest-10, 18+ latest-10 when unlocked, Recently Viewed,
+     * Downloads) — no grid below.
+     * !homeMode = full-grid view for one category (content or
+     * local) with back header.
      */
     private boolean homeMode = true;
-    private String lastContentCategory = "movies";
 
-    private android.widget.HorizontalScrollView categoryScroll;
     private LinearLayout localHeader;
     private TextView localHeaderTitle;
+
+    private DrawerLayout drawerLayout;
+    private ImageButton drawerButton;
 
     private HomeRowsAdapter headerAdapter;
     private ConcatAdapter concatAdapter;
 
     private View navHome;
-    private View navSearch;
-    private View navDownloads;
-    private View navProfile;
+    private View navHorror;
+    private View navNosub;
+    private View navMmsub;
     private android.widget.ImageView navHomeIcon;
-    private android.widget.ImageView navSearchIcon;
-    private android.widget.ImageView navDownloadsIcon;
-    private android.widget.ImageView navProfileIcon;
+    private android.widget.ImageView navHorrorIcon;
+    private android.widget.ImageView navNosubIcon;
+    private android.widget.ImageView navMmsubIcon;
     private TextView navHomeLabel;
-    private TextView navSearchLabel;
-    private TextView navDownloadsLabel;
-    private TextView navProfileLabel;
+    private TextView navHorrorLabel;
+    private TextView navNosubLabel;
+    private TextView navMmsubLabel;
+
+    /*
+     * Home sections အတွက် session cache:
+     * content category ("movies" / "series" / "lugyi") ရဲ့
+     * page-1 item list။ 18+ အတွက် PIN unlock ပြီးမှ (သို့မဟုတ်
+     * PIN မသတ်မှတ်ရသေးလျှင်) သာ fetch လုပ်သည်။
+     */
+    private final Map<String, List<JSONObject>>
+            homeSectionCache = new HashMap<>();
+    private final Set<String> homeSectionLoading =
+            new HashSet<>();
+    private int homeSectionGeneration = 0;
 private LinearLayout searchHistoryContainer;
 /*
  * ဇာတ်ကားအသစ်တင်ပြီး ၂၀ မိနစ်အတွင်း
@@ -101,7 +118,6 @@ private static final long CATALOG_CACHE_MS =
 
 private View searchHistoryRow;
 
-private TextView sectionTitle;
 private TextView localClearButton;
 private TextView clearSearchHistoryButton;
 
@@ -175,22 +191,6 @@ private long lastProfileRefreshAttemptAt = 0L;
 
     private final List<JSONObject> allItems =
             new ArrayList<>();
-/*
- * Category တစ်ခုချင်းစီ၏ သိထားပြီးသား count။
- * API request အသစ် မခေါ်ဘဲ ရရှိထားသော response
- * နှင့် local data မှသာ update လုပ်မည်။
- */
-private final Map<String, Integer>
-        categoryCounts =
-        new HashMap<>();
-
-/*
- * Exact total သိသော categories များ။
- * Exact မသိသေးပါက UI တွင် 20+ လိုပြမည်။
- */
-private final Set<String>
-        exactCategoryCounts =
-        new HashSet<>();
 
     private String category = "movies";
     private String search = "";
@@ -207,6 +207,11 @@ private final Set<String>
     private boolean isLoading = false;
     private int requestGeneration = 0;
 
+    /*
+     * Category value -> display label.
+     * Chips ဖြုတ်ပြီးနောက် label များကို bottom nav /
+     * drawer / section header များတွင် သုံးသည်။
+     */
     private final String[][] categories = {
         {"Horror", "movies"},
         {"Nosub 18+", "series"},
@@ -215,17 +220,6 @@ private final Set<String>
         {"Recent", "recent"},
         {"Downloads", "downloads"},
         {"Favorites", "favorites"}
-};
-
-    /*
-     * Home chip row မှာ content category ၃ ခုသာ ပြမည်။
-     * Continue / Recent / Downloads / Favorites တွေကို
-     * bottom nav + home rows မှတစ်ဆင့် ဝင်ရောက်မည်။
-     */
-    private final String[][] homeCategories = {
-        {"Horror", "movies"},
-        {"Nosub 18+", "series"},
-        {"Mmsub 18+", "lugyi"},
 };
 
 
@@ -250,8 +244,7 @@ if (
      * Continue/Recent/Downloads/Favorites ကို
      * account အသစ် data ဖြင့်ပြန်ဆွဲမည်။
      */
-    refreshLocalCategoryCounts();
-    refreshCategoryLabels();
+    refreshHomeSections();
 
     if (
             isLocalCategory(category) ||
@@ -288,11 +281,19 @@ protected void onCreate(Bundle savedInstanceState) {
         progress = findViewById(R.id.progress);
         errorText = findViewById(R.id.errorText);
         searchInput = findViewById(R.id.searchInput);
-        categoryBar =
-        findViewById(R.id.categoryBar);
 
-        categoryScroll =
-                findViewById(R.id.categoryScroll);
+        drawerLayout =
+                findViewById(R.id.drawerLayout);
+
+        drawerButton =
+                findViewById(R.id.drawerButton);
+
+        drawerButton.setOnClickListener(
+                view ->
+                        drawerLayout.openDrawer(
+                                GravityCompat.START
+                        )
+        );
 
         localHeader =
                 findViewById(R.id.localHeader);
@@ -306,22 +307,23 @@ protected void onCreate(Bundle savedInstanceState) {
                 );
 
         navHome = findViewById(R.id.navHome);
-        navSearch = findViewById(R.id.navSearch);
-        navDownloads = findViewById(R.id.navDownloads);
-        navProfile = findViewById(R.id.navProfile);
+        navHorror = findViewById(R.id.navHorror);
+        navNosub = findViewById(R.id.navNosub);
+        navMmsub = findViewById(R.id.navMmsub);
         navHomeIcon = findViewById(R.id.navHomeIcon);
-        navSearchIcon = findViewById(R.id.navSearchIcon);
-        navDownloadsIcon =
-                findViewById(R.id.navDownloadsIcon);
-        navProfileIcon =
-                findViewById(R.id.navProfileIcon);
+        navHorrorIcon =
+                findViewById(R.id.navHorrorIcon);
+        navNosubIcon =
+                findViewById(R.id.navNosubIcon);
+        navMmsubIcon =
+                findViewById(R.id.navMmsubIcon);
         navHomeLabel = findViewById(R.id.navHomeLabel);
-        navSearchLabel =
-                findViewById(R.id.navSearchLabel);
-        navDownloadsLabel =
-                findViewById(R.id.navDownloadsLabel);
-        navProfileLabel =
-                findViewById(R.id.navProfileLabel);
+        navHorrorLabel =
+                findViewById(R.id.navHorrorLabel);
+        navNosubLabel =
+                findViewById(R.id.navNosubLabel);
+        navMmsubLabel =
+                findViewById(R.id.navMmsubLabel);
 
 searchHistoryContainer =
         findViewById(
@@ -338,8 +340,6 @@ clearSearchHistoryButton =
                 R.id.clearSearchHistoryButton
         );
 
-sectionTitle =
-        findViewById(R.id.sectionTitle);
 
 localClearButton =
         findViewById(R.id.localClearButton);
@@ -365,7 +365,7 @@ vipPlanBanner =
 
 
         setupRecycler();
-        setupCategories();
+        setupDrawer();
         setupSearch();
 setupAccountButtons();
 setupVipBanner();
@@ -373,6 +373,12 @@ setupDoubleBackExit();
 setupBottomNav();
 setupHomeBackHandler();
 setupLocalFeatureControls();
+
+/*
+ * Launch state = Home (sections only):
+ * grid tools (CLEAR / column toggle) ကို ဖျောက်ထားမည်။
+ */
+gridToggleButton.setVisibility(View.GONE);
 
 /*
  * Banner ကို local 12-hour cache မှအရင်ပြမည်။
@@ -422,9 +428,6 @@ protected void onResume() {
     refreshProfileIfNeeded();
     refreshSearchHistory();
 
-    refreshLocalCategoryCounts();
-    refreshCategoryLabels();
-
     if (isLocalCategory(category)) {
         loadLocalCategory();
     } else if (adapter != null) {
@@ -435,7 +438,7 @@ protected void onResume() {
         adapter.refreshProgressSnapshot();
     }
 
-    refreshHomeRows();
+    refreshHomeSections();
 
     /*
      * Foreground ဝင်တာနဲ့ notification ကို
@@ -533,10 +536,11 @@ protected void onDestroy() {
     );
 
     /*
-     * Home feed: ထိပ်မှာ Continue Watching / Recently Viewed
-     * rows (headerAdapter) + အောက်မှာ content grid (adapter)
-     * တစ်ခုတည်း scroll ဖြစ်အောင် ConcatAdapter သုံးသည်။
-     * Header က grid column အပြည့်ယူမည်။
+     * Home: dynamic section list (headerAdapter) + content
+     * grid (adapter) တစ်ခုတည်း scroll ဖြစ်အောင်
+     * ConcatAdapter သုံးသည်။ Header က grid column
+     * အပြည့်ယူမည်။ Home mode မှာ grid ကို item
+     * မထည့်ဘဲ section များသာပြမည်။
      */
     headerAdapter =
             new HomeRowsAdapter(
@@ -549,35 +553,11 @@ protected void onDestroy() {
                         }
 
                         @Override
-                        public void onSeeAllContinue() {
-                            switchCategory(
-                                    "continue",
-                                    "Continue Watching"
-                            );
-                        }
-
-                        @Override
-                        public void onSeeAllRecent() {
-                            switchCategory(
-                                    "recent",
-                                    "Recently Viewed"
-                            );
-                        }
-
-                        @Override
-                        public void onOpenFavorites() {
-                            if (
-                                    !SessionManager
-                                            .isLoggedIn()
-                            ) {
-                                openLogin();
-                                return;
-                            }
-
-                            switchCategory(
-                                    "favorites",
-                                    "Favorites"
-                            );
+                        public void onSectionMore(
+                                HomeRowsAdapter.HomeSection
+                                        section
+                        ) {
+                            openSectionMore(section.id);
                         }
                     }
             );
@@ -627,6 +607,7 @@ protected void onDestroy() {
                             dy <= 0 ||
                             isLoading ||
                             !hasMore ||
+                            homeMode ||
                             isLocalCategory(category) ||
                             "favorites".equals(category)
                     ) {
@@ -783,84 +764,133 @@ protected void onDestroy() {
     }
 
 
-    private void setupCategories() {
-    categoryBar.removeAllViews();
-
     /*
-     * Local categories များကို network request
-     * မလိုဘဲ count အရင်တွက်နိုင်သည်။
+     * Hamburger navigation drawer: menu item များကို
+     * ရှိပြီးသား navigation action များနှင့် ချိတ်သည်။
+     * Drawer ဖွင့်ရုံဖြင့် network request မရှိပါ။
      */
-    refreshLocalCategoryCounts();
-
-    for (String[] item : homeCategories) {
-        String label = item[0];
-        String value = item[1];
-
-        Button button =
-                new Button(this);
-
-        button.setAllCaps(false);
-        button.setTextSize(13);
-        button.setMinHeight(0);
-        button.setMinimumHeight(0);
-        button.setMinWidth(0);
-        button.setMinimumWidth(0);
-
-        LinearLayout.LayoutParams params =
-                new LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams
-                                .WRAP_CONTENT,
-                        dp(38)
-                );
-
-        params.setMarginStart(dp(3));
-        params.setMarginEnd(dp(3));
-
-        button.setPadding(
-                dp(14),
-                0,
-                dp(14),
-                0
-        );
-
-        button.setLayoutParams(params);
-        button.setTag(value);
-
-        updateCategoryButtonText(
-                button,
-                label,
-                value
-        );
-
-        button.setOnClickListener(view -> {
-            /*
-             * 18+ tab များ (Nosub 18+ / Mmsub 18+) ကို
-             * PIN lock ခံထားလျှင် PIN တောင်းမည်။
-             * Unlock လုပ်ပြီးမှ category ပြောင်းမည်။
-             */
-            if (
-                    isAdultCategory(value) &&
-                    SecureCredentialStore.hasAdultPin() &&
-                    !adultUnlocked
-            ) {
-                AdultPinDialog.show(
-                        MainActivity.this,
-                        () -> {
-                            adultUnlocked = true;
-                            switchCategory(value, label);
+    private void setupDrawer() {
+        findViewById(R.id.drawerHome)
+                .setOnClickListener(
+                        view -> {
+                            closeDrawer();
+                            goHome();
                         }
                 );
-                return;
-            }
 
-            switchCategory(value, label);
-        });
+        findViewById(R.id.drawerHorror)
+                .setOnClickListener(
+                        view -> {
+                            closeDrawer();
+                            openCategory(
+                                    "movies",
+                                    "Horror"
+                            );
+                        }
+                );
 
-        categoryBar.addView(button);
+        findViewById(R.id.drawerNosub)
+                .setOnClickListener(
+                        view -> {
+                            closeDrawer();
+                            openCategory(
+                                    "series",
+                                    "Nosub 18+"
+                            );
+                        }
+                );
+
+        findViewById(R.id.drawerMmsub)
+                .setOnClickListener(
+                        view -> {
+                            closeDrawer();
+                            openCategory(
+                                    "lugyi",
+                                    "Mmsub 18+"
+                            );
+                        }
+                );
+
+        findViewById(R.id.drawerContinue)
+                .setOnClickListener(
+                        view -> {
+                            closeDrawer();
+                            switchCategory(
+                                    "continue",
+                                    "Continue Watching"
+                            );
+                        }
+                );
+
+        findViewById(R.id.drawerRecent)
+                .setOnClickListener(
+                        view -> {
+                            closeDrawer();
+                            switchCategory(
+                                    "recent",
+                                    "Recently Viewed"
+                            );
+                        }
+                );
+
+        findViewById(R.id.drawerDownloads)
+                .setOnClickListener(
+                        view -> {
+                            closeDrawer();
+                            switchCategory(
+                                    "downloads",
+                                    "Downloads"
+                            );
+                        }
+                );
+
+        findViewById(R.id.drawerFavorites)
+                .setOnClickListener(
+                        view -> {
+                            closeDrawer();
+                            openFavorites();
+                        }
+                );
+
+        findViewById(R.id.drawerProfile)
+                .setOnClickListener(
+                        view -> {
+                            closeDrawer();
+
+                            startActivity(
+                                    new Intent(
+                                            MainActivity.this,
+                                            ProfileActivity.class
+                                    )
+                            );
+                        }
+                );
     }
 
-    updateCategoryButtons();
-}
+    private void closeDrawer() {
+        if (
+                drawerLayout != null &&
+                        drawerLayout.isDrawerOpen(
+                                GravityCompat.START
+                        )
+        ) {
+            drawerLayout.closeDrawer(
+                    GravityCompat.START
+            );
+        }
+    }
+
+    private void openFavorites() {
+        if (!SessionManager.isLoggedIn()) {
+            openLogin();
+            return;
+        }
+
+        switchCategory(
+                "favorites",
+                "Favorites"
+        );
+    }
 
 
 /*
@@ -872,61 +902,107 @@ private static boolean isAdultCategory(String value) {
 }
 
 
+/*
+ * Category ဖွင့်ခြင်း၏ တစ်ခုတည်းသော တံခါးပေါက်။
+ * 18+ category များ PIN lock ခံထားလျှင် PIN တောင်းမည်။
+ * Unlock လုပ်ပြီးမှ category ပြောင်းမည်။
+ *
+ * Bottom nav, drawer, Home "More >" အားလုံး ဒီကနေဖြတ်သည် —
+ * PIN check လွတ်သွားစရာ လမ်းမရှိပါ။
+ */
+private void openCategory(
+        String value,
+        String label
+) {
+    if (
+            isAdultCategory(value) &&
+                    SecureCredentialStore.hasAdultPin() &&
+                    !adultUnlocked
+    ) {
+        AdultPinDialog.show(
+                MainActivity.this,
+                () -> {
+                    adultUnlocked = true;
+                    openCategory(value, label);
+                    refreshHomeSections();
+                }
+        );
+
+        return;
+    }
+
+    switchCategory(value, label);
+}
+
+
+/*
+ * Full-grid view သို့ ဝင်ခြင်း။
+ * homeMode=false, back header ပေါ်မည်။
+ */
 private void switchCategory(
         String value,
         String label
 ) {
-    if (value.equals(category)) {
+    if (!homeMode && value.equals(category)) {
         return;
     }
 
-    category = value;
-
-    /*
-     * Content category (Horror / Nosub 18+ / Mmsub 18+)
-     * ဆိုလျှင် Home mode, ကျန်တဲ့ Continue / Recent /
-     * Downloads / Favorites ဆိုလျှင် back header ပါသော
-     * full-grid mode ဖြစ်မည်။
-     */
-    homeMode = isContentCategory(value);
-
-    if (homeMode) {
-        lastContentCategory = value;
-    }
-
-    categoryScroll.setVisibility(
-            homeMode ? View.VISIBLE : View.GONE
-    );
-
-    localHeader.setVisibility(
-            homeMode ? View.GONE : View.VISIBLE
-    );
-
-    if (!homeMode) {
-        localHeaderTitle.setText(label);
-    }
+    enterCategory(value, label);
 
     search = "";
-
     searchInput.setText("");
 
-    boolean local =
-            isLocalCategory(category);
+    recycler.scrollToPosition(0);
+    resetAndLoad();
+}
 
-    searchInput.setVisibility(
-            View.VISIBLE
-    );
 
-    sectionTitle.setText(label);
+/*
+ * Full-grid state ကို ချိန်ညှိခြင်း
+ * (search text ကို မထိပါ — search submit က
+ * Home မှ Horror grid သို့ ကူးရာတွင် သုံးသည်)။
+ */
+private void enterCategory(
+        String value,
+        String label
+) {
+    category = value;
+    homeMode = false;
+
+    localHeader.setVisibility(View.VISIBLE);
+    localHeaderTitle.setText(label);
+
+    boolean local = isLocalCategory(category);
+
+    searchInput.setVisibility(View.VISIBLE);
 
     localClearButton.setVisibility(
-            local
-                    ? View.VISIBLE
-                    : View.GONE
+            local ? View.VISIBLE : View.GONE
     );
 
+    gridToggleButton.setVisibility(View.VISIBLE);
+
     refreshSearchHistory();
-    updateCategoryButtons();
+    updateBottomNav();
+}
+
+
+private void goHome() {
+    if (homeMode) {
+        recycler.smoothScrollToPosition(0);
+        return;
+    }
+
+    homeMode = true;
+
+    search = "";
+    searchInput.setText("");
+
+    localHeader.setVisibility(View.GONE);
+    localClearButton.setVisibility(View.GONE);
+    gridToggleButton.setVisibility(View.GONE);
+
+    refreshSearchHistory();
     updateBottomNav();
 
     recycler.scrollToPosition(0);
@@ -934,107 +1010,362 @@ private void switchCategory(
 }
 
 
-    /*
-     * Home chip ၃ ခုရဲ့ category များလား။
-     */
-    private static boolean isContentCategory(String value) {
-        return "movies".equals(value) ||
-                "series".equals(value) ||
-                "lugyi".equals(value);
-    }
-
-    private void goHome() {
-        switchCategory(
-                lastContentCategory,
-                categoryLabel(lastContentCategory)
-        );
-    }
-
-    /*
-     * Home rows (Continue Watching / Recently Viewed) ကို
-     * LocalStore ကသာ ပြန်ဖတ်သည် — network request
-     * လုံးဝမရှိပါ။ Search ရိုက်နေချိန်၊ local full-grid
-     * mode တို့မှာ rows တွေကို ဖျောက်ထားမည်။
-     */
-    private void refreshHomeRows() {
-        if (headerAdapter == null) {
-            return;
-        }
-
-        boolean searching =
-                search != null &&
-                        !search.trim().isEmpty();
-
-        if (!homeMode || searching) {
-            headerAdapter.setData(
-                    null,
-                    null,
-                    false
+/*
+ * Home "More >" နှိပ်လျှင် section နှင့် သက်ဆိုင်သော
+ * full-grid view ကို ဖွင့်မည်။
+ */
+private void openSectionMore(String sectionId) {
+    switch (sectionId) {
+        case "continue":
+            switchCategory(
+                    "continue",
+                    "Continue Watching"
             );
-            return;
-        }
 
-        headerAdapter.setData(
-                LocalStore.getContinueWatching(),
-                LocalStore.getRecentlyViewed(),
-                SessionManager.isLoggedIn()
+            break;
+
+        case "recent":
+            switchCategory(
+                    "recent",
+                    "Recently Viewed"
+            );
+
+            break;
+
+        case "downloads":
+            switchCategory(
+                    "downloads",
+                    "Downloads"
+            );
+
+            break;
+
+        case "movies":
+            openCategory("movies", "Horror");
+            break;
+
+        case "series":
+            openCategory("series", "Nosub 18+");
+            break;
+
+        case "lugyi":
+            openCategory("lugyi", "Mmsub 18+");
+            break;
+
+        default:
+            break;
+    }
+}
+
+
+/*
+ * Home sections ကို တည်ဆောက်သည်။
+ * - Continue Watching / Recently Viewed / Downloads:
+ *   LocalStore (ဖုန်းတွင်း) ကသာ — request 0
+ * - Horror / 18+ latest-10: session cache; cache
+ *   မရှိသေးလျှင် page-1 ကို တစ်ကြိမ်တည်း fetch
+ *   (20-min disk cache ရှိ)။
+ * - 18+ sections: PIN သတ်မှတ်ထားပြီး session unlock
+ *   မလုပ်ရသေးလျှင် လုံးဝမထည့်ပါ (poster/title leak
+ *   မဖြစ်စေရန်) — fetch လည်း မလုပ်ပါ။
+ */
+private void refreshHomeSections() {
+    if (headerAdapter == null) {
+        return;
+    }
+
+    if (!homeMode) {
+        headerAdapter.setSections(
+                Collections.emptyList()
+        );
+
+        return;
+    }
+
+    boolean searching =
+            search != null &&
+                    !search.trim().isEmpty();
+
+    if (searching) {
+        headerAdapter.setSections(
+                Collections.emptyList()
+        );
+
+        return;
+    }
+
+    List<HomeRowsAdapter.HomeSection> sections =
+            new ArrayList<>();
+
+    List<JSONObject> continueItems =
+            LocalStore.getContinueWatching();
+
+    if (!continueItems.isEmpty()) {
+        sections.add(
+                new HomeRowsAdapter.HomeSection(
+                        "continue",
+                        "Continue Watching",
+                        continueItems
+                )
         );
     }
+
+    List<JSONObject> horrorItems =
+            firstN(homeSectionCache.get("movies"), 10);
+
+    if (!horrorItems.isEmpty()) {
+        sections.add(
+                new HomeRowsAdapter.HomeSection(
+                        "movies",
+                        "Horror",
+                        horrorItems
+                )
+        );
+    }
+
+    boolean adultVisible =
+            !SecureCredentialStore.hasAdultPin() ||
+                    adultUnlocked;
+
+    if (adultVisible) {
+        List<JSONObject> nosubItems =
+                firstN(
+                        homeSectionCache.get("series"),
+                        10
+                );
+
+        if (!nosubItems.isEmpty()) {
+            sections.add(
+                    new HomeRowsAdapter.HomeSection(
+                            "series",
+                            "Nosub 18+",
+                            nosubItems
+                    )
+            );
+        }
+
+        List<JSONObject> mmsubItems =
+                firstN(
+                        homeSectionCache.get("lugyi"),
+                        10
+                );
+
+        if (!mmsubItems.isEmpty()) {
+            sections.add(
+                    new HomeRowsAdapter.HomeSection(
+                            "lugyi",
+                            "Mmsub 18+",
+                            mmsubItems
+                    )
+            );
+        }
+    }
+
+    List<JSONObject> recentItems =
+            LocalStore.getRecentlyViewed();
+
+    if (!recentItems.isEmpty()) {
+        sections.add(
+                new HomeRowsAdapter.HomeSection(
+                        "recent",
+                        "Recently Viewed",
+                        recentItems
+                )
+        );
+    }
+
+    List<JSONObject> downloadItems =
+            LocalStore.getDownloadHistory();
+
+    if (!downloadItems.isEmpty()) {
+        sections.add(
+                new HomeRowsAdapter.HomeSection(
+                        "downloads",
+                        "Downloads",
+                        downloadItems
+                )
+        );
+    }
+
+    headerAdapter.setSections(sections);
+
+    /*
+     * လိုအပ်သော network section များ cache မရှိသေးလျှင်
+     * ယခု fetch လုပ်မည် (session မှာ တစ်ကြိမ်တည်း)။
+     */
+    ensureHomeSectionLoaded("movies");
+
+    if (adultVisible) {
+        ensureHomeSectionLoaded("series");
+        ensureHomeSectionLoaded("lugyi");
+    }
+}
+
+
+private static List<JSONObject> firstN(
+        List<JSONObject> items,
+        int n
+) {
+    if (items == null || items.isEmpty()) {
+        return Collections.emptyList();
+    }
+
+    if (items.size() <= n) {
+        return items;
+    }
+
+    return new ArrayList<>(items.subList(0, n));
+}
+
+
+/*
+ * Home section အတွက် content category page-1 ကို
+ * session မှာ တစ်ကြိမ်တည်း fetch လုပ်သည်။
+ * ApiClient.getCached (20-min disk cache) သုံးသည် —
+ * user က grid ဖွင့်လျှင်လည်း ဒီ cache ပဲ ပြန်သုံးသည်။
+ */
+private void ensureHomeSectionLoaded(String value) {
+    if (
+            homeSectionCache.containsKey(value) ||
+                    homeSectionLoading.contains(value)
+    ) {
+        return;
+    }
+
+    homeSectionLoading.add(value);
+
+    final int generation = ++homeSectionGeneration;
+
+    String path =
+            "titles?category=" +
+                    ApiClient.encode(value) +
+                    "&page=1";
+
+    ApiClient.getCached(
+            path,
+            CATALOG_CACHE_MS,
+            new ApiClient.Callback() {
+                @Override
+                public void onSuccess(JSONObject json) {
+                    runOnUiThread(() -> {
+                        homeSectionLoading
+                                .remove(value);
+
+                        JSONArray items =
+                                json.optJSONArray(
+                                        "items"
+                                );
+
+                        List<JSONObject> list =
+                                new ArrayList<>();
+
+                        if (items != null) {
+                            for (
+                                    int index = 0;
+                                    index <
+                                            items.length();
+                                    index++
+                            ) {
+                                JSONObject item =
+                                        items.optJSONObject(
+                                                index
+                                        );
+
+                                if (item != null) {
+                                    list.add(item);
+                                }
+                            }
+                        }
+
+                        homeSectionCache.put(
+                                value,
+                                list
+                        );
+
+                        if (
+                                generation ==
+                                        homeSectionGeneration &&
+                                        homeMode
+                        ) {
+                            refreshHomeSections();
+                        }
+                    });
+                }
+
+                @Override
+                public void onError(Exception error) {
+                    runOnUiThread(
+                            () ->
+                                    homeSectionLoading
+                                            .remove(value)
+                    );
+                }
+            }
+    );
+}
+
+
 
     private void setupBottomNav() {
         navHome.setOnClickListener(
-                view -> {
-                    if (!homeMode) {
-                        goHome();
-                    } else {
-                        recycler.smoothScrollToPosition(0);
-                    }
-                }
+                view -> goHome()
         );
 
-        navSearch.setOnClickListener(
-                view -> {
-                    searchInput.requestFocus();
-
-                    InputMethodManager imm =
-                            (InputMethodManager)
-                                    getSystemService(
-                                            Context.INPUT_METHOD_SERVICE
-                                    );
-
-                    if (imm != null) {
-                        imm.showSoftInput(
-                                searchInput,
-                                InputMethodManager
-                                        .SHOW_IMPLICIT
-                        );
-                    }
-                }
-        );
-
-        navDownloads.setOnClickListener(
+        navHorror.setOnClickListener(
                 view -> {
                     if (
-                            !"downloads".equals(category)
+                            !homeMode &&
+                                    "movies".equals(category)
                     ) {
-                        switchCategory(
-                                "downloads",
-                                "Downloads"
-                        );
-                    } else {
-                        recycler.smoothScrollToPosition(0);
+                        recycler
+                                .smoothScrollToPosition(0);
+
+                        return;
                     }
+
+                    openCategory(
+                            "movies",
+                            "Horror"
+                    );
                 }
         );
 
-        navProfile.setOnClickListener(
-                view ->
-                        startActivity(
-                                new Intent(
-                                        MainActivity.this,
-                                        ProfileActivity.class
-                                )
-                        )
+        navNosub.setOnClickListener(
+                view -> {
+                    if (
+                            !homeMode &&
+                                    "series".equals(category)
+                    ) {
+                        recycler
+                                .smoothScrollToPosition(0);
+
+                        return;
+                    }
+
+                    openCategory(
+                            "series",
+                            "Nosub 18+"
+                    );
+                }
+        );
+
+        navMmsub.setOnClickListener(
+                view -> {
+                    if (
+                            !homeMode &&
+                                    "lugyi".equals(category)
+                    ) {
+                        recycler
+                                .smoothScrollToPosition(0);
+
+                        return;
+                    }
+
+                    openCategory(
+                            "lugyi",
+                            "Mmsub 18+"
+                    );
+                }
         );
 
         updateBottomNav();
@@ -1048,26 +1379,27 @@ private void switchCategory(
         );
 
         setBottomNavItem(
-                navDownloadsIcon,
-                navDownloadsLabel,
+                navHorrorIcon,
+                navHorrorLabel,
                 !homeMode &&
-                        "downloads".equals(category)
-        );
-
-        /* Search / Profile က momentary action များဖြစ်သောကြောင့်
-         * active state အမြဲမပြပါ။ */
-        setBottomNavItem(
-                navSearchIcon,
-                navSearchLabel,
-                false
+                        "movies".equals(category)
         );
 
         setBottomNavItem(
-                navProfileIcon,
-                navProfileLabel,
-                false
+                navNosubIcon,
+                navNosubLabel,
+                !homeMode &&
+                        "series".equals(category)
+        );
+
+        setBottomNavItem(
+                navMmsubIcon,
+                navMmsubLabel,
+                !homeMode &&
+                        "lugyi".equals(category)
         );
     }
+
 
     private void setBottomNavItem(
             android.widget.ImageView icon,
@@ -1084,7 +1416,8 @@ private void switchCategory(
     }
 
     /*
-     * Local full-grid mode မှာ Back နှိပ်လျှင်
+     * Drawer ပွင့်နေလျှင် Back နှိပ်လျှင် drawer ပိတ်မည်။
+     * Full-grid mode မှာ Back နှိပ်လျှင်
      * app မပိတ်ဘဲ Home ပြန်သွားမည်။
      * setupDoubleBackExit() ထက် နောက်မှ add ထားသောကြောင့်
      * ဒီ callback က အရင်အလုပ်လုပ်မည် (LIFO)။
@@ -1096,6 +1429,23 @@ private void switchCategory(
                         new OnBackPressedCallback(true) {
                             @Override
                             public void handleOnBackPressed() {
+                                if (
+                                        drawerLayout != null &&
+                                                drawerLayout
+                                                        .isDrawerOpen(
+                                                                GravityCompat
+                                                                        .START
+                                                        )
+                                ) {
+                                    drawerLayout
+                                            .closeDrawer(
+                                                    GravityCompat
+                                                            .START
+                                            );
+
+                                    return;
+                                }
+
                                 if (!homeMode) {
                                     goHome();
                                     return;
@@ -1111,354 +1461,6 @@ private void switchCategory(
     }
 
 
-    private void updateCategoryButtons() {
-    for (
-            int index = 0;
-            index < categoryBar.getChildCount();
-            index++
-    ) {
-        View child =
-                categoryBar.getChildAt(index);
-
-        if (!(child instanceof Button)) {
-            continue;
-        }
-
-        Button button =
-                (Button) child;
-
-        String value =
-                String.valueOf(
-                        button.getTag()
-                );
-
-        boolean selected =
-                category.equals(value);
-
-        updateCategoryButtonText(
-                button,
-                categoryLabel(value),
-                value
-        );
-
-        button.setTextColor(
-                selected
-                        ? Color.WHITE
-                        : Color.parseColor(
-                                "#A8ADB8"
-                        )
-        );
-
-        GradientDrawable background =
-                new GradientDrawable();
-
-        background.setShape(
-                GradientDrawable.RECTANGLE
-        );
-
-        background.setCornerRadius(
-                dp(50)
-        );
-
-        background.setColor(
-                selected
-                        ? Color.parseColor(
-                                "#8B5CF6"
-                        )
-                        : Color.parseColor(
-                                "#1A1D24"
-                        )
-        );
-
-        if (!selected) {
-            background.setStroke(
-                    dp(1),
-                    Color.parseColor(
-                            "#303540"
-                    )
-            );
-        }
-
-        button.setBackground(background);
-    }
-}
-
-private String categoryLabel(
-        String value
-) {
-    for (String[] item : categories) {
-        if (item[1].equals(value)) {
-            return item[0];
-        }
-    }
-
-    return value;
-}
-
-private void updateCategoryButtonText(
-        Button button,
-        String label,
-        String value
-) {
-    Integer count =
-            categoryCounts.get(value);
-
-    if (count == null) {
-        button.setText(label);
-        return;
-    }
-
-    boolean exact =
-            exactCategoryCounts
-                    .contains(value);
-
-    String countText =
-            String.valueOf(
-                    Math.max(0, count)
-            );
-
-    if (!exact) {
-        countText += "+";
-    }
-
-    button.setText(
-            label +
-                    " (" +
-                    countText +
-                    ")"
-    );
-}
-
-private void refreshCategoryLabels() {
-    if (categoryBar == null) {
-        return;
-    }
-
-    for (
-            int index = 0;
-            index < categoryBar.getChildCount();
-            index++
-    ) {
-        View child =
-                categoryBar.getChildAt(index);
-
-        if (!(child instanceof Button)) {
-            continue;
-        }
-
-        Button button =
-                (Button) child;
-
-        String value =
-                String.valueOf(
-                        button.getTag()
-                );
-
-        updateCategoryButtonText(
-                button,
-                categoryLabel(value),
-                value
-        );
-    }
-}
-
-private void refreshLocalCategoryCounts() {
-    int continueCount =
-            LocalStore
-                    .getContinueWatching()
-                    .size();
-
-    int recentCount =
-            LocalStore
-                    .getRecentlyViewed()
-                    .size();
-
-    int downloadCount =
-            LocalStore
-                    .getDownloadHistory()
-                    .size();
-
-    categoryCounts.put(
-            "continue",
-            continueCount
-    );
-
-    categoryCounts.put(
-            "recent",
-            recentCount
-    );
-
-    categoryCounts.put(
-            "downloads",
-            downloadCount
-    );
-
-    exactCategoryCounts.add(
-            "continue"
-    );
-
-    exactCategoryCounts.add(
-            "recent"
-    );
-
-    exactCategoryCounts.add(
-            "downloads"
-    );
-}
-
-/*
- * API response ထဲမှာ total ပါပြီးသားဆို
- * request အသစ်မခေါ်ဘဲ ယူသုံးမည်။
- */
-private int extractTotalCount(
-        JSONObject json
-) {
-    if (json == null) {
-        return -1;
-    }
-
-    int direct =
-            readNonNegativeInt(
-                    json,
-                    "total"
-            );
-
-    if (direct >= 0) {
-        return direct;
-    }
-
-    direct =
-            readNonNegativeInt(
-                    json,
-                    "totalCount"
-            );
-
-    if (direct >= 0) {
-        return direct;
-    }
-
-    direct =
-            readNonNegativeInt(
-                    json,
-                    "total_count"
-            );
-
-    if (direct >= 0) {
-        return direct;
-    }
-
-    JSONObject pagination =
-            json.optJSONObject(
-                    "pagination"
-            );
-
-    direct =
-            readNonNegativeInt(
-                    pagination,
-                    "total"
-            );
-
-    if (direct >= 0) {
-        return direct;
-    }
-
-    direct =
-            readNonNegativeInt(
-                    pagination,
-                    "totalCount"
-            );
-
-    if (direct >= 0) {
-        return direct;
-    }
-
-    JSONObject meta =
-            json.optJSONObject("meta");
-
-    direct =
-            readNonNegativeInt(
-                    meta,
-                    "total"
-            );
-
-    if (direct >= 0) {
-        return direct;
-    }
-
-    return readNonNegativeInt(
-            meta,
-            "totalCount"
-    );
-}
-
-private int readNonNegativeInt(
-        JSONObject object,
-        String key
-) {
-    if (
-            object == null ||
-            !object.has(key) ||
-            object.isNull(key)
-    ) {
-        return -1;
-    }
-
-    int value =
-            object.optInt(
-                    key,
-                    -1
-            );
-
-    return value >= 0
-            ? value
-            : -1;
-}
-
-private void updateOnlineCategoryCount(
-        JSONObject response
-) {
-    /*
-     * Search result count ကို category total
-     * အဖြစ် မသတ်မှတ်ပါ။
-     */
-    if (
-            search != null &&
-            !search.trim().isEmpty()
-    ) {
-        return;
-    }
-
-    int total =
-            extractTotalCount(response);
-
-    if (total >= 0) {
-        categoryCounts.put(
-                category,
-                total
-        );
-
-        exactCategoryCounts.add(
-                category
-        );
-    } else {
-        categoryCounts.put(
-                category,
-                allItems.size()
-        );
-
-        if (hasMore) {
-            exactCategoryCounts.remove(
-                    category
-            );
-        } else {
-            exactCategoryCounts.add(
-                    category
-            );
-        }
-    }
-
-    refreshCategoryLabels();
-}
 
     private void setupSearch() {
         searchInput.setOnEditorActionListener(
@@ -1478,17 +1480,34 @@ private void updateOnlineCategoryCount(
                         return false;
                     }
 
-                    search = searchInput
-        .getText()
-        .toString()
-        .trim();
+                    String query = searchInput
+                            .getText()
+                            .toString()
+                            .trim();
 
-if (!search.isEmpty()) {
-    LocalStore.addSearch(search);
-    refreshSearchHistory();
-}
+                    /*
+                     * Home မှာ grid မရှိတော့သောကြောင့်
+                     * Home ကနေ search လုပ်လျှင် Horror
+                     * full-grid ထဲမှာ ရှာပေးမည်။
+                     */
+                    if (
+                            homeMode &&
+                                    !query.isEmpty()
+                    ) {
+                        enterCategory(
+                                "movies",
+                                "Horror"
+                        );
+                    }
 
-hideKeyboard();
+                    search = query;
+
+                    if (!search.isEmpty()) {
+                        LocalStore.addSearch(search);
+                        refreshSearchHistory();
+                    }
+
+                    hideKeyboard();
 
                     recycler.scrollToPosition(0);
                     resetAndLoad();
@@ -1997,8 +2016,7 @@ private void refreshProfileIfNeeded() {
                             SessionManager.clear();
 
                             updateAccountButtons();
-                            refreshLocalCategoryCounts();
-                            refreshCategoryLabels();
+                            refreshHomeSections();
 
                             /*
                              * Account session မရှိတော့သောကြောင့်
@@ -2070,8 +2088,7 @@ private void refreshProfileIfNeeded() {
                                         currentUserId
                                 )
                         ) {
-                            refreshLocalCategoryCounts();
-                            refreshCategoryLabels();
+                            refreshHomeSections();
 
                             if (isLocalCategory(category)) {
                                 resetAndLoad();
@@ -2156,17 +2173,6 @@ private void refreshProfileIfNeeded() {
         new ArrayList<>(allItems)
 );
 
-categoryCounts.put(
-        "favorites",
-        allItems.size()
-);
-
-exactCategoryCounts.add(
-        "favorites"
-);
-
-refreshCategoryLabels();
-
 
                             if (allItems.isEmpty()) {
                                 errorText.setText(
@@ -2210,8 +2216,6 @@ refreshCategoryLabels();
     private void resetAndLoad() {
     requestGeneration++;
 
-    refreshHomeRows();
-
     adapter.setFavoriteMode(
             "favorites".equals(category)
     );
@@ -2227,6 +2231,21 @@ refreshCategoryLabels();
     );
 
     errorText.setVisibility(View.GONE);
+
+    /*
+     * Home (sections view): grid မ�load ဘဲ section
+     * များသာ ပြမည်။
+     */
+    if (homeMode) {
+        hideShimmer();
+        progress.setVisibility(View.GONE);
+        refreshHomeSections();
+        return;
+    }
+
+    headerAdapter.setSections(
+            Collections.emptyList()
+    );
 
     if (isLocalCategory(category)) {
         hideShimmer();
@@ -2369,13 +2388,6 @@ if (items != null) {
                     false
             );
 }
-
-/*
- * လက်ရှိ response ထဲက total သို့မဟုတ်
- * load ပြီးသား item count ကို tab မှာပြမည်။
- * ဒီနေရာမှာ API request အသစ်မခေါ်ပါ။
- */
-updateOnlineCategoryCount(json);
 
 /*
  * Mutable list ကိုတိုက်ရိုက်မပို့ရ။
@@ -2613,9 +2625,6 @@ private void loadLocalCategory() {
                     LocalStore
                             .getContinueWatching();
 
-            sectionTitle.setText(
-                    "Continue Watching"
-            );
             break;
 
         case "downloads":
@@ -2623,9 +2632,6 @@ private void loadLocalCategory() {
                     LocalStore
                             .getDownloadHistory();
 
-            sectionTitle.setText(
-                    "Download History"
-            );
             break;
 
         case "recent":
@@ -2634,25 +2640,8 @@ private void loadLocalCategory() {
                     LocalStore
                             .getRecentlyViewed();
 
-            sectionTitle.setText(
-                    "Recently Viewed"
-            );
             break;
     }
-/*
- * Search filter မလုပ်မီ category အပြည့်၏
- * local count ကိုသိမ်းမည်။
- */
-categoryCounts.put(
-        category,
-        items.size()
-);
-
-exactCategoryCounts.add(
-        category
-);
-
-refreshCategoryLabels();
 
     if (
             search != null &&
