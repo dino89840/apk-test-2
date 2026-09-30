@@ -1,0 +1,12 @@
+<shape
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+
+    <!-- အပေါ်ကနေ အောက်ကို မှောင်သွားတဲ့ scrim။ -->
+    <!-- backdrop လင်းနေရင်တောင် back/favorite button တွေ ကွက်ကွက်ကွင်းကွင်း မြင်ရမယ်။ -->
+    <gradient
+        android:angle="270"
+        android:startColor="#B3080A0F"
+        android:endColor="#00080A0F" />
+
+</shape>

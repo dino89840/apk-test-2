@@ -40,6 +40,18 @@
                 android:importantForAccessibility="no" />
 
             <!--
+                Cover ပုံအပေါ်ဖက် gradient။
+                Backdrop လင်းနေတဲ့ပုံဖြစ်ရင်တောင်
+                အပေါ်က back/favorite button တွေ ကွက်ကွက်ကွင်းကွင်း မြင်ရမယ်။
+            -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="120dp"
+                android:layout_gravity="top"
+                android:background="@drawable/detail_backdrop_top_scrim"
+                android:importantForAccessibility="no" />
+
+            <!--
                 Poster အမြင့် 168dp ဖြစ်ပါတယ်။
 
                 translationY="72dp" ကြောင့် poster ရဲ့ 96dp လောက်က
@@ -277,7 +289,7 @@
                     android:id="@+id/playButton"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
-                    android:backgroundTint="@color/brand_red"
+                    android:background="@drawable/detail_play_button_bg"
                     android:minHeight="0dp"
                     android:text="▶  PLAY"
                     android:textAllCaps="false"
@@ -291,7 +303,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
                     android:layout_marginTop="8dp"
-                    android:backgroundTint="@color/card_bg"
+                    android:background="@drawable/detail_download_button_bg"
                     android:minHeight="0dp"
                     android:text="↓  DOWNLOAD"
                     android:textAllCaps="false"
