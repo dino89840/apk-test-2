@@ -64,13 +64,36 @@ public class AuthActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
 
         ApiClient.initialize(this);
-        setContentView(R.layout.activity_auth);
+
+        /*
+         * Login / Register ကို သီးခြား layout နဲ့ ဖွင့်မည်။
+         * intent extra "extra_register" က mode ကို ဆုံးဖြတ်သည်။
+         */
+        registerMode =
+                getIntent()
+                        .getBooleanExtra(
+                                "extra_register",
+                                false
+                        );
+
+        setContentView(
+                registerMode
+                        ? R.layout.activity_register
+                        : R.layout.activity_login
+        );
 
         bindViews();
         setupPasswordToggles();
         setupClickListeners();
 
-        loadRememberedLogin();
+        /*
+         * Remembered password ကို Register form မှာ
+         * မပြမိအောင် login mode မှာသာ ဖြည့်မည်။
+         */
+        if (!registerMode) {
+            loadRememberedLogin();
+        }
+
         updateMode();
         playEntranceAnimation();
     }
@@ -130,21 +153,29 @@ public class AuthActivity extends AppCompatActivity {
                 return;
             }
 
-            registerMode = !registerMode;
-
             /*
-             * Remembered password ကို Register form မှာ
-             * မပြမိအောင် register ပြောင်းသောအခါရှင်းမည်။
+             * Login / Register ကို သီးခြား layout နဲ့ ပြန်ဖွင့်မည်။
+             * Register form က fresh input တွေနဲ့ စတင်မည်။
              */
-            if (registerMode) {
-                passwordInput.setText("");
-                confirmPasswordInput.setText("");
-            } else {
-                loadRememberedLogin();
-            }
+            Intent intent =
+                    new Intent(
+                            this,
+                            AuthActivity.class
+                    );
 
-            updateMode();
-            playModeAnimation();
+            intent.putExtra(
+                    "extra_register",
+                    !registerMode
+            );
+
+            startActivity(intent);
+
+            overridePendingTransition(
+                    android.R.anim.fade_in,
+                    android.R.anim.fade_out
+            );
+
+            finish();
         });
 
         backButton.setOnClickListener(view -> {
@@ -153,10 +184,25 @@ public class AuthActivity extends AppCompatActivity {
             }
 
             if (registerMode) {
-                registerMode = false;
-                loadRememberedLogin();
-                updateMode();
-                playModeAnimation();
+                Intent intent =
+                        new Intent(
+                                this,
+                                AuthActivity.class
+                        );
+
+                intent.putExtra(
+                        "extra_register",
+                        false
+                );
+
+                startActivity(intent);
+
+                overridePendingTransition(
+                        android.R.anim.fade_in,
+                        android.R.anim.fade_out
+                );
+
+                finish();
             } else {
                 finish();
             }
@@ -371,7 +417,7 @@ public class AuthActivity extends AppCompatActivity {
         backButton.setVisibility(
                 registerMode
                         ? View.VISIBLE
-                        : View.INVISIBLE
+                        : View.GONE
         );
 
         heading.setText(
