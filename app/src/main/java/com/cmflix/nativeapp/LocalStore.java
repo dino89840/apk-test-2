@@ -28,6 +28,9 @@ public final class LocalStore {
     private static final String KEY_RESIZE_MODE =
             "resize_mode";
 
+    private static final String KEY_GRID_SPAN =
+            "grid_span";
+
     
 
     private static final int MAX_RECENT = 20;
@@ -866,6 +869,26 @@ public static synchronized void clearResumePosition(
         prefs()
                 .edit()
                 .putInt(KEY_RESIZE_MODE, value)
+                .apply();
+    }
+
+    /*
+     * Grid column ရွေးချယ်မှု (device-level)။
+     *
+     * 0 = auto (screen size အလိုက်)
+     * 2 / 3 = user ရွေးထားသော column အရေအတွက်
+     */
+    public static int getGridSpan() {
+        return prefs().getInt(
+                KEY_GRID_SPAN,
+                0
+        );
+    }
+
+    public static void saveGridSpan(int value) {
+        prefs()
+                .edit()
+                .putInt(KEY_GRID_SPAN, value)
                 .apply();
     }
 

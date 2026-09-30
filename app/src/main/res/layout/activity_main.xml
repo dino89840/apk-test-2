@@ -212,6 +212,16 @@
         android:textStyle="bold"
         android:visibility="gone" />
 
+    <!-- Grid 2 columns <-> 3 columns toggle -->
+    <ImageButton
+        android:id="@+id/gridToggleButton"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Toggle grid columns"
+        android:padding="9dp"
+        android:src="@drawable/ic_grid_toggle" />
+
 </LinearLayout>
 
 
@@ -250,6 +260,16 @@
             android:layout_gravity="bottom|center_horizontal"
             android:layout_marginBottom="18dp"
             android:visibility="gone" />
+
+        <com.facebook.shimmer.ShimmerFrameLayout
+            android:id="@+id/shimmerContainer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone">
+
+            <include layout="@layout/shimmer_grid_placeholder" />
+
+        </com.facebook.shimmer.ShimmerFrameLayout>
 
     </FrameLayout>
 

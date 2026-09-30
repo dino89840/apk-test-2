@@ -16,6 +16,7 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -32,6 +33,8 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.facebook.shimmer.ShimmerFrameLayout;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -51,6 +54,8 @@ public class MainActivity extends AppCompatActivity {
     private RecyclerView recycler;
     private ProgressBar progress;
     private TextView errorText;
+    private ImageButton gridToggleButton;
+    private ShimmerFrameLayout shimmerContainer;
     private EditText searchInput;
     private LinearLayout categoryBar;
 private LinearLayout searchHistoryContainer;
@@ -266,6 +271,16 @@ sectionTitle =
 localClearButton =
         findViewById(R.id.localClearButton);
 
+gridToggleButton =
+        findViewById(R.id.gridToggleButton);
+
+gridToggleButton.setOnClickListener(
+        view -> toggleGridSpan()
+);
+
+shimmerContainer =
+        findViewById(R.id.shimmerContainer);
+
 accountButton =
         findViewById(R.id.accountButton);
 
@@ -296,7 +311,7 @@ refreshSearchHistory();
 
         errorText.setOnClickListener(view -> {
             if (!isLoading) {
-                loadNextPage();
+                resetAndLoad();
             }
         });
 
@@ -373,30 +388,17 @@ protected void onDestroy() {
             null
     );
 
+    if (shimmerContainer != null) {
+        shimmerContainer.stopShimmer();
+    }
+
     super.onDestroy();
 }
 
 
 
     private void setupRecycler() {
-    int screenWidthDp =
-            getResources()
-                    .getConfiguration()
-                    .screenWidthDp;
-
-    int spanCount;
-
-    /*
-     * Phone မှာ title/meta ပါသော card ဖြစ်သောကြောင့်
-     * 2 columns က ဖတ်ရလွယ်ပြီး poster size ကောင်းသည်။
-     */
-    if (screenWidthDp >= 840) {
-        spanCount = 5;
-    } else if (screenWidthDp >= 600) {
-        spanCount = 3;
-    } else {
-        spanCount = 2;
-    }
+    int spanCount = computeSpanCount();
 
     layoutManager =
         new GridLayoutManager(
@@ -404,39 +406,14 @@ protected void onDestroy() {
                 spanCount
         );
 
-layoutManager.setInitialPrefetchItemCount(
-        spanCount * 2
-);
+    applySpanCount(spanCount);
 
-recycler.setLayoutManager(
-        layoutManager
-);
+    recycler.setLayoutManager(
+            layoutManager
+    );
 
-recycler.setHasFixedSize(true);
-recycler.setItemAnimator(null);
-
-recycler.setItemViewCacheSize(
-        Math.max(
-                6,
-                spanCount * 3
-        )
-);
-
-recycler.getRecycledViewPool()
-        .setMaxRecycledViews(
-                0,
-                Math.max(
-                        12,
-                        spanCount * 4
-                )
-        );
-
-
-    recycler.getRecycledViewPool()
-            .setMaxRecycledViews(
-                    0,
-                    12
-            );
+    recycler.setHasFixedSize(true);
+    recycler.setItemAnimator(null);
 
     adapter = new TitleAdapter(
             item -> {
@@ -541,6 +518,111 @@ recycler.getRecycledViewPool()
             }
     );
 }
+
+
+    /*
+     * User ရွေးထားသော grid column (ရှိလျှင်) ကို
+     * ဦးစားပေးမည်။ မရွေးထားလျှင် screen size
+     * အလိုက် auto ရွေးမည်။
+     */
+    private int computeSpanCount() {
+        int saved = LocalStore.getGridSpan();
+
+        if (saved == 2 || saved == 3) {
+            return saved;
+        }
+
+        int screenWidthDp =
+                getResources()
+                        .getConfiguration()
+                        .screenWidthDp;
+
+        /*
+         * Phone မှာ title/meta ပါသော card ဖြစ်သောကြောင့်
+         * 2 columns က ဖတ်ရလွယ်ပြီး poster size ကောင်းသည်။
+         */
+        if (screenWidthDp >= 840) {
+            return 5;
+        } else if (screenWidthDp >= 600) {
+            return 3;
+        } else {
+            return 2;
+        }
+    }
+
+    private void applySpanCount(int spanCount) {
+        layoutManager.setSpanCount(spanCount);
+
+        layoutManager.setInitialPrefetchItemCount(
+                spanCount * 2
+        );
+
+        recycler.setItemViewCacheSize(
+                Math.max(
+                        6,
+                        spanCount * 3
+                )
+        );
+
+        recycler.getRecycledViewPool()
+                .setMaxRecycledViews(
+                        0,
+                        Math.max(
+                                12,
+                                spanCount * 4
+                        )
+                );
+
+        recycler.getRecycledViewPool()
+                .setMaxRecycledViews(
+                        0,
+                        12
+                );
+    }
+
+    /*
+     * Grid 2 columns <-> 3 columns ပြောင်းမည်။
+     * ရွေးချယ်မှုကို device မှာ မှတ်ထားမည်။
+     */
+    private void toggleGridSpan() {
+        if (layoutManager == null) {
+            return;
+        }
+
+        int next =
+                layoutManager.getSpanCount() == 2
+                        ? 3
+                        : 2;
+
+        LocalStore.saveGridSpan(next);
+        applySpanCount(next);
+    }
+
+    /*
+     * Initial load မှာ shimmer placeholder ပြမည်။
+     * Pagination (page 2+) မှာတော့ အောက်က
+     * spinner ကိုသာ ဆက်သုံးမည်။
+     */
+    private void showShimmer() {
+        if (shimmerContainer == null) {
+            return;
+        }
+
+        recycler.setVisibility(View.GONE);
+        errorText.setVisibility(View.GONE);
+        shimmerContainer.setVisibility(View.VISIBLE);
+        shimmerContainer.startShimmer();
+    }
+
+    private void hideShimmer() {
+        if (shimmerContainer == null) {
+            return;
+        }
+
+        shimmerContainer.stopShimmer();
+        shimmerContainer.setVisibility(View.GONE);
+        recycler.setVisibility(View.VISIBLE);
+    }
 
 
     private void setupCategories() {
@@ -1792,10 +1874,12 @@ refreshCategoryLabels();
     errorText.setVisibility(View.GONE);
 
     if (isLocalCategory(category)) {
+        hideShimmer();
         loadLocalCategory();
         return;
     }
 
+    showShimmer();
     loadNextPage();
 }
 
@@ -1809,6 +1893,7 @@ refreshCategoryLabels();
                 "favorites".equals(category) &&
                 !SessionManager.isLoggedIn()
         ) {
+            hideShimmer();
             openLogin();
             return;
         }
@@ -1821,7 +1906,15 @@ refreshCategoryLabels();
         final int requestedPage =
                 currentPage + 1;
 
-        progress.setVisibility(View.VISIBLE);
+        /*
+         * Page 1 (initial load) မှာ shimmer ပြနေပြီမို့
+         * အောက်က spinner မလိုပါ။ Pagination (page 2+)
+         * မှာသာ spinner ပြမည်။
+         */
+        if (requestedPage > 1) {
+            progress.setVisibility(View.VISIBLE);
+        }
+
         errorText.setVisibility(View.GONE);
 
         String path;
@@ -1871,6 +1964,7 @@ requestTitlePage(
                             progress.setVisibility(
                                     View.GONE
                             );
+                            hideShimmer();
 
                             JSONArray items =
         json.optJSONArray("items");
@@ -1968,6 +2062,7 @@ public void onError(Exception error) {
         progress.setVisibility(
                 View.GONE
         );
+        hideShimmer();
 
         String message =
                 safeMessage(error);
@@ -2151,6 +2246,7 @@ private boolean isLocalCategory(
 
 private void loadLocalCategory() {
     progress.setVisibility(View.GONE);
+    hideShimmer();
     isLoading = false;
     hasMore = false;
 
