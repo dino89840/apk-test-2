@@ -138,7 +138,15 @@ private TextView clearSearchHistoryButton;
 
 private Button accountButton;
 private Button premiumButton;
-private ImageView vipPlanBanner;
+
+/*
+ * VIP price banner — home feed ရဲ့ ပထမ item
+ * (VipBannerAdapter) အဖြစ် ပြသည်။
+ * အရင် fixed header ထဲက ImageView ကို feed ထဲ
+ * ပြောင်းထားခြင်းဖြစ်ပြီး scroll နဲ့အတူ အပေါ်ကို
+ * ပါသွားစေရန်။
+ */
+private VipBannerAdapter vipBannerAdapter;
 
 /*
  * Top chrome (banner / account / premium button) များ၏
@@ -155,6 +163,14 @@ private boolean premiumButtonWanted = false;
  */
 private String vipBannerLink =
         "https://t.me/iqowoq";
+
+/*
+ * Remote banner image state — feed ထဲက banner item
+ * bind လုပ်တိုင်း ဒီ state အတိုင်း render မည်
+ * (scroll ပြန်တက်လာလျှင်လည်း မှန်ရမည်)။
+ */
+private String vipBannerImageUrl = "";
+private String vipBannerVersion = "1";
 
 /*
  * Same notification ID ကို app process တစ်ခုအတွင်း
@@ -380,8 +396,6 @@ accountButton =
 
 premiumButton =
         findViewById(R.id.premiumButton);
-vipPlanBanner =
-        findViewById(R.id.vipPlanBanner);
 
 
 
@@ -389,7 +403,6 @@ vipPlanBanner =
         setupDrawer();
         setupSearch();
 setupAccountButtons();
-setupVipBanner();
 setupDoubleBackExit();
 setupBottomNav();
 setupHomeBackHandler();
@@ -588,8 +601,19 @@ protected void onDestroy() {
                     }
             );
 
+    /*
+     * VIP price banner — home feed ရဲ့ ပထမ item။
+     * Fixed header ထဲကမဟုတ်ဘဲ feed ထဲမှာမို့
+     * scroll နဲ့အတူ အပေါ်ကို ပါသွားမည်။
+     */
+    vipBannerAdapter =
+            new VipBannerAdapter(
+                    this::onBindVipBanner
+            );
+
     concatAdapter =
             new ConcatAdapter(
+                    vipBannerAdapter,
                     headerAdapter,
                     adapter
             );
@@ -600,11 +624,21 @@ protected void onDestroy() {
             new GridLayoutManager.SpanSizeLookup() {
                 @Override
                 public int getSpanSize(int position) {
+                    int bannerCount =
+                            vipBannerAdapter != null
+                                    ? vipBannerAdapter
+                                            .getItemCount()
+                                    : 0;
+
+                    int headerCount =
+                            headerAdapter != null
+                                    ? headerAdapter
+                                            .getItemCount()
+                                    : 0;
+
                     if (
-                            headerAdapter != null &&
-                                    position <
-                                            headerAdapter
-                                                    .getItemCount()
+                            position <
+                                    bannerCount + headerCount
                     ) {
                         return layoutManager
                                 .getSpanCount();
@@ -1053,11 +1087,13 @@ private void goHome() {
 private void refreshTopChromeVisibility() {
     boolean fullGrid = !homeMode;
 
-    if (vipPlanBanner != null) {
-        vipPlanBanner.setVisibility(
+    if (vipBannerAdapter != null) {
+        /*
+         * Banner ကို feed ရဲ့ ပထမ item အဖြစ်
+         * ထည့်/ဖြုတ်မည် — scroll နဲ့အတူ ပါသွားစေရန်။
+         */
+        vipBannerAdapter.setVisible(
                 !fullGrid && vipBannerWanted
-                        ? View.VISIBLE
-                        : View.GONE
         );
     }
 
@@ -1672,20 +1708,17 @@ private void ensureHomeSectionLoaded(String value) {
 
 }
 
-private void setupVipBanner() {
-    if (vipPlanBanner == null) {
-        return;
-    }
+/*
+ * Feed ထဲက VIP banner item bind လုပ်တိုင်း
+ * ခေါ်သည် — image (local fallback / remote) နှင့်
+ * Telegram click listener ထားမည်။
+ */
+private void onBindVipBanner(
+        ImageView bannerView
+) {
+    renderVipBannerImage(bannerView);
 
-    /*
-     * Remote config မရသေးချိန် local banner ကို
-     * fallback အဖြစ်ပြထားမည်။
-     */
-    vipPlanBanner.setImageResource(
-            R.drawable.vip_plan_banner
-    );
-
-    vipPlanBanner.setOnClickListener(view -> {
+    bannerView.setOnClickListener(view -> {
         String link =
                 vipBannerLink == null
                         ? ""
@@ -1715,6 +1748,60 @@ private void setupVipBanner() {
             ).show();
         }
     });
+}
+
+/*
+ * လက်ရှိ banner state (local fallback / remote
+ * imageUrl + version) အတိုင်း ImageView ထဲ render
+ * မည်။ Scroll ပြန်တက်လာတိုင်း ဒီ state အတိုင်း
+ * ပြန်ဆွဲမည်။
+ */
+private void renderVipBannerImage(
+        ImageView bannerView
+) {
+    /*
+     * Remote config မရသေးချိန် local banner ကို
+     * fallback အဖြစ်ပြထားမည်။
+     */
+    if (vipBannerImageUrl.isEmpty()) {
+        bannerView.setImageResource(
+                R.drawable.vip_plan_banner
+        );
+
+        return;
+    }
+
+    /*
+     * URL တူပြီး image ပြောင်းလဲသွားပါက
+     * banner.version ပြောင်းခြင်းဖြင့် Glide cache
+     * invalidation ဖြစ်မည်။
+     */
+    com.bumptech.glide.Glide
+            .with(this)
+            .load(vipBannerImageUrl)
+            .signature(
+                    new com.bumptech.glide
+                            .signature
+                            .ObjectKey(
+                            vipBannerVersion.isEmpty()
+                                    ? vipBannerImageUrl
+                                    : vipBannerVersion
+                    )
+            )
+            .diskCacheStrategy(
+                    com.bumptech.glide
+                            .load
+                            .engine
+                            .DiskCacheStrategy
+                            .ALL
+            )
+            .placeholder(
+                    R.drawable.vip_plan_banner
+            )
+            .error(
+                    R.drawable.vip_plan_banner
+            )
+            .into(bannerView);
 }
 
 private void loadRemoteBanner() {
@@ -1784,10 +1871,7 @@ private void refreshRemoteNotification() {
 private void applyRemoteBanner(
         JSONObject content
 ) {
-    if (
-            content == null ||
-            vipPlanBanner == null
-    ) {
+    if (content == null) {
         return;
     }
 
@@ -1830,56 +1914,25 @@ private void applyRemoteBanner(
                     : link;
 
     /*
-     * Remote banner enabled flag ကို သိမ်းပြီး
-     * လက်ရှိ view state နဲ့အညီ visibility ချိန်မည်
-     * (full-grid တွင် အမြဲဝှက်ထားမည်)။
+     * Remote banner enabled flag နှင့် image state ကို
+     * သိမ်းပြီး လက်ရှိ view state နဲ့အညီ visibility
+     * ချိန်မည် (full-grid တွင် အမြဲဝှက်ထားမည်)။
+     * Banner item ပြနေလျှင် state အသစ်နဲ့ ပြန်ဆွဲမည်။
      */
     vipBannerWanted = enabled;
+    vipBannerImageUrl = imageUrl;
+    vipBannerVersion = version;
     refreshTopChromeVisibility();
 
-    if (!enabled) {
+    if (
+            !enabled ||
+            vipBannerAdapter == null ||
+            vipBannerAdapter.getItemCount() == 0
+    ) {
         return;
     }
 
-    if (imageUrl.isEmpty()) {
-        vipPlanBanner.setImageResource(
-                R.drawable.vip_plan_banner
-        );
-
-        return;
-    }
-
-    /*
-     * URL တူပြီး image ပြောင်းလဲသွားပါက
-     * banner.version ပြောင်းခြင်းဖြင့် Glide cache
-     * invalidation ဖြစ်မည်။
-     */
-    com.bumptech.glide.Glide
-            .with(this)
-            .load(imageUrl)
-            .signature(
-                    new com.bumptech.glide
-                            .signature
-                            .ObjectKey(
-                            version.isEmpty()
-                                    ? imageUrl
-                                    : version
-                    )
-            )
-            .diskCacheStrategy(
-                    com.bumptech.glide
-                            .load
-                            .engine
-                            .DiskCacheStrategy
-                            .ALL
-            )
-            .placeholder(
-                    R.drawable.vip_plan_banner
-            )
-            .error(
-                    R.drawable.vip_plan_banner
-            )
-            .into(vipPlanBanner);
+    vipBannerAdapter.notifyItemChanged(0);
 }
 
 private void applyRemoteNotification(
@@ -1980,10 +2033,7 @@ private void showAnnouncementIfActive(
     lastShownNoticeIdThisLaunch =
             noticeId;
 
-    View anchor =
-            vipPlanBanner != null
-                    ? vipPlanBanner
-                    : recycler;
+    View anchor = recycler;
 
     anchor.post(() -> {
         if (

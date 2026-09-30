@@ -112,23 +112,11 @@
 
     </LinearLayout>
 
-    <ImageView
-    android:id="@+id/vipPlanBanner"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_marginStart="12dp"
-    android:layout_marginTop="2dp"
-    android:layout_marginEnd="12dp"
-    android:layout_marginBottom="10dp"
-    android:adjustViewBounds="true"
-    android:background="@drawable/vip_banner_rounded_bg"
-    android:clickable="true"
-    android:clipToOutline="true"
-    android:contentDescription="Open Telegram to buy VIP"
-    android:focusable="true"
-    android:maxHeight="190dp"
-    android:scaleType="fitCenter"
-    android:src="@drawable/vip_plan_banner" />
+    <!--
+        VIP price banner ကို home feed ရဲ့ ပထမ item
+        (VipBannerAdapter) အဖြစ် ပြောင်းထားသည် —
+        scroll နဲ့အတူ အပေါ်ကို ပါသွားစေရန်။
+    -->
 
 
    
