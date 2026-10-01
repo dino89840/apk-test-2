@@ -317,7 +317,16 @@ static char *secrets_decrypt(const uint8_t *ct, size_t ct_len, size_t *out_len) 
 
 #include <unistd.h>
 #include <stdio.h>
-#include <sys/ptrace.h>
+
+// DIAG BUILD ONLY: records which anti-tamper check failed so a startup
+// toast can report it. Never shipped in release builds.
+static char tamper_detail[48] = "not-run";
+static void set_tamper_detail(const char *s) {
+    size_t n = strlen(s);
+    if (n > sizeof(tamper_detail) - 1) n = sizeof(tamper_detail) - 1;
+    memcpy(tamper_detail, s, n);
+    tamper_detail[n] = '\0';
+}
 
 // Expected release signing-cert SHA-256, XOR-masked with the same volatile
 // mask as the key parts (keeps `strings` output clean; the fingerprint
@@ -328,24 +337,26 @@ static char *secrets_decrypt(const uint8_t *ct, size_t ct_len, size_t *out_len) 
 static const uint8_t CERT_HASH_M[] = {0x76,0x70,0x45,0x44,0xe5,0x20,0x88,0xf9,0xb0,0xfc,0x66,0xc9,0x2c,0x8e,0xb3,0x51,0x36,0x9a,0x23,0x99,0xa8,0x7f,0x7f,0x14,0xd4,0x37,0x22,0x71,0xbc,0xb2,0x5b,0x8e};
 
 // 1 if a debugger is tracing us.
+//
+// Passive check only: reads TracerPid from /proc/self/status. The old
+// ptrace(PTRACE_TRACEME) probe was removed because it false-positived on
+// stock devices (the platform can refuse ptrace for apps), which bricked
+// legit installs — fail-closed on a flaky probe is worse than no probe.
+// TracerPid is non-zero if and only if a tracer is really attached.
 static int tamper_debugger(void) {
-    // (a) TracerPid in /proc/self/status — repeatable, no side effects.
     FILE *f = fopen("/proc/self/status", "r");
+    int traced = 0;
     if (f) {
         char line[256];
         while (fgets(line, sizeof(line), f)) {
             if (strncmp(line, "TracerPid:", 10) == 0) {
-                int pid = atoi(line + 10);
-                fclose(f);
-                if (pid != 0) return 1;
+                traced = (atoi(line + 10) != 0);
                 break;
             }
         }
         fclose(f);
     }
-    // (b) PTRACE_TRACEME fails when already traced; also blocks late attach.
-    if (ptrace(PTRACE_TRACEME, 0, 0, 0) == -1) return 1;
-    return 0;
+    return traced;
 }
 
 // 1 if Frida (or a similar injector) is mapped into our process.
@@ -399,13 +410,17 @@ static int tamper_signature_ok(JNIEnv *env) {
     uint8_t xm = 0;
     uint8_t diff = 0;
 
+    set_tamper_detail("sig:fail"); // DIAG: refined below on specific outcomes.
     at = env->FindClass("android/app/ActivityThread");
     if (at == NULL) goto done;
     curApp = env->GetStaticMethodID(at, "currentApplication",
                                     "()Landroid/app/Application;");
     if (curApp == NULL) goto done;
     app = env->CallStaticObjectMethod(at, curApp);
-    if (app == NULL || env->ExceptionCheck()) goto done;
+    if (app == NULL || env->ExceptionCheck()) {
+        set_tamper_detail("sig:context"); // DIAG
+        goto done;
+    }
 
     appCls = env->GetObjectClass(app);
     getPM = env->GetMethodID(appCls, "getPackageManager",
@@ -479,6 +494,7 @@ static int tamper_signature_ok(JNIEnv *env) {
     }
     memset(digest, 0, sizeof(digest));
     ok = (diff == 0);
+    if (!ok) set_tamper_detail("sig:mismatch"); // DIAG
 
 done:
     if (env->ExceptionCheck()) env->ExceptionClear();
@@ -490,9 +506,11 @@ static int tamper_env_ok(JNIEnv *env) {
     static int cached = -1;
     if (cached != -1) return cached;
     int ok = 1;
-    if (tamper_debugger()) ok = 0;
-    if (tamper_frida()) ok = 0;
-    if (!tamper_signature_ok(env)) ok = 0;
+    // DIAG: first failure wins for the detail string.
+    if (tamper_debugger()) { ok = 0; set_tamper_detail("debugger"); }
+    else if (tamper_frida()) { ok = 0; set_tamper_detail("frida"); }
+    else if (!tamper_signature_ok(env)) { ok = 0; /* detail set inside */ }
+    else { set_tamper_detail("ok"); }
     // Root is detected but not enforced (see note above).
     (void)tamper_rooted();
     cached = ok;
@@ -522,6 +540,14 @@ jstring Java_com_cmflix_nativeapp_CryptoUtil_nativeDec(JNIEnv *env, jclass,
     memset(pt, 0, out_len);
     free(pt);
     return res;
+}
+
+// DIAG BUILD ONLY: returns the anti-tamper gate detail ("ok", "debugger",
+// "frida", "sig:context", "sig:fail", "sig:mismatch"). Never in release.
+extern "C" __attribute__((visibility("default")))
+jstring Java_com_cmflix_nativeapp_CryptoUtil_tamperStatus(JNIEnv *env, jclass) {
+    tamper_env_ok(env); // ensure the gate has been evaluated at least once
+    return env->NewStringUTF(tamper_detail);
 }
 #endif
 
