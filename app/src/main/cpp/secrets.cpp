@@ -216,10 +216,15 @@ static void aes128_ecb_decrypt_block(const uint8_t in[16], uint8_t out[16],
 // iv = SHA256(parts+"|i1")[:16], parts = P2+P0+P3+P1.
 // ---------------------------------------------------------------------------
 
-// XOR-masked key parts (mask 0x5A), decoded at runtime so `strings` on the
-// .so reveals nothing. Plaintexts: "NEuiMngXfX", "zoTOB7AidP",
-// "fZUl8eyyDD", "qxM31r3CDt" -- assembly order below is P2+P0+P3+P1.
-#define XM 0x5A
+// XOR-masked key parts. The mask is deliberately NOT a compile-time
+// constant: it is read through a volatile, which forces the unmasking loop
+// to execute at runtime. Otherwise the optimizer constant-folds the XOR
+// and stores the assembled secret as plaintext in .rodata (verified via
+// `strings` on the built .so). Assembly order below is P2+P0+P3+P1.
+static uint8_t xor_mask(void) {
+    static volatile uint8_t m = 0x5A;
+    return m;
+}
 static const uint8_t P2M[] = {0x14,0x1f,0x2f,0x33,0x17,0x34,0x3d,0x02,0x3c,0x02};
 static const uint8_t P0M[] = {0x20,0x35,0x0e,0x15,0x18,0x6d,0x1b,0x33,0x3e,0x0a};
 static const uint8_t P3M[] = {0x3c,0x00,0x0f,0x36,0x62,0x3f,0x23,0x23,0x1e,0x1e};
@@ -228,9 +233,10 @@ static const uint8_t P1M[] = {0x2b,0x22,0x17,0x69,0x6b,0x28,0x69,0x19,0x1e,0x2e}
 static void derive_key_iv(uint8_t key[16], uint8_t iv[16]) {
     char parts[41];
     const uint8_t *ms[4] = {P2M, P0M, P3M, P1M};
+    const uint8_t xm = xor_mask();
     int o = 0;
     for (int k = 0; k < 4; k++) {
-        for (int i = 0; i < 10; i++) parts[o++] = (char)(ms[k][i] ^ XM);
+        for (int i = 0; i < 10; i++) parts[o++] = (char)(ms[k][i] ^ xm);
     }
     parts[40] = '\0';
     uint8_t digest[32];
