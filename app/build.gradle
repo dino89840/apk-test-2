@@ -123,8 +123,8 @@ android {
         // in settings.gradle (CI runners do not preinstall it).
         ndkVersion "27.2.12479018"
         externalNativeBuild {
+            // ndk-build always uses src/main/jni/Android.mk (no path option).
             ndkBuild {
-                path "src/main/jni/Android.mk"
             }
         }
         ndk {
@@ -134,7 +134,6 @@ android {
 
     externalNativeBuild {
         ndkBuild {
-            path "src/main/jni/Android.mk"
         }
     }
 
