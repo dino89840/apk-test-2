@@ -1,3 +1,31 @@
+/*
+ * NDK bootstrap for CI.
+ *
+ * The native secret store (libcmflix_secrets.so, see ndkVersion in
+ * app/build.gradle) needs the Android NDK, which GitHub-hosted runners do
+ * not preinstall. This cannot live in .github/workflows because the repo's
+ * access token lacks the Workflows permission to modify workflow files, so
+ * Gradle ensures the pinned NDK exists here, before any project is
+ * evaluated. Idempotent: a no-op when the NDK is already present, and
+ * skipped entirely when no Android SDK is found (e.g. plain JVM use).
+ */
+def cmflixNdkVersion = "27.2.12479018"
+def cmflixSdkRoot = System.getenv("ANDROID_HOME") ?: System.getenv("ANDROID_SDK_ROOT")
+if (cmflixSdkRoot) {
+    def cmflixNdkBuild = new File(cmflixSdkRoot, "ndk/${cmflixNdkVersion}/ndk-build")
+    def cmflixSdkManager = new File(cmflixSdkRoot, "cmdline-tools/latest/bin/sdkmanager")
+    if (!cmflixNdkBuild.exists() && cmflixSdkManager.exists()) {
+        println("CMFLIX: installing Android NDK ${cmflixNdkVersion} ...")
+        def cmflixProc = ["sh", "-c",
+            "yes | \"${cmflixSdkRoot}/cmdline-tools/latest/bin/sdkmanager\" --install \"ndk;${cmflixNdkVersion}\""].execute()
+        cmflixProc.waitForProcessOutput(System.out, System.err)
+        if (cmflixProc.exitValue() != 0 || !cmflixNdkBuild.exists()) {
+            throw new GradleException("CMFLIX: failed to install Android NDK ${cmflixNdkVersion}")
+        }
+        println("CMFLIX: Android NDK ${cmflixNdkVersion} installed.")
+    }
+}
+
 pluginManagement {
     repositories {
         google()

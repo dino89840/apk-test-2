@@ -1,0 +1,6 @@
+        {"5kXMj9ZdE5WNi9cBnLI9k24tUxQ56kxFNRobugZwHvc=", "1234567890ABCDEF", "1-block"},
+        {"We2JK88OdIEogWJmrQcjpg==", "short", "padded"},
+        {"5kXMj9ZdE5WNi9cBnLI9k+ePxg6znBeJwjhK3pTCnEgXZQgBohQia3kw4YOzRJTdq6XmCzu25bKrtrcH21Dvfw==", "1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF", "3-blocks"},
+        {"eYfWVCItMPTfAWhBVxWccg==", "iqowoq", "telegram"},
+        {"eOHKavac3p790F7XC/TAt63GcFRNFWQ+I2Nw+bUN/tVsGIlnSeM+zSt1X7WCGOEHENuZvlUUTW7M9yITatfZ1eWn11Q1z166uiXFYhy6OtI=", "https://raw.githubusercontent.com/cmflix/cmflix/main/config.json", "config"},
+        {"kqB+JjQT4D5cRYSw6tcAMNPO1hOthIAIXooIGj5uHd8zin8rp1FKR9+t3SFCzitH", "K7mQ2vX9pL4nR8tY6wE3zA1bC5dF0gH!", "appkey"},

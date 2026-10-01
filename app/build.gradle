@@ -34,7 +34,8 @@ def cmflixAppKey =
  * BuildConfig, so the APK never contains the key in readable form.
  *
  * Key parts are assembled in scrambled order and hashed -- the assembly
- * order, salts and algorithm must match CryptoUtil.derivedBytes().
+ * order, salts and algorithm must match the native decryptor in
+ * app/src/main/cpp/secrets.cpp (CryptoUtil delegates to it via JNI).
  */
 def cmflixPart0 = "zoTOB7AidP"
 def cmflixPart1 = "qxM31r3CDt"
@@ -77,7 +78,8 @@ assert cmflixDecrypt(cmflixEncrypt(cmflixSelfTestVector)) ==
 
 // Cross-implementation pin: AES-CBC with a fixed IV is deterministic, so
 // encrypting a known value must reproduce the known-good ciphertext.
-// This catches any drift between this Groovy encryptor and CryptoUtil.
+// This catches any drift between this Groovy encryptor and the native
+// decryptor (verified: the same vector decrypts correctly in secrets.cpp).
 assert cmflixEncrypt("iqowoq") ==
         "eYfWVCItMPTfAWhBVxWccg==" : "cmflix crypto vector mismatch"
 
@@ -115,7 +117,25 @@ android {
                 "\"${cmflixEncrypt(cmflixAppKey)}\""
         )
 
-        
+        // Native secret store (libcmflix_secrets.so): key material and the
+        // AES/SHA-256 implementation live in C++ (app/src/main/cpp), not in
+        // the dex file. ndk-build is used; the NDK itself is bootstrapped
+        // in settings.gradle (CI runners do not preinstall it).
+        ndkVersion "27.2.12479018"
+        externalNativeBuild {
+            ndkBuild {
+                path "src/main/jni/Android.mk"
+            }
+        }
+        ndk {
+            abiFilters "arm64-v8a", "armeabi-v7a"
+        }
+    }
+
+    externalNativeBuild {
+        ndkBuild {
+            path "src/main/jni/Android.mk"
+        }
     }
 
     buildFeatures {
