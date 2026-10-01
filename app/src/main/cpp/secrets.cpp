@@ -385,27 +385,40 @@ static int tamper_signature_ok(JNIEnv *env) {
     int ok = 0;
     jobject app = NULL, pm = NULL, pkgName = NULL, info = NULL;
     jobjectArray signers = NULL;
+    jobject sig0 = NULL;
+    jclass at = NULL, appCls = NULL, pmCls = NULL, piCls = NULL;
+    jclass siCls = NULL, sigCls = NULL;
+    jmethodID curApp = NULL, getPM = NULL, getPkg = NULL, getPI = NULL;
+    jmethodID getSigners = NULL, toBA = NULL;
+    jfieldID fSI = NULL, fS = NULL;
+    jobject si = NULL;
+    jbyteArray certBytes = NULL;
+    jsize clen = 0;
+    jbyte *cbytes = NULL;
+    uint8_t digest[32];
+    uint8_t xm = 0;
+    uint8_t diff = 0;
 
-    jclass at = env->FindClass("android/app/ActivityThread");
+    at = env->FindClass("android/app/ActivityThread");
     if (at == NULL) goto done;
-    jmethodID curApp = env->GetStaticMethodID(at, "currentApplication",
-                                              "()Landroid/app/Application;");
+    curApp = env->GetStaticMethodID(at, "currentApplication",
+                                    "()Landroid/app/Application;");
     if (curApp == NULL) goto done;
     app = env->CallStaticObjectMethod(at, curApp);
     if (app == NULL || env->ExceptionCheck()) goto done;
 
-    jclass appCls = env->GetObjectClass(app);
-    jmethodID getPM = env->GetMethodID(appCls, "getPackageManager",
-                                       "()Landroid/content/pm/PackageManager;");
-    jmethodID getPkg = env->GetMethodID(appCls, "getPackageName",
-                                        "()Ljava/lang/String;");
+    appCls = env->GetObjectClass(app);
+    getPM = env->GetMethodID(appCls, "getPackageManager",
+                             "()Landroid/content/pm/PackageManager;");
+    getPkg = env->GetMethodID(appCls, "getPackageName",
+                              "()Ljava/lang/String;");
     if (getPM == NULL || getPkg == NULL) goto done;
     pm = env->CallObjectMethod(app, getPM);
     pkgName = env->CallObjectMethod(app, getPkg);
     if (pm == NULL || pkgName == NULL || env->ExceptionCheck()) goto done;
 
-    jclass pmCls = env->GetObjectClass(pm);
-    jmethodID getPI = env->GetMethodID(pmCls, "getPackageInfo",
+    pmCls = env->GetObjectClass(pm);
+    getPI = env->GetMethodID(pmCls, "getPackageInfo",
         "(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;");
     if (getPI == NULL) goto done;
 
@@ -417,14 +430,14 @@ static int tamper_signature_ok(JNIEnv *env) {
     }
     if (env->ExceptionCheck() || info == NULL) goto done;
 
-    jclass piCls = env->GetObjectClass(info);
-    jfieldID fSI = env->GetFieldID(piCls, "signingInfo",
-                                   "Landroid/content/pm/SigningInfo;");
+    piCls = env->GetObjectClass(info);
+    fSI = env->GetFieldID(piCls, "signingInfo",
+                          "Landroid/content/pm/SigningInfo;");
     if (fSI != NULL && !env->ExceptionCheck()) {
-        jobject si = env->GetObjectField(info, fSI);
+        si = env->GetObjectField(info, fSI);
         if (si != NULL && !env->ExceptionCheck()) {
-            jclass siCls = env->GetObjectClass(si);
-            jmethodID getSigners = env->GetMethodID(siCls, "getApkContentsSigners",
+            siCls = env->GetObjectClass(si);
+            getSigners = env->GetMethodID(siCls, "getApkContentsSigners",
                 "()[Landroid/content/pm/Signature;");
             if (getSigners != NULL && !env->ExceptionCheck()) {
                 signers = (jobjectArray)env->CallObjectMethod(si, getSigners);
@@ -434,8 +447,8 @@ static int tamper_signature_ok(JNIEnv *env) {
     if (env->ExceptionCheck()) env->ExceptionClear();
     if (signers == NULL) {
         // Pre-28 path: PackageInfo.signatures
-        jfieldID fS = env->GetFieldID(piCls, "signatures",
-                                      "[Landroid/content/pm/Signature;");
+        fS = env->GetFieldID(piCls, "signatures",
+                             "[Landroid/content/pm/Signature;");
         if (fS != NULL && !env->ExceptionCheck()) {
             signers = (jobjectArray)env->GetObjectField(info, fS);
         }
@@ -443,27 +456,24 @@ static int tamper_signature_ok(JNIEnv *env) {
     }
     if (signers == NULL || env->GetArrayLength(signers) < 1) goto done;
 
-    jobject sig0 = env->GetObjectArrayElement(signers, 0);
+    sig0 = env->GetObjectArrayElement(signers, 0);
     if (sig0 == NULL) goto done;
-    jclass sigCls = env->GetObjectClass(sig0);
-    jmethodID toBA = env->GetMethodID(sigCls, "toByteArray", "()[B");
-    jbyteArray certBytes = NULL;
+    sigCls = env->GetObjectClass(sig0);
+    toBA = env->GetMethodID(sigCls, "toByteArray", "()[B");
     if (toBA != NULL && !env->ExceptionCheck()) {
         certBytes = (jbyteArray)env->CallObjectMethod(sig0, toBA);
     }
     if (certBytes == NULL || env->ExceptionCheck()) goto done;
 
-    jsize clen = env->GetArrayLength(certBytes);
-    jbyte *cbytes = env->GetByteArrayElements(certBytes, NULL);
+    clen = env->GetArrayLength(certBytes);
+    cbytes = env->GetByteArrayElements(certBytes, NULL);
     if (cbytes == NULL) goto done;
 
-    uint8_t digest[32];
     sha256((const uint8_t *)cbytes, (size_t)clen, digest);
     env->ReleaseByteArrayElements(certBytes, cbytes, JNI_ABORT);
 
     // constant-time compare against the unmasked expected hash
-    const uint8_t xm = xor_mask();
-    uint8_t diff = 0;
+    xm = xor_mask();
     for (int i = 0; i < 32; i++) {
         diff |= (uint8_t)(digest[i] ^ (CERT_HASH_M[i] ^ xm));
     }
