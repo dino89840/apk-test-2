@@ -6,7 +6,9 @@
 // even a raw `strings` pass over the .so file shows nothing useful.
 //
 // Security note: this raises the bar from "dex reader" to "native reverser"
-// (IDA/Ghidra + ARM). It does not make client-side secrets unrecoverable;
+// (IDA/Ghidra + ARM). A native anti-tamper gate (debugger / Frida /
+// signature verification) additionally fails closed on re-signed or
+// instrumented copies. It does not make client-side secrets unrecoverable;
 // nothing can, as long as the app itself must decrypt them offline.
 
 #include <stdint.h>
@@ -299,10 +301,204 @@ static char *secrets_decrypt(const uint8_t *ct, size_t ct_len, size_t *out_len) 
 }
 
 #ifdef __ANDROID__
+// ---------------------------------------------------------------------------
+// Anti-tamper: debugger / Frida / signature verification.
+//
+// Runs natively before any secret is decrypted. ANY failure fails closed:
+// the JNI entry returns NULL (CryptoUtil.dec -> ""), so a re-signed/cloned
+// APK, a debugger-attached session, or a Frida-instrumented process can
+// never obtain decrypted secrets. This raises the bar from "repackage the
+// APK" to "defeat native checks at runtime".
+//
+// NOTE: root detection is implemented but intentionally NOT enforced:
+// blocking rooted devices would lock out legitimate users, and clone /
+// re-sign protection is fully covered by the signature check below.
+// ---------------------------------------------------------------------------
+
+#include <unistd.h>
+#include <stdio.h>
+#include <sys/ptrace.h>
+
+// Expected release signing-cert SHA-256, XOR-masked with the same volatile
+// mask as the key parts (keeps `strings` output clean; the fingerprint
+// itself is public, but no need to advertise it).
+// Fingerprint verified 2026-10-01 from the shipped release APK.
+// WARNING: rotating the release keystore requires updating this hash,
+// otherwise the app will fail closed (no secrets) on the new signature.
+static const uint8_t CERT_HASH_M[] = {0x76,0x70,0x45,0x44,0xe5,0x20,0x88,0xf9,0xb0,0xfc,0x66,0xc9,0x2c,0x8e,0xb3,0x51,0x36,0x9a,0x23,0x99,0xa8,0x7f,0x7f,0x14,0xd4,0x37,0x22,0x71,0xbc,0xb2,0x5b,0x8e};
+
+// 1 if a debugger is tracing us.
+static int tamper_debugger(void) {
+    // (a) TracerPid in /proc/self/status — repeatable, no side effects.
+    FILE *f = fopen("/proc/self/status", "r");
+    if (f) {
+        char line[256];
+        while (fgets(line, sizeof(line), f)) {
+            if (strncmp(line, "TracerPid:", 10) == 0) {
+                int pid = atoi(line + 10);
+                fclose(f);
+                if (pid != 0) return 1;
+                break;
+            }
+        }
+        fclose(f);
+    }
+    // (b) PTRACE_TRACEME fails when already traced; also blocks late attach.
+    if (ptrace(PTRACE_TRACEME, 0, 0, 0) == -1) return 1;
+    return 0;
+}
+
+// 1 if Frida (or a similar injector) is mapped into our process.
+static int tamper_frida(void) {
+    FILE *f = fopen("/proc/self/maps", "r");
+    if (!f) return 0;
+    char line[512];
+    int found = 0;
+    while (fgets(line, sizeof(line), f)) {
+        for (char *p = line; *p; p++) {
+            if (*p >= 'A' && *p <= 'Z') *p = (char)(*p + 32);
+        }
+        if (strstr(line, "frida") || strstr(line, "gum-js")) { found = 1; break; }
+    }
+    fclose(f);
+    return found;
+}
+
+// 1 if the device looks rooted. Informational only — not enforced (see note).
+static int tamper_rooted(void) {
+    static const char *paths[] = {
+        "/system/bin/su", "/system/xbin/su", "/sbin/su",
+        "/su/bin/su", "/data/local/xbin/su",
+        "/system/app/Superuser.apk", "/system/app/SuperSU.apk",
+        NULL
+    };
+    for (int i = 0; paths[i]; i++) {
+        if (access(paths[i], F_OK) == 0) return 1;
+    }
+    return 0;
+}
+
+// SHA-256 of our own signing certificate, compared against CERT_HASH_M.
+// Returns 1 only when the APK signature matches the release key — i.e. the
+// APK was NOT re-signed/cloned (MT Manager clone & re-sign change it).
+static int tamper_signature_ok(JNIEnv *env) {
+    int ok = 0;
+    jobject app = NULL, pm = NULL, pkgName = NULL, info = NULL;
+    jobjectArray signers = NULL;
+
+    jclass at = env->FindClass("android/app/ActivityThread");
+    if (at == NULL) goto done;
+    jmethodID curApp = env->GetStaticMethodID(at, "currentApplication",
+                                              "()Landroid/app/Application;");
+    if (curApp == NULL) goto done;
+    app = env->CallStaticObjectMethod(at, curApp);
+    if (app == NULL || env->ExceptionCheck()) goto done;
+
+    jclass appCls = env->GetObjectClass(app);
+    jmethodID getPM = env->GetMethodID(appCls, "getPackageManager",
+                                       "()Landroid/content/pm/PackageManager;");
+    jmethodID getPkg = env->GetMethodID(appCls, "getPackageName",
+                                        "()Ljava/lang/String;");
+    if (getPM == NULL || getPkg == NULL) goto done;
+    pm = env->CallObjectMethod(app, getPM);
+    pkgName = env->CallObjectMethod(app, getPkg);
+    if (pm == NULL || pkgName == NULL || env->ExceptionCheck()) goto done;
+
+    jclass pmCls = env->GetObjectClass(pm);
+    jmethodID getPI = env->GetMethodID(pmCls, "getPackageInfo",
+        "(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;");
+    if (getPI == NULL) goto done;
+
+    // Prefer GET_SIGNING_CERTIFICATES (API 28+), fall back to GET_SIGNATURES.
+    info = env->CallObjectMethod(pm, getPI, pkgName, 0x08000000);
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        info = env->CallObjectMethod(pm, getPI, pkgName, 0x40);
+    }
+    if (env->ExceptionCheck() || info == NULL) goto done;
+
+    jclass piCls = env->GetObjectClass(info);
+    jfieldID fSI = env->GetFieldID(piCls, "signingInfo",
+                                   "Landroid/content/pm/SigningInfo;");
+    if (fSI != NULL && !env->ExceptionCheck()) {
+        jobject si = env->GetObjectField(info, fSI);
+        if (si != NULL && !env->ExceptionCheck()) {
+            jclass siCls = env->GetObjectClass(si);
+            jmethodID getSigners = env->GetMethodID(siCls, "getApkContentsSigners",
+                "()[Landroid/content/pm/Signature;");
+            if (getSigners != NULL && !env->ExceptionCheck()) {
+                signers = (jobjectArray)env->CallObjectMethod(si, getSigners);
+            }
+        }
+    }
+    if (env->ExceptionCheck()) env->ExceptionClear();
+    if (signers == NULL) {
+        // Pre-28 path: PackageInfo.signatures
+        jfieldID fS = env->GetFieldID(piCls, "signatures",
+                                      "[Landroid/content/pm/Signature;");
+        if (fS != NULL && !env->ExceptionCheck()) {
+            signers = (jobjectArray)env->GetObjectField(info, fS);
+        }
+        if (env->ExceptionCheck()) env->ExceptionClear();
+    }
+    if (signers == NULL || env->GetArrayLength(signers) < 1) goto done;
+
+    jobject sig0 = env->GetObjectArrayElement(signers, 0);
+    if (sig0 == NULL) goto done;
+    jclass sigCls = env->GetObjectClass(sig0);
+    jmethodID toBA = env->GetMethodID(sigCls, "toByteArray", "()[B");
+    jbyteArray certBytes = NULL;
+    if (toBA != NULL && !env->ExceptionCheck()) {
+        certBytes = (jbyteArray)env->CallObjectMethod(sig0, toBA);
+    }
+    if (certBytes == NULL || env->ExceptionCheck()) goto done;
+
+    jsize clen = env->GetArrayLength(certBytes);
+    jbyte *cbytes = env->GetByteArrayElements(certBytes, NULL);
+    if (cbytes == NULL) goto done;
+
+    uint8_t digest[32];
+    sha256((const uint8_t *)cbytes, (size_t)clen, digest);
+    env->ReleaseByteArrayElements(certBytes, cbytes, JNI_ABORT);
+
+    // constant-time compare against the unmasked expected hash
+    const uint8_t xm = xor_mask();
+    uint8_t diff = 0;
+    for (int i = 0; i < 32; i++) {
+        diff |= (uint8_t)(digest[i] ^ (CERT_HASH_M[i] ^ xm));
+    }
+    memset(digest, 0, sizeof(digest));
+    ok = (diff == 0);
+
+done:
+    if (env->ExceptionCheck()) env->ExceptionClear();
+    return ok;
+}
+
+// Combined environment gate. Evaluated once, then cached.
+static int tamper_env_ok(JNIEnv *env) {
+    static int cached = -1;
+    if (cached != -1) return cached;
+    int ok = 1;
+    if (tamper_debugger()) ok = 0;
+    if (tamper_frida()) ok = 0;
+    if (!tamper_signature_ok(env)) ok = 0;
+    // Root is detected but not enforced (see note above).
+    (void)tamper_rooted();
+    cached = ok;
+    return ok;
+}
+
+#endif  // __ANDROID__
+
+#ifdef __ANDROID__
 // JNI bridge: com.cmflix.nativeapp.CryptoUtil.nativeDec(byte[])
 extern "C" __attribute__((visibility("default")))
 jstring Java_com_cmflix_nativeapp_CryptoUtil_nativeDec(JNIEnv *env, jclass,
                                                       jbyteArray ctArr) {
+    // Anti-tamper gate: re-signed/cloned APK, debugger, or Frida -> fail
+    // closed (NULL), so no secret is ever decrypted in a tampered process.
+    if (!tamper_env_ok(env)) return NULL;
     if (ctArr == NULL) return NULL;
     jsize len = env->GetArrayLength(ctArr);
     if (len <= 0 || len % 16 != 0) return NULL;

@@ -16,6 +16,11 @@ import android.util.Base64;
  * and Java decompilers (jadx) cannot see them. Recovering them requires
  * native reverse engineering (IDA/Ghidra + ARM).
  *
+ * <p>The native layer also runs an anti-tamper gate before decrypting:
+ * if the APK signature does not match the release key (re-signed/cloned
+ * copy), or a debugger/Frida is attached, decryption fails closed and
+ * {@code dec()} returns "".
+ *
  * <p>This raises the bar against casual inspection. It does not stop a
  * determined reverser: anything the app can decrypt, an analyst with the
  * APK can decrypt too. Truly critical secrets must stay server-side.
