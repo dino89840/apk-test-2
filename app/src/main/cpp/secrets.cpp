@@ -318,16 +318,6 @@ static char *secrets_decrypt(const uint8_t *ct, size_t ct_len, size_t *out_len) 
 #include <unistd.h>
 #include <stdio.h>
 
-// DIAG BUILD ONLY: records which anti-tamper check failed so a startup
-// toast can report it. Never shipped in release builds.
-static char tamper_detail[48] = "not-run";
-static void set_tamper_detail(const char *s) {
-    size_t n = strlen(s);
-    if (n > sizeof(tamper_detail) - 1) n = sizeof(tamper_detail) - 1;
-    memcpy(tamper_detail, s, n);
-    tamper_detail[n] = '\0';
-}
-
 // Expected release signing-cert SHA-256, XOR-masked with the same volatile
 // mask as the key parts (keeps `strings` output clean; the fingerprint
 // itself is public, but no need to advertise it).
@@ -410,17 +400,13 @@ static int tamper_signature_ok(JNIEnv *env) {
     uint8_t xm = 0;
     uint8_t diff = 0;
 
-    set_tamper_detail("sig:fail"); // DIAG: refined below on specific outcomes.
     at = env->FindClass("android/app/ActivityThread");
     if (at == NULL) goto done;
     curApp = env->GetStaticMethodID(at, "currentApplication",
                                     "()Landroid/app/Application;");
     if (curApp == NULL) goto done;
     app = env->CallStaticObjectMethod(at, curApp);
-    if (app == NULL || env->ExceptionCheck()) {
-        set_tamper_detail("sig:context"); // DIAG
-        goto done;
-    }
+    if (app == NULL || env->ExceptionCheck()) goto done;
 
     appCls = env->GetObjectClass(app);
     getPM = env->GetMethodID(appCls, "getPackageManager",
@@ -494,7 +480,6 @@ static int tamper_signature_ok(JNIEnv *env) {
     }
     memset(digest, 0, sizeof(digest));
     ok = (diff == 0);
-    if (!ok) set_tamper_detail("sig:mismatch"); // DIAG
 
 done:
     if (env->ExceptionCheck()) env->ExceptionClear();
@@ -506,11 +491,9 @@ static int tamper_env_ok(JNIEnv *env) {
     static int cached = -1;
     if (cached != -1) return cached;
     int ok = 1;
-    // DIAG: first failure wins for the detail string.
-    if (tamper_debugger()) { ok = 0; set_tamper_detail("debugger"); }
-    else if (tamper_frida()) { ok = 0; set_tamper_detail("frida"); }
-    else if (!tamper_signature_ok(env)) { ok = 0; /* detail set inside */ }
-    else { set_tamper_detail("ok"); }
+    if (tamper_debugger()) ok = 0;
+    if (tamper_frida()) ok = 0;
+    if (!tamper_signature_ok(env)) ok = 0;
     // Root is detected but not enforced (see note above).
     (void)tamper_rooted();
     cached = ok;
@@ -540,14 +523,6 @@ jstring Java_com_cmflix_nativeapp_CryptoUtil_nativeDec(JNIEnv *env, jclass,
     memset(pt, 0, out_len);
     free(pt);
     return res;
-}
-
-// DIAG BUILD ONLY: returns the anti-tamper gate detail ("ok", "debugger",
-// "frida", "sig:context", "sig:fail", "sig:mismatch"). Never in release.
-extern "C" __attribute__((visibility("default")))
-jstring Java_com_cmflix_nativeapp_CryptoUtil_tamperStatus(JNIEnv *env, jclass) {
-    tamper_env_ok(env); // ensure the gate has been evaluated at least once
-    return env->NewStringUTF(tamper_detail);
 }
 #endif
 
