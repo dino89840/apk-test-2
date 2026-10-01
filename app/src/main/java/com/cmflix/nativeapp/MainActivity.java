@@ -198,7 +198,7 @@ private static final long BACK_EXIT_INTERVAL_MS =
  */
 private static final long
         PROFILE_REFRESH_MIN_INTERVAL_MS =
-        15L * 1000L;
+        15L * 60L * 1000L;
 
 private boolean profileRefreshInFlight = false;
 private long lastProfileRefreshAttemptAt = 0L;
