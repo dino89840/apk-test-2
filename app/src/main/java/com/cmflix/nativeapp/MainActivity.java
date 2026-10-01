@@ -427,7 +427,7 @@ recycler.post(
 
     }
 
-    @Override
+@Override
 protected void onResume() {
     super.onResume();
 
@@ -440,29 +440,47 @@ protected void onResume() {
     refreshProfileIfNeeded();
     refreshSearchHistory();
 
-    if (isLocalCategory(category)) {
+    /*
+     * Home mode မှာ full-grid ရဲ့ empty/error message
+     * လုံးဝမပြရပါ။
+     *
+     * DetailActivity ကနေ Back ပြန်လာသည့်အခါ
+     * category က "continue" / "recent" / "downloads"
+     * အဖြစ် ကျန်နေသော်လည်း loadLocalCategory()
+     * ပြန်မခေါ်စေရန် homeMode ကိုပါစစ်သည်။
+     */
+    if (homeMode) {
+        clearListStatusUi();
+
+        if (adapter != null) {
+            adapter.refreshProgressSnapshot();
+        }
+    } else if (isLocalCategory(category)) {
         loadLocalCategory();
     } else if (adapter != null) {
         /*
-         * Poster အားလုံးကို ပြန် bind မလုပ်ဘဲ
+         * Full-grid network category ဖြစ်လျှင်
+         * poster အားလုံးကို rebind မလုပ်ဘဲ
          * progress bar များကိုသာ update လုပ်မည်။
          */
         adapter.refreshProgressSnapshot();
     }
 
+    /*
+     * Home mode ဖြစ်မှ section adapter ကို
+     * data အသစ်ဖြင့် refresh လုပ်မည်။
+     * Home မဟုတ်လျှင် method အတွင်းမှာ section
+     * list ကို empty ပြောင်းထားပြီးဖြစ်သည်။
+     */
     refreshHomeSections();
 
     /*
      * Foreground ဝင်တာနဲ့ notification ကို
      * ချက်ချင်း ETag validation လုပ်မည်။
-     *
-     * App foreground ရှိနေစဉ် 60 seconds တစ်ကြိမ်
-     * revalidate လုပ်မည်။ Unchanged ဖြစ်ရင် 304
-     * response body မရှိသောကြောင့် traffic သေးသည်။
      */
     refreshRemoteNotification();
-
 }
+
 @Override
 protected void onPause() {
     
@@ -766,6 +784,33 @@ protected void onDestroy() {
         LocalStore.saveGridSpan(next);
         applySpanCount(next);
     }
+/*
+ * Screen တစ်ခုကနေ တစ်ခုကို ပြောင်းသောအခါ
+ * အရင် list screen ရဲ့ empty/error/loading state
+ * Home ပေါ်တွင် overlay မဖြစ်စေရန် ရှင်းမည်။
+ */
+private void clearListStatusUi() {
+    if (errorText != null) {
+        errorText.clearAnimation();
+        errorText.setText("");
+        errorText.setVisibility(View.GONE);
+    }
+
+    if (progress != null) {
+        progress.clearAnimation();
+        progress.setVisibility(View.GONE);
+    }
+
+    if (shimmerContainer != null) {
+        shimmerContainer.stopShimmer();
+        shimmerContainer.clearAnimation();
+        shimmerContainer.setVisibility(View.GONE);
+    }
+
+    if (recycler != null) {
+        recycler.setVisibility(View.VISIBLE);
+    }
+}
 
     /*
      * Initial load မှာ shimmer placeholder ပြမည်။
@@ -1031,6 +1076,12 @@ private void enterCategory(
         String value,
         String label
 ) {
+    /*
+     * Home သို့မဟုတ် အရင် category ရဲ့ status view
+     * အသစ်ဖွင့်မည့် category ပေါ်တွင် မကျန်စေရန်။
+     */
+    clearListStatusUi();
+
     category = value;
     homeMode = false;
 
@@ -1086,15 +1137,49 @@ private boolean isNetworkCategory(
 
 
 private void goHome() {
+    /*
+     * Home ကိုရောက်ပြီးသားအချိန် Home ကိုထပ်နှိပ်ရင်လည်း
+     * အရင် screen ကကျန်နေသော empty/error overlay ကို
+     * အရင်ရှင်းမည်။
+     */
     if (homeMode) {
+        clearListStatusUi();
+        refreshHomeSections();
         recycler.smoothScrollToPosition(0);
         return;
     }
 
+    /*
+     * လက်ရှိ full-grid request/callback အဟောင်းများ
+     * နောက်ကျပြီး UI ကို ပြန်ပြင်ခြင်းမဖြစ်စေရန်
+     * generation ကို invalidate လုပ်သည်။
+     *
+     * resetAndLoad() အတွင်း generation ထပ်တိုးထားလျှင်လည်း
+     * ပြဿနာမရှိပါ။
+     */
+    requestGeneration++;
+    isLoading = false;
+
     homeMode = true;
+
+    /*
+     * Home တွင် category ကို local category အဖြစ်
+     * မကျန်စေရန် safe default ပြန်ထားသည်။
+     *
+     * ဒါကြောင့် Activity onResume ပြန်ဝင်ချိန်တွင်
+     * Continue/Recent/Downloads loader ကို
+     * မတော်တဆ မခေါ်တော့ပါ။
+     */
+    category = "movies";
 
     search = "";
     searchInput.setText("");
+
+    /*
+     * အရင် full-grid ရဲ့ empty/error/loading state ကို
+     * Home section မပြခင်ရှင်းမည်။
+     */
+    clearListStatusUi();
 
     localHeader.setVisibility(View.GONE);
     localClearButton.setVisibility(View.GONE);
@@ -1107,6 +1192,7 @@ private void goHome() {
     recycler.scrollToPosition(0);
     resetAndLoad();
 }
+
 
 
 /*
@@ -2854,6 +2940,15 @@ private boolean isLocalCategory(
 }
 
 private void loadLocalCategory() {
+/*
+ * Local full-grid မဟုတ်တော့သည့်အချိန်
+ * lifecycle callback သို့မဟုတ် queued action အဟောင်းက
+ * ဒီ method ကိုခေါ်လာလျှင် UI ကို မပြောင်းစေရန်။
+ */
+if (homeMode || !isLocalCategory(category)) {
+    return;
+}
+
     progress.setVisibility(View.GONE);
     hideShimmer();
     isLoading = false;
