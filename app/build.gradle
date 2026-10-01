@@ -123,7 +123,8 @@ android {
         // in settings.gradle (CI runners do not preinstall it).
         ndkVersion "27.2.12479018"
         externalNativeBuild {
-            // ndk-build always uses src/main/jni/Android.mk (no path option).
+            // Per-variant ndk-build flags go here (arguments/cFlags/targets).
+            // NOTE: no path() on this block (AGP type has no such method).
             ndkBuild {
             }
         }
@@ -134,6 +135,9 @@ android {
 
     externalNativeBuild {
         ndkBuild {
+            // REQUIRED: AGP only runs ndk-build when this path is set
+            // (empty block = silently skipped, no .so in the APK).
+            path "src/main/jni/Android.mk"
         }
     }
 
