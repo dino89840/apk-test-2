@@ -41,13 +41,6 @@ public final class CryptoUtil {
     private static native String nativeDec(byte[] ciphertext);
 
     /**
-     * DIAG BUILD ONLY: returns the anti-tamper gate detail ("ok",
-     * "debugger", "frida", "sig:context", "sig:fail", "sig:mismatch").
-     * Never called by release code.
-     */
-    public static native String tamperStatus();
-
-    /**
      * Decrypts a base64 ciphertext produced by the build-time encryptor.
      * Returns "" on any failure so callers fail closed (same as a missing
      * value).
