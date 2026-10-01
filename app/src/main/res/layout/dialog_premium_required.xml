@@ -53,7 +53,7 @@
             android:layout_height="wrap_content"
             android:gravity="center"
             android:lineSpacingExtra="4dp"
-            android:text="Premium ဝယ်ယူပါက&#10;✓ Movie အားလုံးကြည့်ရှုနိူင်ခြင်း။&#10;✓ Movie အားလုံး Downloadလုပ်နိူင်ခြင်း။"
+            android:text="Premium ဝယ်ယူပါက&#10;✓ Movie အားလုံးကြည့်ရှုနိူင်ခြင်း။&#10;✓ 18+ အားလုံး Downloadလုပ်နိူင်ခြင်း။"
             android:textColor="#C9C6D0"
             android:textSize="14sp" />
 
