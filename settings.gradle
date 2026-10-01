@@ -1,3 +1,20 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+rootProject.name = "CM FLIX Native"
+include(":app")
+
 /*
  * NDK bootstrap for CI.
  *
@@ -25,20 +42,3 @@ if (cmflixSdkRoot) {
         println("CMFLIX: Android NDK ${cmflixNdkVersion} installed.")
     }
 }
-
-pluginManagement {
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
-rootProject.name = "CM FLIX Native"
-include(":app")
