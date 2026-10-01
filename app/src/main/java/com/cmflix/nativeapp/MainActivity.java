@@ -162,7 +162,7 @@ private boolean premiumButtonWanted = false;
  * Admin မှသတ်မှတ်ထားသော banner click link။
  */
 private String vipBannerLink =
-        "https://t.me/iqowoq";
+        "https://t.me/" + CryptoUtil.dec("eYfWVCItMPTfAWhBVxWccg==");
 
 /*
  * Remote banner image state — feed ထဲက banner item
@@ -1986,7 +1986,8 @@ private void applyRemoteBanner(
 
     vipBannerLink =
             link.isEmpty()
-                    ? "https://t.me/iqowoq"
+                    ? "https://t.me/"
+                            + CryptoUtil.dec("eYfWVCItMPTfAWhBVxWccg==")
                     : link;
 
     /*

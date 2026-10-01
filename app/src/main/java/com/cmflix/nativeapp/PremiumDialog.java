@@ -13,7 +13,9 @@ import android.widget.Toast;
 
 public final class PremiumDialog {
 
-    private static final String TELEGRAM_USERNAME = "iqowoq";
+    // Encrypted at rest (see CryptoUtil); decrypted into memory on use.
+    private static final String TELEGRAM_USERNAME =
+            CryptoUtil.dec("eYfWVCItMPTfAWhBVxWccg==");
     private static final String TELEGRAM_URL =
             "https://t.me/" + TELEGRAM_USERNAME;
 

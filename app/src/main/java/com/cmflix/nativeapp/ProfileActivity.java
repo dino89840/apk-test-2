@@ -149,7 +149,9 @@ private void openTelegram() {
             new Intent(
                     Intent.ACTION_VIEW,
                     Uri.parse(
-                            "https://t.me/iqowoq"
+                            "https://t.me/"
+                                    + CryptoUtil.dec(
+                                            "eYfWVCItMPTfAWhBVxWccg==")
                     )
             );
 

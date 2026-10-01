@@ -24,8 +24,9 @@ public final class PremiumExpiryDialog {
     private static final long ONE_DAY_MS =
             24L * 60L * 60L * 1000L;
 
+    // Username encrypted at rest (see CryptoUtil); decrypted on use.
     private static final String TELEGRAM_URL =
-            "https://t.me/iqowoq";
+            "https://t.me/" + CryptoUtil.dec("eYfWVCItMPTfAWhBVxWccg==");
 
     /*
      * App process တစ်ကြိမ်အတွင်း dialog ထပ်ခါထပ်ခါ

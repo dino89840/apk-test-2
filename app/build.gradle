@@ -1,3 +1,9 @@
+import java.security.MessageDigest
+import java.util.Arrays
+import javax.crypto.Cipher
+import javax.crypto.spec.IvParameterSpec
+import javax.crypto.spec.SecretKeySpec
+
 plugins {
     id 'com.android.application'
 }
@@ -19,6 +25,61 @@ def envOrProperty = { String name ->
 
 def cmflixAppKey =
         envOrProperty("CMFLIX_APP_KEY")
+
+/*
+ * Build-time string encryption (runtime counterpart: CryptoUtil.java).
+ *
+ * The plaintext app key comes only from CI secrets / env and is encrypted
+ * here with AES-128-CBC. Only the base64 ciphertext is baked into
+ * BuildConfig, so the APK never contains the key in readable form.
+ *
+ * Key parts are assembled in scrambled order and hashed -- the assembly
+ * order, salts and algorithm must match CryptoUtil.derivedBytes().
+ */
+def cmflixPart0 = "zoTOB7AidP"
+def cmflixPart1 = "qxM31r3CDt"
+def cmflixPart2 = "NEuiMngXfX"
+def cmflixPart3 = "fZUl8eyyDD"
+def cmflixAssembled = cmflixPart2 + cmflixPart0 + cmflixPart3 + cmflixPart1
+
+def cmflixDerivedBytes = { String salt ->
+    byte[] hash = MessageDigest.getInstance("SHA-256")
+            .digest((cmflixAssembled + salt).getBytes("UTF-8"))
+    Arrays.copyOfRange(hash, 0, 16)
+}
+
+def cmflixAesKey =
+        new SecretKeySpec(cmflixDerivedBytes("|k1"), "AES")
+def cmflixAesIv =
+        new IvParameterSpec(cmflixDerivedBytes("|i1"))
+
+def cmflixEncrypt = { String plain ->
+    Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
+    cipher.init(Cipher.ENCRYPT_MODE, cmflixAesKey, cmflixAesIv)
+    java.util.Base64.getEncoder()
+            .encodeToString(cipher.doFinal(plain.getBytes("UTF-8")))
+}
+
+def cmflixDecrypt = { String base64Ciphertext ->
+    Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
+    cipher.init(Cipher.DECRYPT_MODE, cmflixAesKey, cmflixAesIv)
+    new String(
+            cipher.doFinal(
+                    java.util.Base64.getDecoder().decode(base64Ciphertext)),
+            "UTF-8")
+}
+
+// Self-test: fails the build loudly if encrypt/decrypt ever disagree,
+// so a broken encryptor can never ship a bad ciphertext into the APK.
+def cmflixSelfTestVector = "cmflix-selftest-vector"
+assert cmflixDecrypt(cmflixEncrypt(cmflixSelfTestVector)) ==
+        cmflixSelfTestVector : "cmflix build-time crypto self-test failed"
+
+// Cross-implementation pin: AES-CBC with a fixed IV is deterministic, so
+// encrypting a known value must reproduce the known-good ciphertext.
+// This catches any drift between this Groovy encryptor and CryptoUtil.
+assert cmflixEncrypt("iqowoq") ==
+        "eYfWVCItMPTfAWhBVxWccg==" : "cmflix crypto vector mismatch"
 
 def releaseStorePath =
         envOrProperty("ANDROID_KEYSTORE_PATH")
@@ -45,12 +106,13 @@ android {
         versionCode 3
         versionName "1.2"
 
+        // NOTE: the value below is the AES-encrypted app key (base64).
+        // The plaintext comes only from CI secrets; see cmflixEncrypt above
+        // and CryptoUtil.dec() at runtime. Never put plaintext here.
         buildConfigField(
                 "String",
                 "CMFLIX_APP_KEY",
-                "\"${cmflixAppKey
-                        .replace("\\", "\\\\")
-                        .replace("\"", "\\\"")}\""
+                "\"${cmflixEncrypt(cmflixAppKey)}\""
         )
 
         

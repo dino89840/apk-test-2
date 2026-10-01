@@ -22,8 +22,9 @@ public final class ConfigManager {
      * GitHub config source ကို app ထဲမှာ
      * ဒီတစ်နေရာတည်းမှာသာ သတ်မှတ်ထားသည်။
      */
+    // Encrypted at rest (see CryptoUtil); decrypted into memory on use.
     private static final String CONFIG_URL =
-            "https://raw.githubusercontent.com/cmflix/cmflix/main/config.json";
+            CryptoUtil.dec("eOHKavac3p790F7XC/TAt63GcFRNFWQ+I2Nw+bUN/tVsGIlnSeM+zSt1X7WCGOEHENuZvlUUTW7M9yITatfZ1eWn11Q1z166uiXFYhy6OtI=");
 
     private static final long CONFIG_CACHE_TTL_MS =
             24L * 60L * 60L * 1000L;

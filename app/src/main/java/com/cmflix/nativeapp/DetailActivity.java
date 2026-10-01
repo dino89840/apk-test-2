@@ -1847,7 +1847,9 @@ private boolean isZeroMetadataValue(
             Intent intent =
                     new Intent(
                             Intent.ACTION_VIEW,
-                            Uri.parse("https://t.me/iqowoq")
+                            Uri.parse("https://t.me/"
+                                    + CryptoUtil.dec(
+                                            "eYfWVCItMPTfAWhBVxWccg=="))
                     );
 
             startActivity(intent);

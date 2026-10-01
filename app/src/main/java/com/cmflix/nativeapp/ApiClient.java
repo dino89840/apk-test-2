@@ -863,11 +863,10 @@ removeSingleFlightCallbacks(
         JSONObject requestBody,
         Callback callback
 ) {
+    String appKey = CryptoUtil.dec(BuildConfig.CMFLIX_APP_KEY);
     if (
-            BuildConfig.CMFLIX_APP_KEY == null ||
-            BuildConfig.CMFLIX_APP_KEY
-                    .trim()
-                    .isEmpty()
+            appKey == null ||
+            appKey.trim().isEmpty()
     ) {
         callback.onError(
                 new IllegalStateException(
@@ -908,7 +907,7 @@ URL url =
 
                 connection.setRequestProperty(
                         "x-cmflix-app-key",
-                        BuildConfig.CMFLIX_APP_KEY
+                        appKey
                 );
 
                 connection.setRequestProperty(

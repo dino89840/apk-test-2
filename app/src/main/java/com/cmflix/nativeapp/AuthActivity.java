@@ -27,8 +27,9 @@ import org.json.JSONObject;
 
 public class AuthActivity extends AppCompatActivity {
 
+    // Username encrypted at rest (see CryptoUtil); decrypted on use.
     private static final String TELEGRAM_URL =
-            "https://t.me/iqowoq";
+            "https://t.me/" + CryptoUtil.dec("eYfWVCItMPTfAWhBVxWccg==");
 
     private View authCard;
     private View loginOptionsRow;
