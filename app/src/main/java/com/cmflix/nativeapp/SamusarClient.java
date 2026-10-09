@@ -64,6 +64,57 @@ public final class SamusarClient {
     public static final String PROXY_BASE_URL =
             "https://tw.kyakya.xubi.org";
 
+    /*
+     * Proxy base URL resolver — server-configurable။
+     *
+     * /app-content ၏ samusar.proxy (AppContentManager
+     * မှတဆင့်) ရှိလျှင် အဲ့ဒါကို သုံးမည်၊ မရှိလျှင် /
+     * လွတ်နေလျှင် PROXY_BASE_URL default သို့
+     * fallback လုပ်မည်။
+     *
+     * Domain ပျက်/ပြောင်းလျှင် server (D1) မှာ
+     * ပြင်ရုံဖြင့် APK rebuild မလိုတော့ပါ။
+     *
+     * Trailing slash များကို ဖယ်ပြီး http(s)
+     * URL စစ်မှန်ကြောင်း validate လုပ်သည်။
+     */
+    public static String getBaseUrl() {
+        String configured =
+                AppContentManager
+                        .getCachedSamusarProxyUrl();
+
+        if (configured != null) {
+            configured = configured.trim();
+
+            while (
+                    configured.endsWith("/")
+                            && configured.length() > 1
+            ) {
+                configured =
+                        configured.substring(
+                                0,
+                                configured.length() - 1
+                        );
+            }
+
+            if (
+                    configured.regionMatches(
+                            true, 0,
+                            "https://", 0, 8
+                    )
+                            ||
+                            configured.regionMatches(
+                                    true, 0,
+                                    "http://", 0, 7
+                            )
+            ) {
+                return configured;
+            }
+        }
+
+        return PROXY_BASE_URL;
+    }
+
     private static final String LIST_PATH =
             "/latest-updates";
 
@@ -338,10 +389,12 @@ public final class SamusarClient {
 
         EXECUTOR.execute(() -> {
             try {
+                String baseUrl = getBaseUrl();
+
                 String url =
                         safePage <= 1
-                                ? PROXY_BASE_URL + LIST_PATH
-                                : PROXY_BASE_URL + LIST_PATH
+                                ? baseUrl + LIST_PATH
+                                : baseUrl + LIST_PATH
                                         + "/" + safePage + "/";
 
                 if (!refresh) {
@@ -366,7 +419,7 @@ public final class SamusarClient {
                     }
                 }
 
-                String html = get(url, PROXY_BASE_URL + "/");
+                String html = get(url, baseUrl + "/");
 
                 List<SamusarVideo> videos =
                         parseListing(html);
@@ -407,7 +460,7 @@ public final class SamusarClient {
                 }
 
                 String html =
-                        get(detailUrl.trim(), PROXY_BASE_URL + "/");
+                        get(detailUrl.trim(), getBaseUrl() + "/");
 
                 SamusarStream stream =
                         parseDetail(
@@ -1338,7 +1391,7 @@ public final class SamusarClient {
 
         try {
             return new URL(
-                    new URL(PROXY_BASE_URL),
+                    new URL(getBaseUrl()),
                     trimmed
             ).toString();
         } catch (Exception ignored) {

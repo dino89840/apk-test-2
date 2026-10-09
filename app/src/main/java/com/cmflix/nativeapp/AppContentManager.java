@@ -95,6 +95,58 @@ private static final String KEY_NOTICE_SAVED_AT =
         return myanmar.optBoolean("enabled", true);
     }
 
+    /*
+     * Samusar proxy URL — server-configurable။
+     *
+     * Backend /app-content မှ "samusar": {"proxy": "<url>"}
+     * ကို ဖတ်သည်။ Field မရှိလျှင် / လွတ်နေလျှင် ""
+     * ပြန်ပေးမည် — SamusarClient က hardcoded
+     * default (PROXY_BASE_URL) သို့ fallback လုပ်မည်။
+     *
+     * myanmar.enabled လိုပဲ cached /app-content
+     * JSON ထဲက ဖတ်သောကြောင့် network request
+     * အသစ် လုံးဝ မလိုပါ (12-hour TTL တူ)။
+     */
+    public static String getSamusarProxyUrl(
+            JSONObject content
+    ) {
+        if (content == null) {
+            return "";
+        }
+
+        JSONObject samusar =
+                content.optJSONObject("samusar");
+
+        if (samusar == null) {
+            return "";
+        }
+
+        String proxy =
+                samusar.optString("proxy", "");
+
+        return proxy == null ? "" : proxy.trim();
+    }
+
+    /*
+     * နောက်ဆုံး /app-content မှ ရသော proxy URL
+     * (memory cache)။ loadBanner က content ရတိုင်း
+     * update လုပ်သည် — cached path ရော network
+     * path ရော။
+     */
+    private static volatile String cachedSamusarProxyUrl =
+            "";
+
+    private static void updateCachedSamusarProxyUrl(
+            JSONObject content
+    ) {
+        cachedSamusarProxyUrl =
+                getSamusarProxyUrl(content);
+    }
+
+    public static String getCachedSamusarProxyUrl() {
+        return cachedSamusarProxyUrl;
+    }
+
     public interface Callback {
 
         void onContent(JSONObject content);
@@ -133,6 +185,7 @@ private static final String KEY_NOTICE_SAVED_AT =
                 );
 
         if (cached != null) {
+            updateCachedSamusarProxyUrl(cached);
             callback.onContent(cached);
         }
 
@@ -320,6 +373,8 @@ private static final String KEY_NOTICE_SAVED_AT =
                     new JSONObject(
                             responseBody
                     );
+
+            updateCachedSamusarProxyUrl(json);
 
             preferences
                     .edit()
