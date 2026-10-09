@@ -1696,7 +1696,7 @@ private void ensureHomeSectionLoaded(String value) {
         );
 
         /*
-         * မြန်မာ tab — samusar.com တိုက်ရိုက် scrape
+         * မြန်မာ tab — proxy မှတဆင့် samusar scrape
          * ဖြစ်သောကြောင့် MainActivity ၏ backend
          * category flow (openCategory) ကို မသုံးဘဲ
          * MyanmarActivity သီးသန့် ဖွင့်မည်။

@@ -24,7 +24,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /*
- * မြန်မာ category — samusar.com တိုက်ရိုက် scrape။
+ * မြန်မာ category — proxy (tw.kyakya.xubi.org)
+ * မှတဆင့် samusar scrape (VPN မလိုရန်)။
  *
  * - Cover ပုံများ (landscape) ကို 16:9 card grid ဖြင့် ပြသည်။
  * - ကြည့်ခြင်း + Download နှစ်မျိုးလုံး VIP only။

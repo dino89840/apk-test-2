@@ -24,6 +24,13 @@ import java.util.zip.GZIPInputStream;
 /*
  * samusar.com scraper — listing + stream resolve.
  *
+ * ALL traffic goes through the Cloudflare Pages proxy
+ * (PROXY_BASE_URL) — the phone never contacts
+ * samusar.com directly (VPN bypass for Myanmar users).
+ * The proxy rewrites samusar.com URLs in HTML to its
+ * own origin, so parsed detail/thumb/stream URLs are
+ * already proxy URLs.
+ *
  * - Network request အားလုံး background thread ပေါ်မှာ။
  * - Cookie များကို request တိုင်းတွင် ပြန်ပို့သည်
  *   (detail page session + tokenized mp4 URL များအတွက်)။
@@ -40,8 +47,22 @@ public final class SamusarClient {
     private static final String TAG =
             "SamusarClient";
 
-    private static final String BASE_URL =
-            "https://www.samusar.com";
+    /*
+     * Cloudflare Pages proxy — samusar.com VPN bypass
+     * for Myanmar users.
+     *
+     * ALL Myanmar traffic (listing HTML, detail HTML,
+     * thumbnails, video streams) goes through this
+     * proxy; the phone never contacts samusar.com
+     * directly. The proxy rewrites samusar.com URLs
+     * in HTML to its own origin and translates the
+     * Referer back internally.
+     *
+     * Change this one constant to point at a new
+     * proxy host if needed.
+     */
+    public static final String PROXY_BASE_URL =
+            "https://tw.kyakya.xubi.org";
 
     private static final String LIST_PATH =
             "/latest-updates";
@@ -100,9 +121,103 @@ public final class SamusarClient {
      * Samusar-only in-memory cookie jar.
      * Synchronized — background thread အများအပြားမှ
      * တစ်ပြိုင်နက် သုံးနိုင်သည်။
+     *
+     * NOTE: cookie များကို domain ဖြင့် ခွဲမသိမ်းပါ —
+     * request အားလုံး proxy host တခုတည်းသို့
+     * သွားသောကြောင့် name-keyed jar တစ်ခု လုံလောက်သည်။
      */
     private static final List<HttpCookie> COOKIE_JAR =
             new ArrayList<>();
+
+    /*
+     * Listing page cache (5 မိနစ်) — proxy + edge
+     * cache နှင့်အတူ request အရေအတွက် လျှော့ချရန်။
+     * Key = page URL, value = (timestamp, items).
+     * Detail page / stream URL များကို cache
+     * လုံးဝ မလုပ်ပါ (token များ dynamic ဖြစ်သောကြောင့်)။
+     */
+    private static final long LISTING_CACHE_TTL_MS =
+            5 * 60 * 1000L;
+
+    private static final int LISTING_CACHE_MAX_PAGES =
+            20;
+
+    private static final class CachedListing {
+        final long fetchedAt;
+        final List<SamusarVideo> videos;
+        final boolean hasMore;
+
+        CachedListing(
+                long fetchedAt,
+                List<SamusarVideo> videos,
+                boolean hasMore
+        ) {
+            this.fetchedAt = fetchedAt;
+            this.videos = videos;
+            this.hasMore = hasMore;
+        }
+    }
+
+    private static final Map<String, CachedListing>
+            LISTING_CACHE = new LinkedHashMap<>();
+
+    private static synchronized CachedListing getCachedListing(
+            String url
+    ) {
+        CachedListing cached =
+                LISTING_CACHE.get(url);
+
+        if (cached == null) {
+            return null;
+        }
+
+        if (
+                System.currentTimeMillis() -
+                        cached.fetchedAt >
+                        LISTING_CACHE_TTL_MS
+        ) {
+            LISTING_CACHE.remove(url);
+
+            return null;
+        }
+
+        return cached;
+    }
+
+    private static synchronized void putCachedListing(
+            String url,
+            List<SamusarVideo> videos,
+            boolean hasMore
+    ) {
+        LISTING_CACHE.put(
+                url,
+                new CachedListing(
+                        System.currentTimeMillis(),
+                        new ArrayList<>(videos),
+                        hasMore
+                )
+        );
+
+        while (
+                LISTING_CACHE.size() >
+                        LISTING_CACHE_MAX_PAGES
+        ) {
+            String oldest =
+                    LISTING_CACHE.keySet()
+                            .iterator()
+                            .next();
+
+            LISTING_CACHE.remove(oldest);
+        }
+    }
+
+    /*
+     * Listing cache ကို ရှင်းရန် (pull-to-refresh /
+     * manual refresh အတွက်)။
+     */
+    public static synchronized void clearListingCache() {
+        LISTING_CACHE.clear();
+    }
 
     private SamusarClient() {
     }
@@ -198,22 +313,60 @@ public final class SamusarClient {
     /*
      * Listing page N ကို fetch လုပ်သည်။
      * Page 1 = /latest-updates , page N = /latest-updates/N/
+     *
+     * 5-မိနစ် in-memory cache ပါသည်။
      */
     public static void fetchPage(
             int page,
             PageCallback callback
     ) {
+        fetchPage(page, false, callback);
+    }
+
+    /*
+     * forceRefresh = true ဆိုလျှင် cache ကို
+     * ကျော်ပြီး အမြဲ fresh fetch လုပ်မည်
+     * (pull-to-refresh / manual refresh အတွက်)။
+     */
+    public static void fetchPage(
+            int page,
+            boolean forceRefresh,
+            PageCallback callback
+    ) {
         final int safePage = Math.max(1, page);
+        final boolean refresh = forceRefresh;
 
         EXECUTOR.execute(() -> {
             try {
                 String url =
                         safePage <= 1
-                                ? BASE_URL + LIST_PATH
-                                : BASE_URL + LIST_PATH
+                                ? PROXY_BASE_URL + LIST_PATH
+                                : PROXY_BASE_URL + LIST_PATH
                                         + "/" + safePage + "/";
 
-                String html = get(url, BASE_URL + "/");
+                if (!refresh) {
+                    CachedListing cached =
+                            getCachedListing(url);
+
+                    if (cached != null) {
+                        Log.d(
+                                TAG,
+                                "listing cache hit: "
+                                        + url
+                        );
+
+                        callback.onResult(
+                                new ArrayList<>(
+                                        cached.videos
+                                ),
+                                cached.hasMore
+                        );
+
+                        return;
+                    }
+                }
+
+                String html = get(url, PROXY_BASE_URL + "/");
 
                 List<SamusarVideo> videos =
                         parseListing(html);
@@ -223,6 +376,8 @@ public final class SamusarClient {
                  * နောက် page မရှိတော့ဟု ယူဆသည်။
                  */
                 boolean hasMore = !videos.isEmpty();
+
+                putCachedListing(url, videos, hasMore);
 
                 callback.onResult(videos, hasMore);
             } catch (Exception error) {
@@ -252,7 +407,7 @@ public final class SamusarClient {
                 }
 
                 String html =
-                        get(detailUrl.trim(), BASE_URL + "/");
+                        get(detailUrl.trim(), PROXY_BASE_URL + "/");
 
                 SamusarStream stream =
                         parseDetail(
@@ -476,7 +631,7 @@ public final class SamusarClient {
                         .toString();
 
         /*
-         * samusar.com တခါတရံ http:// သို့ redirect
+         * Proxy/origin တခါတရံ http:// သို့ redirect
          * ချတတ်သည် — Android 9+ က cleartext ကို
          * ပိတ်ထားသောကြောင့် https:// သို့ အတင်း
          * upgrade လုပ်မည်။
@@ -836,7 +991,7 @@ public final class SamusarClient {
     // video_alt_url2) with tokenized get_file URLs.
     //
     // Example:
-    //   video_url: 'https://www.samusar.com/get_file/1/<hash>/.../56894.mp4/?v-acctoken=<b64>',
+    //   video_url: 'https://tw.kyakya.xubi.org/get_file/1/<hash>/.../56894.mp4/?v-acctoken=<b64>',
     //   video_url_text: '480p',
     //   video_alt_url: '.../56894_720p.mp4/?v-acctoken=<b64>',
     //   video_alt_url_text: '720p',
@@ -1183,7 +1338,7 @@ public final class SamusarClient {
 
         try {
             return new URL(
-                    new URL(BASE_URL),
+                    new URL(PROXY_BASE_URL),
                     trimmed
             ).toString();
         } catch (Exception ignored) {
