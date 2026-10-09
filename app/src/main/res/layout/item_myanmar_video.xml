@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    မြန်မာ category card — 16:9 landscape thumbnail
+    (ImageView height ကို adapter မှ screen width
+    အလိုက် 16:9 တွက်ပြီး သတ်မှတ်သည်)။
+-->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="4dp">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <ImageView
+            android:id="@+id/cardThumb"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/dark_bg"
+            android:contentDescription="ဗီဒီယို cover"
+            android:scaleType="centerCrop" />
+
+        <ImageView
+            android:id="@+id/cardDownloadButton"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_gravity="bottom|end"
+            android:layout_margin="6dp"
+            android:background="@drawable/download_dialog_icon_bg"
+            android:clickable="true"
+            android:contentDescription="Download"
+            android:focusable="true"
+            android:padding="8dp"
+            android:src="@drawable/ic_nav_downloads" />
+
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/cardTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="2"
+        android:paddingTop="6dp"
+        android:paddingBottom="4dp"
+        android:textColor="@color/white"
+        android:textSize="13sp" />
+
+</LinearLayout>

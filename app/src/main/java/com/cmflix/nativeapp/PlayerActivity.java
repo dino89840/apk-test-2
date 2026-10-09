@@ -50,6 +50,15 @@ public class PlayerActivity extends AppCompatActivity {
     private String titleId = "";
     private long resumePosition = 0L;
 
+    /*
+     * Samusar video ဖြစ်လျှင် LocalStore resume
+     * record တွင် သိမ်းရန် display metadata။
+     * Backend title များတွင် extras မပါသဖြင့်
+     * အလွတ်သာ ဖြစ်မည်။
+     */
+    private String samusarTitle = "";
+    private String samusarThumb = "";
+
     private final Runnable saveProgressTask =
             new Runnable() {
                 @Override
@@ -92,10 +101,46 @@ public class PlayerActivity extends AppCompatActivity {
                         "video_type"
                 );
 
+        /*
+         * Samusar (မြန်မာ category) ကလာသော
+         * tokenized stream များအတွက် optional
+         * request headers။ Backend stream များတွင်
+         * ဒီ extras များ မပါသဖြင့် အရင် behavior
+         * အတိုင်း ဆက်သွားမည်။
+         */
+        String headerReferer =
+                getIntent().getStringExtra(
+                        "video_referer"
+                );
+
+        String headerUserAgent =
+                getIntent().getStringExtra(
+                        "video_user_agent"
+                );
+
+        String headerCookie =
+                getIntent().getStringExtra(
+                        "video_cookie"
+                );
+
         titleId =
                 safe(
                         getIntent().getStringExtra(
                                 "title_id"
+                        )
+                );
+
+        samusarTitle =
+                safe(
+                        getIntent().getStringExtra(
+                                "video_title"
+                        )
+                );
+
+        samusarThumb =
+                safe(
+                        getIntent().getStringExtra(
+                                "video_thumb"
                         )
                 );
 
@@ -137,7 +182,10 @@ public class PlayerActivity extends AppCompatActivity {
 
         initializePlayer(
                 url.trim(),
-                type
+                type,
+                headerReferer,
+                headerUserAgent,
+                headerCookie
         );
     }
 
@@ -231,15 +279,80 @@ public class PlayerActivity extends AppCompatActivity {
 
     private void initializePlayer(
             String url,
-            String type
+            String type,
+            String headerReferer,
+            String headerUserAgent,
+            String headerCookie
     ) {
         playerProgress.setVisibility(
                 View.VISIBLE
         );
 
-        player =
-                new ExoPlayer.Builder(this)
-                        .build();
+        ExoPlayer.Builder playerBuilder =
+                new ExoPlayer.Builder(this);
+
+        /*
+         * Custom headers ပါလာလျှင် (မြန်မာ category)
+         * DefaultHttpDataSource တွင် Referer / Cookie /
+         * User-Agent ထည့်မည်။ Headers မပါလျှင်
+         * default factory အတိုင်း — backend stream
+         * များ၏ behavior လုံးဝ မပြောင်းပါ။
+         */
+        java.util.Map<String, String> requestProps =
+                new java.util.HashMap<>();
+
+        if (
+                headerReferer != null &&
+                        !headerReferer.trim().isEmpty()
+        ) {
+            requestProps.put(
+                    "Referer",
+                    headerReferer.trim()
+            );
+        }
+
+        if (
+                headerCookie != null &&
+                        !headerCookie.trim().isEmpty()
+        ) {
+            requestProps.put(
+                    "Cookie",
+                    headerCookie.trim()
+            );
+        }
+
+        if (!requestProps.isEmpty()) {
+            androidx.media3.datasource
+                    .DefaultHttpDataSource.Factory
+                    httpFactory =
+                    new androidx.media3.datasource
+                            .DefaultHttpDataSource
+                            .Factory();
+
+            if (
+                    headerUserAgent != null &&
+                            !headerUserAgent
+                                    .trim()
+                                    .isEmpty()
+            ) {
+                httpFactory.setUserAgent(
+                        headerUserAgent.trim()
+                );
+            }
+
+            httpFactory.setDefaultRequestProperties(
+                    requestProps
+            );
+
+            playerBuilder.setMediaSourceFactory(
+                    new androidx.media3.exoplayer.source
+                            .DefaultMediaSourceFactory(
+                                    httpFactory
+                            )
+            );
+        }
+
+        player = playerBuilder.build();
 
         playerView.setPlayer(player);
         playerView.setUseController(true);
@@ -622,6 +735,29 @@ public class PlayerActivity extends AppCompatActivity {
                 position < 5000L &&
                 !playbackEnded
         ) {
+            return;
+        }
+
+        /*
+         * Samusar video ဖြစ်လျှင် သီးသန့် progress
+         * store တွင် title/thumbnail နှင့်အတူ သိမ်းမည် —
+         * MyanmarActivity ၏ Continue Watching
+         * section အတွက်။ Backend title များမှာ
+         * အရင် saveProgress() အတိုင်း။
+         */
+        if (
+                titleId.startsWith(
+                        SamusarClient.ID_PREFIX
+                )
+        ) {
+            LocalStore.saveSamusarProgress(
+                    titleId,
+                    samusarTitle,
+                    samusarThumb,
+                    position,
+                    duration
+            );
+
             return;
         }
 

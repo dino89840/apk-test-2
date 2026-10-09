@@ -56,6 +56,11 @@
             android:name=".DetailActivity"
             android:exported="false"
             android:screenOrientation="unspecified" />
+
+        <activity
+            android:name=".MyanmarActivity"
+            android:exported="false"
+            android:screenOrientation="unspecified" />
                 <activity
             android:name=".ProfileActivity"
             android:exported="false"

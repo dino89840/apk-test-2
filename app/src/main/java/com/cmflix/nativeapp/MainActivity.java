@@ -85,14 +85,17 @@ public class MainActivity extends AppCompatActivity {
     private View navHorror;
     private View navNosub;
     private View navMmsub;
+    private View navMyanmar;
     private android.widget.ImageView navHomeIcon;
     private android.widget.ImageView navHorrorIcon;
     private android.widget.ImageView navNosubIcon;
     private android.widget.ImageView navMmsubIcon;
+    private android.widget.ImageView navMyanmarIcon;
     private TextView navHomeLabel;
     private TextView navHorrorLabel;
     private TextView navNosubLabel;
     private TextView navMmsubLabel;
+    private TextView navMyanmarLabel;
 
     /*
      * Home sections အတွက် session cache:
@@ -227,6 +230,7 @@ private long lastProfileRefreshAttemptAt = 0L;
         {"Horror", "movies"},
         {"Nosub 18+", "series"},
         {"Mmsub 18+", "lugyi"},
+        {"မြန်မာ", "myanmar"},
         {"Continue", "continue"},
         {"Recent", "recent"},
         {"Downloads", "downloads"},
@@ -321,6 +325,7 @@ protected void onCreate(Bundle savedInstanceState) {
         navHorror = findViewById(R.id.navHorror);
         navNosub = findViewById(R.id.navNosub);
         navMmsub = findViewById(R.id.navMmsub);
+        navMyanmar = findViewById(R.id.navMyanmar);
         navHomeIcon = findViewById(R.id.navHomeIcon);
         navHorrorIcon =
                 findViewById(R.id.navHorrorIcon);
@@ -328,6 +333,8 @@ protected void onCreate(Bundle savedInstanceState) {
                 findViewById(R.id.navNosubIcon);
         navMmsubIcon =
                 findViewById(R.id.navMmsubIcon);
+        navMyanmarIcon =
+                findViewById(R.id.navMyanmarIcon);
         navHomeLabel = findViewById(R.id.navHomeLabel);
         navHorrorLabel =
                 findViewById(R.id.navHorrorLabel);
@@ -335,6 +342,8 @@ protected void onCreate(Bundle savedInstanceState) {
                 findViewById(R.id.navNosubLabel);
         navMmsubLabel =
                 findViewById(R.id.navMmsubLabel);
+        navMyanmarLabel =
+                findViewById(R.id.navMyanmarLabel);
 
 searchHistoryContainer =
         findViewById(
@@ -1672,6 +1681,24 @@ private void ensureHomeSectionLoaded(String value) {
                 }
         );
 
+        /*
+         * မြန်မာ tab — samusar.com တိုက်ရိုက် scrape
+         * ဖြစ်သောကြောင့် MainActivity ၏ backend
+         * category flow (openCategory) ကို မသုံးဘဲ
+         * MyanmarActivity သီးသန့် ဖွင့်မည်။
+         * PIN မရှိပါ။ Kill-switch ပိတ်ထားလျှင်
+         * tab ကိုယ်တိုင်က မပေါ်ပါ။
+         */
+        navMyanmar.setOnClickListener(
+                view ->
+                        startActivity(
+                                new Intent(
+                                        this,
+                                        MyanmarActivity.class
+                                )
+                        )
+        );
+
         updateBottomNav();
     }
 
@@ -1967,6 +1994,14 @@ private void renderVipBannerImage(
 }
 
 private void loadRemoteBanner() {
+    /*
+     * မြန်မာ tab kill-switch — /app-content ရဲ့
+     * myanmar.enabled flag ကို စစ်သည်။
+     * Network request အသစ် မရှိပါ (banner fetch
+     * နှင့် အတူတူ ပါလာသော JSON ကိုသုံးသည်)။
+     */
+    updateMyanmarTab(null);
+
     AppContentManager.loadBanner(
             this,
             new AppContentManager.Callback() {
@@ -1974,11 +2009,15 @@ private void loadRemoteBanner() {
                 public void onContent(
                         JSONObject content
                 ) {
-                    runOnUiThread(() ->
-                            applyRemoteBanner(
-                                    content
-                            )
-                    );
+                    runOnUiThread(() -> {
+                        applyRemoteBanner(
+                                content
+                        );
+
+                        updateMyanmarTab(
+                                content
+                        );
+                    });
                 }
 
                 @Override
@@ -1991,6 +2030,28 @@ private void loadRemoteBanner() {
                      */
                 }
             }
+    );
+}
+
+/*
+ * မြန်မာ tab visibility — kill-switch။
+ * enabled=true (သို့မဟုတ် field မရှိသေးလျှင်
+ * default true) → ပြမည်။ Explicitly false → ဝှက်မည်။
+ */
+private void updateMyanmarTab(
+        JSONObject content
+) {
+    if (navMyanmar == null) {
+        return;
+    }
+
+    boolean enabled =
+            AppContentManager.isMyanmarEnabled(
+                    content
+            );
+
+    navMyanmar.setVisibility(
+            enabled ? View.VISIBLE : View.GONE
     );
 }
 

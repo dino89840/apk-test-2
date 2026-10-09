@@ -31,6 +31,20 @@ public final class LocalStore {
     private static final String KEY_GRID_SPAN =
             "grid_span";
 
+    /*
+     * မြန်မာ (samusar) video များ၏ watch progress။
+     * Backend title ID မရှိသောကြောင့် detail URL ကို
+     * key အဖြစ် သုံးသည် ("samusar:" prefix ဖြင့်)။
+     * KEY_HISTORY နှင့် ရောမထည့်ပါ — MainActivity ၏
+     * Continue Watching / Recently Viewed တွင်
+     * slug မရှိသော item များ ပေါ်လာခြင်းကို
+     * ရှောင်ရန် သီးသန့် key ထားသည်။
+     */
+    private static final String KEY_SAMUSAR_PROGRESS =
+            "samusar_progress";
+
+    private static final int MAX_SAMUSAR = 20;
+
     
 
     private static final int MAX_RECENT = 20;
@@ -78,7 +92,8 @@ private static boolean isAccountScopedKey(
         String key
 ) {
     return KEY_HISTORY.equals(key) ||
-            KEY_DOWNLOADS.equals(key);
+            KEY_DOWNLOADS.equals(key) ||
+            KEY_SAMUSAR_PROGRESS.equals(key);
 }
 
 /*
@@ -514,6 +529,16 @@ getProgressSnapshot() {
     public static long getResumePosition(
             String titleId
     ) {
+        /*
+         * Samusar video ဖြစ်လျှင် သီးသန့်
+         * progress store မှ ဖတ်မည်။
+         */
+        if (isSamusarId(titleId)) {
+            return getSamusarResumePosition(
+                    titleId
+            );
+        }
+
         long[] progress =
                 getProgress(titleId);
 
@@ -668,6 +693,15 @@ public static synchronized void clearResumePosition(
             titleId == null ||
             titleId.trim().isEmpty()
     ) {
+        return;
+    }
+
+    /*
+     * Samusar video ဖြစ်လျှင် သီးသန့်
+     * progress store ကို ရှင်းမည်။
+     */
+    if (isSamusarId(titleId)) {
+        clearSamusarProgress(titleId);
         return;
     }
 
@@ -890,6 +924,292 @@ public static synchronized void clearResumePosition(
                 .edit()
                 .putInt(KEY_GRID_SPAN, value)
                 .apply();
+    }
+
+    // ------------------------------------------------------------------
+    // Samusar (မြန်မာ) watch progress — resume / continue watching
+    // ------------------------------------------------------------------
+
+    /*
+     * Samusar video resume entry။
+     */
+    public static final class SamusarProgress {
+        public final String id;
+        public final String title;
+        public final String thumbUrl;
+        public final long position;
+        public final long duration;
+
+        public SamusarProgress(
+                String id,
+                String title,
+                String thumbUrl,
+                long position,
+                long duration
+        ) {
+            this.id = id;
+            this.title = title;
+            this.thumbUrl = thumbUrl;
+            this.position = position;
+            this.duration = duration;
+        }
+    }
+
+    private static boolean isSamusarId(String id) {
+        return id != null &&
+                id.startsWith(
+                        SamusarClient.ID_PREFIX
+                );
+    }
+
+    public static synchronized void saveSamusarProgress(
+            String videoId,
+            String title,
+            String thumbUrl,
+            long position,
+            long duration
+    ) {
+        if (
+                videoId == null ||
+                        videoId.trim().isEmpty()
+        ) {
+            return;
+        }
+
+        String id = videoId.trim();
+
+        JSONArray store =
+                readArray(KEY_SAMUSAR_PROGRESS);
+
+        JSONObject existing =
+                findById(store, id);
+
+        JSONObject record =
+                existing == null
+                        ? new JSONObject()
+                        : existing;
+
+        try {
+            if (existing == null) {
+                record.put("id", id);
+            }
+
+            record.put(
+                    "title",
+                    title == null || title.trim().isEmpty()
+                            ? "အမည်မသိ ဗီဒီယို"
+                            : title.trim()
+            );
+
+            record.put(
+                    "thumb_url",
+                    thumbUrl == null
+                            ? ""
+                            : thumbUrl.trim()
+            );
+
+            /*
+             * ပြီးဆုံးသွားလျှင် (95%+ ကြည့်ပြီး)
+             * resume မလုပ်တော့ဘဲ position ကို ရှင်းမည် —
+             * saveProgress() ၏ logic အတိုင်း။
+             */
+            boolean completed =
+                    duration > 0L &&
+                            (
+                                    position >=
+                                            duration * 0.95d ||
+                                            duration - position <=
+                                                    30_000L
+                            );
+
+            if (completed) {
+                record.put("_position", 0L);
+                record.put("_duration", duration);
+            } else {
+                record.put(
+                        "_position",
+                        Math.max(0L, position)
+                );
+
+                record.put(
+                        "_duration",
+                        Math.max(0L, duration)
+                );
+            }
+
+            record.put(
+                    "_watched_at",
+                    System.currentTimeMillis()
+            );
+        } catch (Exception ignored) {
+        }
+
+        saveArray(
+                KEY_SAMUSAR_PROGRESS,
+                putFirst(
+                        store,
+                        record,
+                        MAX_SAMUSAR
+                )
+        );
+    }
+
+    public static synchronized long[] getSamusarProgress(
+            String videoId
+    ) {
+        if (
+                videoId == null ||
+                        videoId.trim().isEmpty()
+        ) {
+            return new long[]{0L, 0L};
+        }
+
+        JSONObject item =
+                findById(
+                        readArray(KEY_SAMUSAR_PROGRESS),
+                        videoId.trim()
+                );
+
+        if (item == null) {
+            return new long[]{0L, 0L};
+        }
+
+        return new long[]{
+                item.optLong("_position", 0L),
+                item.optLong("_duration", 0L)
+        };
+    }
+
+    /*
+     * getResumePosition() ၏ validity rules အတိုင်း —
+     * 10s+ ကြည့်ထားပြီး အဆုံးမရောက်သေးမှ resume ။
+     */
+    public static long getSamusarResumePosition(
+            String videoId
+    ) {
+        long[] progress =
+                getSamusarProgress(videoId);
+
+        long position = progress[0];
+        long duration = progress[1];
+
+        if (position < 10_000L) {
+            return 0L;
+        }
+
+        if (
+                duration > 0L &&
+                        (
+                                position >= duration * 0.95d ||
+                                        duration - position <=
+                                                30_000L
+                        )
+        ) {
+            return 0L;
+        }
+
+        return position;
+    }
+
+    /*
+     * MyanmarActivity ၏ "ဆက်လက်ကြည့်ရှုရန်"
+     * section အတွက်။
+     */
+    public static synchronized List<SamusarProgress>
+    getSamusarContinueWatching() {
+        JSONArray source =
+                readArray(KEY_SAMUSAR_PROGRESS);
+
+        List<SamusarProgress> result =
+                new ArrayList<>();
+
+        for (
+                int index = 0;
+                index < source.length();
+                index++
+        ) {
+            JSONObject item =
+                    source.optJSONObject(index);
+
+            if (item == null) {
+                continue;
+            }
+
+            long position =
+                    item.optLong("_position", 0L);
+
+            long duration =
+                    item.optLong("_duration", 0L);
+
+            boolean valid =
+                    position >= 10_000L &&
+                            (
+                                    duration <= 0L ||
+                                            (
+                                                    position <
+                                                            duration *
+                                                                    0.95d &&
+                                                            duration -
+                                                                    position >
+                                                                    30_000L
+                                            )
+                            );
+
+            if (!valid) {
+                continue;
+            }
+
+            result.add(
+                    new SamusarProgress(
+                            item.optString("id", ""),
+                            item.optString(
+                                    "title",
+                                    "အမည်မသိ ဗီဒီယို"
+                            ),
+                            item.optString(
+                                    "thumb_url",
+                                    ""
+                            ),
+                            position,
+                            duration
+                    )
+            );
+        }
+
+        return result;
+    }
+
+    public static synchronized void clearSamusarProgress(
+            String videoId
+    ) {
+        if (
+                videoId == null ||
+                        videoId.trim().isEmpty()
+        ) {
+            return;
+        }
+
+        String id = videoId.trim();
+
+        JSONArray store =
+                readArray(KEY_SAMUSAR_PROGRESS);
+
+        JSONObject item =
+                findById(store, id);
+
+        if (item == null) {
+            return;
+        }
+
+        try {
+            item.put("_position", 0L);
+        } catch (Exception ignored) {
+        }
+
+        saveArray(
+                KEY_SAMUSAR_PROGRESS,
+                store
+        );
     }
 
 }

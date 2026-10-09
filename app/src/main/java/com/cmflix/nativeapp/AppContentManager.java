@@ -67,6 +67,34 @@ private static final String KEY_NOTICE_SAVED_AT =
     private AppContentManager() {
     }
 
+    /*
+     * မြန်မာ (samusar) category kill-switch။
+     *
+     * Backend /app-content မှ "myanmar": {"enabled": ...}
+     * ကို ဖတ်သည်။ Field မရှိသေးလျှင် (backend cache
+     * မ� refresh ရသေးလျှင်) default TRUE — tab ပြမည်။
+     * Explicitly false ဖြစ်မှသာ ပိတ်မည်။
+     *
+     * Cached JSON body ထဲမှာ full response ပါပြီးသား
+     * ဖြစ်သောကြောင့် network request အသစ် လုံးဝ မလိုပါ။
+     */
+    public static boolean isMyanmarEnabled(
+            JSONObject content
+    ) {
+        if (content == null) {
+            return true;
+        }
+
+        JSONObject myanmar =
+                content.optJSONObject("myanmar");
+
+        if (myanmar == null) {
+            return true;
+        }
+
+        return myanmar.optBoolean("enabled", true);
+    }
+
     public interface Callback {
 
         void onContent(JSONObject content);

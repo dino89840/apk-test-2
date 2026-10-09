@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    မြန်မာ Continue Watching card —
+    ကြည့်လက်စ video ၏ progress ပါမည်။
+-->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="160dp"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="4dp">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="90dp">
+
+        <ImageView
+            android:id="@+id/continueThumb"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/dark_bg"
+            android:contentDescription="ဗီဒီယို cover"
+            android:scaleType="centerCrop" />
+
+        <ProgressBar
+            android:id="@+id/continueProgressBar"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:layout_gravity="bottom"
+            android:max="1000"
+            android:progressTint="#E8B93E"
+            android:progressBackgroundTint="#55FFFFFF" />
+
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/continueTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="2"
+        android:paddingTop="6dp"
+        android:textColor="@color/white"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/continueTimeText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="2dp"
+        android:textColor="@color/gray_text"
+        android:textSize="11sp" />
+
+</LinearLayout>
