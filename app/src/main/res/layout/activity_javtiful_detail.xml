@@ -78,16 +78,6 @@
                 android:textSize="16sp"
                 android:textStyle="bold" />
 
-            <!-- On-device ML Kit English→Burmese title -->
-            <TextView
-                android:id="@+id/javtifulDetailTitleMm"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingBottom="4dp"
-                android:textColor="@color/gray_text"
-                android:textSize="14sp"
-                android:visibility="gone" />
-
             <TextView
                 android:id="@+id/javtifulDetailDuration"
                 android:layout_width="wrap_content"
