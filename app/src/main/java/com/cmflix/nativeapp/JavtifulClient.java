@@ -44,6 +44,33 @@ public final class JavtifulClient {
             CryptoUtil.dec("PdihCRihrYmfUzelfU2IEtT4YSV6dihBOk2eJRYPII4=");
 
     /*
+     * Uncensored listing path — encrypted fallback
+     * (server-configurable via javtiful.uncensored_listing).
+     */
+    private static final String UNCENSORED_LIST_PATH =
+            CryptoUtil.dec("uSM2UR3EsSY8vqQxPthIzw==");
+
+    /*
+     * Badge filter types for parseListing.
+     *
+     * - FILTER_NONE: no badge filter (main listings —
+     *   the listing page itself is already type-specific)
+     * - FILTER_MOSAIC: "Reducing Mosaic" badge only
+     * - FILTER_UNCENSORED: "Uncensored" badge only
+     * - FILTER_MOSAIC_UNCENSORED: either badge
+     *   (actress filmography — combined)
+     *
+     * Search result cards carry badges: NO badge =
+     * censored, "Reducing Mosaic", "Uncensored".
+     * The site IGNORES videoType URL params (JS-only
+     * filter), so filtering is client-side.
+     */
+    public static final int FILTER_NONE = 0;
+    public static final int FILTER_MOSAIC = 1;
+    public static final int FILTER_UNCENSORED = 2;
+    public static final int FILTER_MOSAIC_UNCENSORED = 3;
+
+    /*
      * Base URL resolver — server-configurable။
      *
      * /app-content ၏ javtiful.base (AppContentManager
@@ -116,6 +143,33 @@ public final class JavtifulClient {
         }
 
         return LIST_PATH;
+    }
+
+    /*
+     * Uncensored listing path resolver — server-configurable။
+     *
+     * /app-content ၏ javtiful.uncensored_listing
+     * ရှိလျှင် အဲ့ဒါကို သုံးမည်၊ မရှိလျှင်
+     * UNCENSORED_LIST_PATH default (encrypted) သို့ fallback။
+     *
+     * Leading slash မရှိလျှင် ဖြည့်ပေးမည်။
+     */
+    public static String getUncensoredListPath() {
+        String configured =
+                AppContentManager
+                        .getCachedJavtifulUncensoredListingPath();
+
+        if (configured != null) {
+            configured = configured.trim();
+
+            if (!configured.isEmpty()) {
+                return configured.startsWith("/")
+                        ? configured
+                        : "/" + configured;
+            }
+        }
+
+        return UNCENSORED_LIST_PATH;
     }
 
     public static final String ID_PREFIX = "javtiful:";
@@ -226,6 +280,7 @@ public final class JavtifulClient {
     /*
      * Listing page N — page 1 = /reducing-mosaic,
      * page N = /reducing-mosaic?page=N
+     * (reducing mosaic listing).
      */
     public static void fetchPage(
             int page,
@@ -239,16 +294,35 @@ public final class JavtifulClient {
                         : getBaseUrl() + getListPath()
                                 + "?page=" + safePage;
 
-        fetchListingUrl(url, safePage, false, callback);
+        fetchListingUrl(url, safePage, FILTER_NONE, callback);
     }
 
     /*
-     * Search — server-side rendered HTML, SAME
+     * Uncensored listing page N — page 1 = /uncensored,
+     * page N = /uncensored?page=N
+     */
+    public static void fetchUncensoredPage(
+            int page,
+            PageCallback callback
+    ) {
+        final int safePage = Math.max(1, page);
+
+        String url =
+                safePage <= 1
+                        ? getBaseUrl() + getUncensoredListPath()
+                        : getBaseUrl() + getUncensoredListPath()
+                                + "?page=" + safePage;
+
+        fetchListingUrl(url, safePage, FILTER_NONE, callback);
+    }
+
+    /*
+     * Search (mosaic mode) — server-side rendered HTML, SAME
      * <article class="video-card"> structure as listing.
      *
      * NOTE: javtiful.com IGNORES the videoType URL param
      * (filter is JS-only). Mosaic-only is enforced
-     * client-side in parseListing (mosaicOnly=true).
+     * client-side in parseListing (FILTER_MOSAIC).
      *
      * URL: /search?q=...&page=N
      * (JAV code နဲ့ရော မင်းသမီးနာမည်နဲ့ရော ရှာလို့ရသည်).
@@ -256,6 +330,29 @@ public final class JavtifulClient {
     public static void searchVideos(
             String query,
             int page,
+            PageCallback callback
+    ) {
+        searchWithFilter(query, page, FILTER_MOSAIC, callback);
+    }
+
+    /*
+     * Search (uncensored mode) — same as searchVideos
+     * but keeps only "Uncensored" badge cards.
+     */
+    public static void searchUncensored(
+            String query,
+            int page,
+            PageCallback callback
+    ) {
+        searchWithFilter(
+                query, page, FILTER_UNCENSORED, callback
+        );
+    }
+
+    private static void searchWithFilter(
+            String query,
+            int page,
+            int filter,
             PageCallback callback
     ) {
         String q =
@@ -287,13 +384,17 @@ public final class JavtifulClient {
                                 ? "&page=" + safePage
                                 : "");
 
-        fetchListingUrl(url, safePage, true, callback);
+        fetchListingUrl(url, safePage, filter, callback);
     }
 
     /*
      * Actress filmography — /actress/{slug}
-     * (same video-card HTML; mosaic-only enforced
-     * client-side, pagination with &page=N).
+     * (same video-card HTML).
+     *
+     * Combined filter: keeps "Reducing Mosaic" AND
+     * "Uncensored" badge cards (FILTER_MOSAIC_UNCENSORED),
+     * deduped — so tapping an actress from either Jav
+     * or Asian shows her videos from both categories.
      */
     public static void getActressVideos(
             String actressUrl,
@@ -327,7 +428,7 @@ public final class JavtifulClient {
         fetchListingUrl(
                 url.toString(),
                 safePage,
-                true,
+                FILTER_MOSAIC_UNCENSORED,
                 callback
         );
     }
@@ -368,15 +469,14 @@ public final class JavtifulClient {
      * Shared listing fetcher — listing ရော search
      * ရော ဒီကနေပဲ သွားသည် (parse တူတူပဲ).
      *
-     * mosaicOnly=true → "Reducing Mosaic" type span
-     * မပါတဲ့ card တွေကို ကျော်မည် (search +
-     * actress အတွက်; main listing က mosaic-only
-     * ဖြစ်ပြီးသားမို့ filter မလို).
+     * filter: FILTER_NONE / FILTER_MOSAIC /
+     * FILTER_UNCENSORED / FILTER_MOSAIC_UNCENSORED
+     * (see constants above).
      */
     private static void fetchListingUrl(
             final String url,
             final int page,
-            final boolean mosaicOnly,
+            final int filter,
             final PageCallback callback
     ) {
         EXECUTOR.execute(() -> {
@@ -384,7 +484,7 @@ public final class JavtifulClient {
                 String html = get(url);
 
                 List<JavtifulVideo> videos =
-                        parseListing(html, mosaicOnly);
+                        parseListing(html, filter);
 
                 /*
                  * hasMore comes from the site's own
@@ -602,8 +702,9 @@ public final class JavtifulClient {
 
     /*
      * <span class="video-card__type">Reducing Mosaic</span>
-     * — mosaic-only filter အတွက် (search + actress).
-     * Non-mosaic card တွေမှာ ဒီ span မပါပါ။
+     * <span class="video-card__type">Uncensored</span>
+     * — badge filter အတွက် (search + actress).
+     * Censored card တွေမှာ ဒီ span မပါပါ။
      */
     private static final Pattern TYPE_SPAN =
             Pattern.compile(
@@ -613,7 +714,7 @@ public final class JavtifulClient {
 
     private static List<JavtifulVideo> parseListing(
             String html,
-            boolean mosaicOnly
+            int filter
     ) {
         List<JavtifulVideo> videos = new ArrayList<>();
 
@@ -627,27 +728,41 @@ public final class JavtifulClient {
             String body = articleMatcher.group(1);
 
             /*
-             * Mosaic-only filter — "Reducing Mosaic"
-             * type span မပါတဲ့ card ကို ကျော်မည်။
+             * Badge filter — type span text:
+             * - "Reducing Mosaic" → mosaic
+             * - "Uncensored" → uncensored
+             * - (no span) → censored (excluded by all filters)
              */
-            if (mosaicOnly) {
+            if (filter != FILTER_NONE) {
                 Matcher typeMatcher =
                         TYPE_SPAN.matcher(body);
 
-                boolean isMosaic = false;
+                String typeText = "";
 
                 if (typeMatcher.find()) {
-                    String typeText =
+                    typeText =
                             typeMatcher.group(1).trim();
-
-                    isMosaic =
-                            "Reducing Mosaic"
-                                    .equalsIgnoreCase(
-                                            typeText
-                                    );
                 }
 
-                if (!isMosaic) {
+                boolean isMosaic =
+                        "Reducing Mosaic"
+                                .equalsIgnoreCase(typeText);
+                boolean isUncensored =
+                        "Uncensored"
+                                .equalsIgnoreCase(typeText);
+
+                boolean keep;
+
+                if (filter == FILTER_MOSAIC) {
+                    keep = isMosaic;
+                } else if (filter == FILTER_UNCENSORED) {
+                    keep = isUncensored;
+                } else {
+                    // FILTER_MOSAIC_UNCENSORED
+                    keep = isMosaic || isUncensored;
+                }
+
+                if (!keep) {
                     continue;
                 }
             }

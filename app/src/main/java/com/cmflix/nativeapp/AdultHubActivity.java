@@ -11,18 +11,21 @@ import org.json.JSONObject;
 /*
  * 18+ hub — bottom nav "18+" tab မှ ဖွင့်သည်။
  *
- * Card ၃ ခု:
+ * Card ၄ ခု:
  *  1. Nosub  → MainActivity (category "series")
  *  2. Mmsub  → MainActivity (category "lugyi")
- *  3. Javtiful → JavtifulActivity
- *     (kill-switch: javtiful.enabled=false → ဝှက်မည်)
+ *  3. Jav   → JavtifulActivity (mode "mosaic")
+ *  4. Asian → JavtifulActivity (mode "uncensored")
+ *     (Jav + Asian kill-switch: javtiful.enabled=false
+ *      → နှစ်ခုလုံး ဝှက်မည်)
  *
  * Horror က သီးသန့် tab အတိုင်း (ဒီထဲမပါ)။
  * PIN မရှိပါ။
  */
 public class AdultHubActivity extends AppCompatActivity {
 
-    private View javtifulCard;
+    private View javCard;
+    private View asianCard;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,7 +36,8 @@ public class AdultHubActivity extends AppCompatActivity {
         findViewById(R.id.adultHubBackButton)
                 .setOnClickListener(view -> finish());
 
-        javtifulCard = findViewById(R.id.adultHubJavtiful);
+        javCard = findViewById(R.id.adultHubJav);
+        asianCard = findViewById(R.id.adultHubAsian);
 
         findViewById(R.id.adultHubNosub)
                 .setOnClickListener(
@@ -45,22 +49,25 @@ public class AdultHubActivity extends AppCompatActivity {
                         view -> openMainCategory("lugyi")
                 );
 
-        javtifulCard.setOnClickListener(
-                view ->
-                        startActivity(
-                                new Intent(
-                                        this,
-                                        JavtifulActivity.class
-                                )
-                        )
+        javCard.setOnClickListener(
+                view -> openJavtiful(
+                        JavtifulActivity.MODE_MOSAIC
+                )
+        );
+
+        asianCard.setOnClickListener(
+                view -> openJavtiful(
+                        JavtifulActivity.MODE_UNCENSORED
+                )
         );
 
         /*
          * Javtiful kill-switch — /app-content ရဲ့
          * javtiful.enabled flag ကို စစ်သည်။
+         * Jav + Asian နှစ်ခုလုံး ထိန်းသည်။
          * Network request အသစ် မရှိပါ။
          */
-        updateJavtifulCard(null);
+        updateJavtifulCards(null);
 
         AppContentManager.loadBanner(
                 this,
@@ -77,7 +84,7 @@ public class AdultHubActivity extends AppCompatActivity {
                                 return;
                             }
 
-                            updateJavtifulCard(content);
+                            updateJavtifulCards(content);
                         });
                     }
 
@@ -100,14 +107,28 @@ public class AdultHubActivity extends AppCompatActivity {
         finish();
     }
 
+    private void openJavtiful(String mode) {
+        Intent intent =
+                new Intent(
+                        this, JavtifulActivity.class
+                );
+
+        intent.putExtra(
+                JavtifulActivity.EXTRA_MODE, mode
+        );
+
+        startActivity(intent);
+    }
+
     /*
-     * Javtiful card visibility — kill-switch။
+     * Jav + Asian card visibility — kill-switch။
      * enabled=true (သို့မဟုတ် field မရှိသေးလျှင်
-     * default true) → ပြမည်။ Explicitly false → ဝှက်မည်။
+     * default true) → ပြမည်။ Explicitly false →
+     * နှစ်ခုလုံး ဝှက်မည်။
      * Nosub/Mmsub က အမြဲပြမည်။
      */
-    private void updateJavtifulCard(JSONObject content) {
-        if (javtifulCard == null) {
+    private void updateJavtifulCards(JSONObject content) {
+        if (javCard == null || asianCard == null) {
             return;
         }
 
@@ -116,8 +137,10 @@ public class AdultHubActivity extends AppCompatActivity {
                         content
                 );
 
-        javtifulCard.setVisibility(
-                enabled ? View.VISIBLE : View.GONE
-        );
+        int visibility =
+                enabled ? View.VISIBLE : View.GONE;
+
+        javCard.setVisibility(visibility);
+        asianCard.setVisibility(visibility);
     }
 }

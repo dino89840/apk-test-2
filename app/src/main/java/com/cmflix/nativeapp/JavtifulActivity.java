@@ -26,13 +26,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 /*
- * Javtiful (reducing mosaic) category — direct
- * javtiful.com scrape (NO proxy for now, user
- * will test first).
+ * Javtiful category — direct javtiful.com scrape
+ * (NO proxy for now, user will test first).
+ *
+ * Two modes (EXTRA_MODE):
+ * - "mosaic" (default) → "Jav" (reducing mosaic)
+ * - "uncensored" → "Asian" (uncensored)
  *
  * - 16:9 landscape card grid, pagination
- * - Search bar (JAV code / actress name, mosaic-only)
+ * - Search bar (JAV code / actress name,
+ *   mode-appropriate badge filter)
  * - Actress filmography mode (EXTRA_ACTRESS_URL)
+ *   — combined mosaic+uncensored
  * - Card tap → JavtifulDetailActivity
  * - Play + Download နှစ်မျိုးလုံး VIP only
  * - PIN မရှိပါ
@@ -48,6 +53,15 @@ public class JavtifulActivity extends AppCompatActivity {
             "actress_url";
     public static final String EXTRA_ACTRESS_NAME =
             "actress_name";
+
+    /*
+     * Listing mode: "mosaic" (default) or "uncensored".
+     * - mosaic → "Jav" (reducing mosaic listing)
+     * - uncensored → "Asian" (uncensored listing)
+     */
+    public static final String EXTRA_MODE = "mode";
+    public static final String MODE_MOSAIC = "mosaic";
+    public static final String MODE_UNCENSORED = "uncensored";
 
     private RecyclerView grid;
     private ProgressBar progress;
@@ -75,10 +89,21 @@ public class JavtifulActivity extends AppCompatActivity {
 
     /*
      * Actress filmography mode — null = off.
-     * (actress page URL, mosaic-only via videoType filter).
+     * (actress page URL, mosaic+uncensored combined filter).
      */
     private String actressUrl = null;
     private String actressName = null;
+
+    /*
+     * Listing mode — MODE_MOSAIC (default) or
+     * MODE_UNCENSORED. Controls listing URL, search
+     * filter, and title ("Jav" / "Asian").
+     */
+    private String mode = MODE_MOSAIC;
+
+    private boolean isUncensoredMode() {
+        return MODE_UNCENSORED.equals(mode);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -124,6 +149,17 @@ public class JavtifulActivity extends AppCompatActivity {
         Intent launchIntent = getIntent();
 
         if (launchIntent != null) {
+            String modeExtra =
+                    launchIntent.getStringExtra(
+                            EXTRA_MODE
+                    );
+
+            if (
+                    MODE_UNCENSORED.equals(modeExtra)
+            ) {
+                mode = MODE_UNCENSORED;
+            }
+
             String url =
                     launchIntent.getStringExtra(
                             EXTRA_ACTRESS_URL
@@ -285,8 +321,10 @@ public class JavtifulActivity extends AppCompatActivity {
             titleText.setText("🔍 " + searchQuery);
         } else if (isActressMode()) {
             titleText.setText(actressName);
+        } else if (isUncensoredMode()) {
+            titleText.setText("Asian");
         } else {
-            titleText.setText("Javtiful");
+            titleText.setText("Jav");
         }
     }
 
@@ -358,6 +396,17 @@ public class JavtifulActivity extends AppCompatActivity {
         if (page == 1 && videos.isEmpty()) {
             progress.setVisibility(View.VISIBLE);
             emptyBox.setVisibility(View.GONE);
+
+            /*
+             * VPN hint — loading ကြာနေရင်
+             * ပြမည် (spinner အောက်မှာ)။
+             */
+            View vpnHint =
+                    findViewById(R.id.javtifulVpnHint);
+
+            if (vpnHint != null) {
+                vpnHint.setVisibility(View.VISIBLE);
+            }
         }
 
         JavtifulClient.PageCallback callback =
@@ -373,6 +422,17 @@ public class JavtifulActivity extends AppCompatActivity {
                             progress.setVisibility(
                                     View.GONE
                             );
+
+                            View vpnHint =
+                                    findViewById(
+                                            R.id.javtifulVpnHint
+                                    );
+
+                            if (vpnHint != null) {
+                                vpnHint.setVisibility(
+                                        View.GONE
+                                );
+                            }
 
                             if (page == 1) {
                                 videos.clear();
@@ -465,6 +525,17 @@ public class JavtifulActivity extends AppCompatActivity {
                                     View.GONE
                             );
 
+                            View vpnHint =
+                                    findViewById(
+                                            R.id.javtifulVpnHint
+                                    );
+
+                            if (vpnHint != null) {
+                                vpnHint.setVisibility(
+                                        View.GONE
+                                );
+                            }
+
                             String detail =
                                     error.getClass()
                                             .getSimpleName()
@@ -492,16 +563,28 @@ public class JavtifulActivity extends AppCompatActivity {
                 };
 
         if (isSearchMode()) {
-            JavtifulClient.searchVideos(
-                    searchQuery,
-                    page,
-                    callback
-            );
+            if (isUncensoredMode()) {
+                JavtifulClient.searchUncensored(
+                        searchQuery,
+                        page,
+                        callback
+                );
+            } else {
+                JavtifulClient.searchVideos(
+                        searchQuery,
+                        page,
+                        callback
+                );
+            }
         } else if (isActressMode()) {
             JavtifulClient.getActressVideos(
                     actressUrl,
                     page,
                     callback
+            );
+        } else if (isUncensoredMode()) {
+            JavtifulClient.fetchUncensoredPage(
+                    page, callback
             );
         } else {
             JavtifulClient.fetchPage(page, callback);

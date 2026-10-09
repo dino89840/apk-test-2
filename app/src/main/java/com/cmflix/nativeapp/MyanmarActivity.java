@@ -233,6 +233,17 @@ public class MyanmarActivity extends AppCompatActivity {
         if (page == 1 && videos.isEmpty()) {
             progress.setVisibility(View.VISIBLE);
             emptyBox.setVisibility(View.GONE);
+
+            /*
+             * VPN hint — loading ကြာနေရင်
+             * ပြမည် (spinner အောက်မှာ)။
+             */
+            View vpnHint =
+                    findViewById(R.id.myanmarVpnHint);
+
+            if (vpnHint != null) {
+                vpnHint.setVisibility(View.VISIBLE);
+            }
         }
 
         SamusarClient.fetchPage(
@@ -250,6 +261,17 @@ public class MyanmarActivity extends AppCompatActivity {
                             progress.setVisibility(
                                     View.GONE
                             );
+
+                            View vpnHint =
+                                    findViewById(
+                                            R.id.myanmarVpnHint
+                                    );
+
+                            if (vpnHint != null) {
+                                vpnHint.setVisibility(
+                                        View.GONE
+                                );
+                            }
 
                             if (page == 1) {
                                 videos.clear();
@@ -284,6 +306,17 @@ public class MyanmarActivity extends AppCompatActivity {
                             progress.setVisibility(
                                     View.GONE
                             );
+
+                            View vpnHint =
+                                    findViewById(
+                                            R.id.myanmarVpnHint
+                                    );
+
+                            if (vpnHint != null) {
+                                vpnHint.setVisibility(
+                                        View.GONE
+                                );
+                            }
 
                             /*
                              * Debug: အမှန်တကယ် error ကို

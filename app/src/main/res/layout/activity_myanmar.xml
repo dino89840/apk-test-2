@@ -125,6 +125,18 @@
             android:layout_gravity="center"
             android:visibility="gone" />
 
+        <TextView
+            android:id="@+id/myanmarVpnHint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginTop="16dp"
+            android:gravity="center"
+            android:text="ဒီနေရာတွင် ကြာနေပါက VPN အသုံးပြုပါ"
+            android:textColor="@color/gray_text"
+            android:textSize="12sp"
+            android:visibility="gone" />
+
         <LinearLayout
             android:id="@+id/myanmarEmptyBox"
             android:layout_width="wrap_content"
