@@ -46,16 +46,6 @@ public class MyanmarActivity extends AppCompatActivity {
     private TextView emptyText;
     private TextView countText;
 
-    /*
-     * ဆက်လက်ကြည့်ရှုရန် section။
-     */
-    private LinearLayout continueBox;
-    private RecyclerView continueList;
-    private ContinueAdapter continueAdapter;
-
-    private final List<LocalStore.SamusarProgress>
-            continueItems = new ArrayList<>();
-
     private VideoAdapter adapter;
 
     private final List<SamusarClient.SamusarVideo> videos =
@@ -76,23 +66,6 @@ public class MyanmarActivity extends AppCompatActivity {
         emptyBox = findViewById(R.id.myanmarEmptyBox);
         emptyText = findViewById(R.id.myanmarEmptyText);
         countText = findViewById(R.id.myanmarCountText);
-        continueBox = findViewById(R.id.myanmarContinueBox);
-        continueList =
-                findViewById(R.id.myanmarContinueList);
-
-        findViewById(R.id.myanmarContinueClear)
-                .setOnClickListener(
-                        view -> {
-                            LocalStore
-                                    .clearAllSamusarProgress();
-                            refreshContinueWatching();
-                            Toast.makeText(
-                                    this,
-                                    "ရှင်းလင်းပြီးပါပြီ",
-                                    Toast.LENGTH_SHORT
-                            ).show();
-                        }
-                );
 
         findViewById(R.id.myanmarBackButton)
                 .setOnClickListener(
@@ -148,24 +121,6 @@ public class MyanmarActivity extends AppCompatActivity {
                     }
                 }
         );
-
-        /*
-         * ဆက်လက်ကြည့်ရှုရန် — horizontal list။
-         */
-        continueAdapter = new ContinueAdapter();
-
-        continueList.setLayoutManager(
-                new androidx.recyclerview.widget
-                        .LinearLayoutManager(
-                                this,
-                                androidx.recyclerview.widget
-                                        .LinearLayoutManager
-                                        .HORIZONTAL,
-                                false
-                        )
-        );
-
-        continueList.setAdapter(continueAdapter);
 
         setupBottomNav();
 
@@ -285,38 +240,6 @@ public class MyanmarActivity extends AppCompatActivity {
         } else {
             icon.setBackgroundResource(0);
         }
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-
-        /*
-         * PlayerActivity မှ ပြန်လာတိုင်း
-         * progress အသစ်များကို ပြန်ဖတ်မည်။
-         */
-        refreshContinueWatching();
-    }
-
-    /*
-     * ကြည့်လက်စ samusar video များ —
-     * LocalStore သီးသန့် store မှ။
-     */
-    private void refreshContinueWatching() {
-        List<LocalStore.SamusarProgress> items =
-                LocalStore
-                        .getSamusarContinueWatching();
-
-        continueItems.clear();
-        continueItems.addAll(items);
-
-        continueAdapter.notifyDataSetChanged();
-
-        continueBox.setVisibility(
-                continueItems.isEmpty()
-                        ? View.GONE
-                        : View.VISIBLE
-        );
     }
 
     // ------------------------------------------------------------------
@@ -654,214 +577,5 @@ public class MyanmarActivity extends AppCompatActivity {
                         );
             }
         }
-    }
-
-    // ------------------------------------------------------------------
-    // Continue Watching adapter — ကြည့်လက်စ video များ
-    // ------------------------------------------------------------------
-
-    private final class ContinueAdapter
-            extends RecyclerView.Adapter<ContinueAdapter
-                    .ContinueHolder> {
-
-        @NonNull
-        @Override
-        public ContinueHolder onCreateViewHolder(
-                @NonNull ViewGroup parent,
-                int viewType
-        ) {
-            View view =
-                    LayoutInflater.from(parent.getContext())
-                            .inflate(
-                                    R.layout
-                                            .item_myanmar_continue,
-                                    parent,
-                                    false
-                            );
-
-            return new ContinueHolder(view);
-        }
-
-        @Override
-        public void onBindViewHolder(
-                @NonNull ContinueHolder holder,
-                int position
-        ) {
-            LocalStore.SamusarProgress item =
-                    continueItems.get(position);
-
-            holder.title.setText(item.title);
-
-            Glide.with(holder.itemView)
-                    .load(item.thumbUrl)
-                    .centerCrop()
-                    .into(holder.thumb);
-
-            /*
-             * Progress bar — ကြည့်ပြီးသား အချိုးအစား။
-             */
-            if (item.duration > 0L) {
-                holder.progressBar.setProgress(
-                        (int) Math.min(
-                                1000L,
-                                item.position * 1000L /
-                                        item.duration
-                        )
-                );
-            } else {
-                holder.progressBar.setProgress(0);
-            }
-
-            holder.timeText.setText(
-                    formatRemaining(
-                            item.position,
-                            item.duration
-                    )
-            );
-
-            holder.itemView.setOnClickListener(
-                    view -> {
-                        /*
-                         * Continue item မှ SamusarVideo
-                         * ပြန်တည်ဆောက်ပြီး ပုံမှန်
-                         * play flow အတိုင်း ဖွင့်မည်
-                         * (VIP check + fresh resolve +
-                         * PlayerActivity resume dialog)။
-                         */
-                        String detailUrl =
-                                SamusarClient
-                                        .detailUrlFromId(
-                                                item.id
-                                        );
-
-                        onVideoClick(
-                                new SamusarClient
-                                        .SamusarVideo(
-                                                item.title,
-                                                item.thumbUrl,
-                                                detailUrl
-                                        )
-                        );
-                    }
-            );
-
-            /*
-             * Long-press — ဒီ item တစ်ခုတည်းကို
-             * continue list ကနေ ဖယ်မည်။
-             */
-            holder.itemView.setOnLongClickListener(
-                    view -> {
-                        int pos =
-                                holder.getBindingAdapterPosition();
-
-                        if (
-                                pos < 0 ||
-                                        pos >=
-                                                continueItems
-                                                        .size()
-                        ) {
-                            return true;
-                        }
-
-                        LocalStore.SamusarProgress
-                                removed =
-                                continueItems.get(pos);
-
-                        LocalStore.clearSamusarProgress(
-                                removed.id
-                        );
-
-                        continueItems.remove(pos);
-                        continueAdapter
-                                .notifyItemRemoved(pos);
-
-                        if (continueItems.isEmpty()) {
-                            continueBox.setVisibility(
-                                    View.GONE
-                            );
-                        }
-
-                        Toast.makeText(
-                                        view.getContext(),
-                                        "ဖယ်ရှားပြီးပါပြီ",
-                                        Toast.LENGTH_SHORT
-                                )
-                                .show();
-
-                        return true;
-                    }
-            );
-        }
-
-        @Override
-        public int getItemCount() {
-            return continueItems.size();
-        }
-
-        final class ContinueHolder
-                extends RecyclerView.ViewHolder {
-
-            final ImageView thumb;
-            final TextView title;
-            final TextView timeText;
-            final ProgressBar progressBar;
-
-            ContinueHolder(@NonNull View itemView) {
-                super(itemView);
-
-                thumb =
-                        itemView.findViewById(
-                                R.id.continueThumb
-                        );
-                title =
-                        itemView.findViewById(
-                                R.id.continueTitle
-                        );
-                timeText =
-                        itemView.findViewById(
-                                R.id.continueTimeText
-                        );
-                progressBar =
-                        itemView.findViewById(
-                                R.id.continueProgressBar
-                        );
-            }
-        }
-    }
-
-    private static String formatRemaining(
-            long position,
-            long duration
-    ) {
-        if (duration <= 0L || position >= duration) {
-            return "";
-        }
-
-        long remainingMs = duration - position;
-
-        long totalSeconds = remainingMs / 1000L;
-
-        long minutes = totalSeconds / 60L;
-        long seconds = totalSeconds % 60L;
-
-        if (minutes >= 60L) {
-            long hours = minutes / 60L;
-            minutes = minutes % 60L;
-
-            return String.format(
-                    java.util.Locale.US,
-                    "%d:%02d:%02d ကျန်",
-                    hours,
-                    minutes,
-                    seconds
-            );
-        }
-
-        return String.format(
-                java.util.Locale.US,
-                "%d:%02d ကျန်",
-                minutes,
-                seconds
-        );
     }
 }
