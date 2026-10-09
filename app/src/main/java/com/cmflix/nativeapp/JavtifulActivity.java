@@ -6,6 +6,9 @@ import android.util.DisplayMetrics;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -28,6 +31,8 @@ import java.util.List;
  * will test first).
  *
  * - 16:9 landscape card grid, pagination
+ * - Search bar (JAV code / actress name, mosaic-only)
+ * - Actress filmography mode (EXTRA_ACTRESS_URL)
  * - Card tap → JavtifulDetailActivity
  * - Play + Download နှစ်မျိုးလုံး VIP only
  * - PIN မရှိပါ
@@ -39,11 +44,19 @@ public class JavtifulActivity extends AppCompatActivity {
 
     private static final int GRID_SPAN = 2;
 
+    public static final String EXTRA_ACTRESS_URL =
+            "actress_url";
+    public static final String EXTRA_ACTRESS_NAME =
+            "actress_name";
+
     private RecyclerView grid;
     private ProgressBar progress;
     private LinearLayout emptyBox;
     private TextView emptyText;
     private TextView countText;
+    private TextView titleText;
+    private LinearLayout searchBar;
+    private EditText searchInput;
 
     private VideoAdapter adapter;
 
@@ -53,6 +66,19 @@ public class JavtifulActivity extends AppCompatActivity {
     private int currentPage = 0;
     private boolean isLoading = false;
     private boolean hasMore = true;
+
+    /*
+     * null = normal reducing-mosaic listing.
+     * non-null = search mode (mosaic-only results).
+     */
+    private String searchQuery = null;
+
+    /*
+     * Actress filmography mode — null = off.
+     * (actress page URL, mosaic-only via videoType filter).
+     */
+    private String actressUrl = null;
+    private String actressName = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,12 +91,61 @@ public class JavtifulActivity extends AppCompatActivity {
         emptyBox = findViewById(R.id.javtifulEmptyBox);
         emptyText = findViewById(R.id.javtifulEmptyText);
         countText = findViewById(R.id.javtifulCountText);
+        titleText = findViewById(R.id.javtifulTitleText);
+        searchBar = findViewById(R.id.javtifulSearchBar);
+        searchInput = findViewById(R.id.javtifulSearchInput);
 
         findViewById(R.id.javtifulBackButton)
                 .setOnClickListener(view -> finish());
 
         findViewById(R.id.javtifulRetryButton)
                 .setOnClickListener(view -> loadPage(1));
+
+        findViewById(R.id.javtifulSearchToggle)
+                .setOnClickListener(view -> toggleSearchBar());
+
+        findViewById(R.id.javtifulSearchClear)
+                .setOnClickListener(view -> onSearchClear());
+
+        searchInput.setOnEditorActionListener(
+                (view, actionId, event) -> {
+                    if (
+                            actionId ==
+                                    EditorInfo.IME_ACTION_SEARCH
+                    ) {
+                        submitSearch();
+                        return true;
+                    }
+
+                    return false;
+                }
+        );
+
+        Intent launchIntent = getIntent();
+
+        if (launchIntent != null) {
+            String url =
+                    launchIntent.getStringExtra(
+                            EXTRA_ACTRESS_URL
+                    );
+
+            if (url != null && !url.trim().isEmpty()) {
+                actressUrl = url.trim();
+                actressName =
+                        launchIntent.getStringExtra(
+                                EXTRA_ACTRESS_NAME
+                        );
+
+                if (
+                        actressName == null ||
+                                actressName.trim().isEmpty()
+                ) {
+                    actressName = "Actress";
+                }
+
+                updateTitle();
+            }
+        }
 
         adapter = new VideoAdapter();
 
@@ -116,6 +191,135 @@ public class JavtifulActivity extends AppCompatActivity {
     }
 
     // ------------------------------------------------------------------
+    // Search (JAV code / actress name, mosaic-only)
+    // ------------------------------------------------------------------
+
+    private boolean isSearchMode() {
+        return searchQuery != null;
+    }
+
+    private boolean isActressMode() {
+        return !isSearchMode()
+                && actressUrl != null
+                && !actressUrl.isEmpty();
+    }
+
+    private void toggleSearchBar() {
+        if (
+                searchBar.getVisibility() == View.VISIBLE
+        ) {
+            searchBar.setVisibility(View.GONE);
+            hideKeyboard();
+
+            if (isSearchMode()) {
+                exitSearchMode();
+            }
+        } else {
+            searchBar.setVisibility(View.VISIBLE);
+            searchInput.requestFocus();
+            showKeyboard();
+        }
+    }
+
+    private void submitSearch() {
+        String q =
+                searchInput.getText() == null
+                        ? ""
+                        : searchInput.getText()
+                                .toString().trim();
+
+        if (q.isEmpty()) {
+            Toast.makeText(
+                    this,
+                    "ရှာဖွေမှုစာသား ရိုက်ထည့်ပါ။",
+                    Toast.LENGTH_SHORT
+            ).show();
+            return;
+        }
+
+        hideKeyboard();
+
+        searchQuery = q;
+
+        // search သည် actress mode မှ ထွက်သည်
+        actressUrl = null;
+        actressName = null;
+
+        updateTitle();
+        loadPage(1);
+    }
+
+    private void onSearchClear() {
+        String current =
+                searchInput.getText() == null
+                        ? ""
+                        : searchInput.getText()
+                                .toString();
+
+        if (!current.isEmpty()) {
+            searchInput.setText("");
+        }
+
+        if (isSearchMode()) {
+            exitSearchMode();
+        }
+    }
+
+    private void exitSearchMode() {
+        searchQuery = null;
+        searchInput.setText("");
+        updateTitle();
+        loadPage(1);
+    }
+
+    private void updateTitle() {
+        if (isSearchMode()) {
+            titleText.setText("🔍 " + searchQuery);
+        } else if (isActressMode()) {
+            titleText.setText(actressName);
+        } else {
+            titleText.setText("Javtiful");
+        }
+    }
+
+    private void showKeyboard() {
+        try {
+            InputMethodManager imm =
+                    (InputMethodManager)
+                            getSystemService(
+                                    INPUT_METHOD_SERVICE
+                            );
+
+            if (imm != null) {
+                imm.showSoftInput(
+                        searchInput,
+                        InputMethodManager.SHOW_IMPLICIT
+                );
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void hideKeyboard() {
+        try {
+            InputMethodManager imm =
+                    (InputMethodManager)
+                            getSystemService(
+                                    INPUT_METHOD_SERVICE
+                            );
+
+            if (imm != null && getCurrentFocus() != null) {
+                imm.hideSoftInputFromWindow(
+                        getCurrentFocus()
+                                .getWindowToken(),
+                        0
+                );
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    // ------------------------------------------------------------------
     // Pagination
     // ------------------------------------------------------------------
 
@@ -148,8 +352,7 @@ public class JavtifulActivity extends AppCompatActivity {
             emptyBox.setVisibility(View.GONE);
         }
 
-        JavtifulClient.fetchPage(
-                page,
+        JavtifulClient.PageCallback callback =
                 new JavtifulClient.PageCallback() {
                     @Override
                     public void onResult(
@@ -177,7 +380,9 @@ public class JavtifulActivity extends AppCompatActivity {
 
                             if (videos.isEmpty()) {
                                 showEmpty(
-                                        "ဗီဒီယို မရှိပါ။",
+                                        isSearchMode()
+                                                ? "ရှာမတွေ့ပါ။\n(\"" + searchQuery + "\")"
+                                                : "ဗီဒီယို မရှိပါ။",
                                         true
                                 );
                             } else {
@@ -220,8 +425,23 @@ public class JavtifulActivity extends AppCompatActivity {
                             }
                         });
                     }
-                }
-        );
+                };
+
+        if (isSearchMode()) {
+            JavtifulClient.searchVideos(
+                    searchQuery,
+                    page,
+                    callback
+            );
+        } else if (isActressMode()) {
+            JavtifulClient.getActressVideos(
+                    actressUrl,
+                    page,
+                    callback
+            );
+        } else {
+            JavtifulClient.fetchPage(page, callback);
+        }
     }
 
     private void showEmpty(

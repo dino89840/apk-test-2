@@ -87,6 +87,32 @@
                 android:textSize="13sp"
                 android:visibility="gone" />
 
+            <TextView
+                android:id="@+id/javtifulDetailActressLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingTop="8dp"
+                android:paddingBottom="4dp"
+                android:text="မင်းသမီးများ"
+                android:textColor="@color/gray_text"
+                android:textSize="13sp"
+                android:visibility="gone" />
+
+            <HorizontalScrollView
+                android:id="@+id/javtifulDetailActressScroll"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="none"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:id="@+id/javtifulDetailActressRow"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal" />
+
+            </HorizontalScrollView>
+
             <ProgressBar
                 android:id="@+id/javtifulDetailProgress"
                 android:layout_width="wrap_content"

@@ -7,6 +7,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +26,8 @@ import java.util.zip.GZIPInputStream;
  * - Detail: GET https://javtiful.com/video/<id>/<slug>
  *   → "src":"https://fast-stream.jav.si/p/..." (direct MP4,
  *   JSON-escaped). Single quality — no 480p/720p variants.
+ * - Search: GET /search?videoType=reducing_mosaic&q=...&page=N
+ *   (same video-card HTML as listing; mosaic-only).
  *
  * Direct connection (NO proxy for now — user will test first).
  * No cookies/tokens needed. Browser-like User-Agent.
@@ -111,6 +114,22 @@ public final class JavtifulClient {
         }
     }
 
+    public static final class JavtifulActress {
+        public final String name;
+        public final String photoUrl;
+        public final String pageUrl;
+
+        public JavtifulActress(
+                String name,
+                String photoUrl,
+                String pageUrl
+        ) {
+            this.name = name;
+            this.photoUrl = photoUrl;
+            this.pageUrl = pageUrl;
+        }
+    }
+
     public interface PageCallback {
         void onResult(
                 List<JavtifulVideo> videos,
@@ -121,7 +140,10 @@ public final class JavtifulClient {
     }
 
     public interface StreamCallback {
-        void onResult(JavtifulStream stream);
+        void onResult(
+                JavtifulStream stream,
+                List<JavtifulActress> actresses
+        );
 
         void onError(Exception error);
     }
@@ -136,14 +158,109 @@ public final class JavtifulClient {
     ) {
         final int safePage = Math.max(1, page);
 
+        String url =
+                safePage <= 1
+                        ? BASE_URL + LIST_PATH
+                        : BASE_URL + LIST_PATH
+                                + "?page=" + safePage;
+
+        fetchListingUrl(url, callback);
+    }
+
+    /*
+     * Search — server-side rendered HTML, SAME
+     * <article class="video-card"> structure as listing.
+     *
+     * URL: /search?videoType=reducing_mosaic&q=...&page=N
+     * videoType=reducing_mosaic → mosaic-only results
+     * (JAV code နဲ့ရော မင်းသမီးနာမည်နဲ့ရော ရှာလို့ရသည်).
+     */
+    public static void searchVideos(
+            String query,
+            int page,
+            PageCallback callback
+    ) {
+        String q =
+                query == null ? "" : query.trim();
+
+        if (q.isEmpty()) {
+            callback.onError(
+                    new IllegalStateException(
+                            "ရှာဖွေမှုစာသား မရှိပါ။"
+                    )
+            );
+            return;
+        }
+
+        final int safePage = Math.max(1, page);
+
+        String encoded;
+
+        try {
+            encoded = URLEncoder.encode(q, "UTF-8");
+        } catch (Exception ignored) {
+            encoded = q.replace(" ", "+");
+        }
+
+        String url =
+                BASE_URL
+                        + "/search?videoType=reducing_mosaic"
+                        + "&q=" + encoded
+                        + (safePage > 1
+                                ? "&page=" + safePage
+                                : "");
+
+        fetchListingUrl(url, callback);
+    }
+
+    /*
+     * Actress filmography — /actress/{slug}?videoType=reducing_mosaic
+     * (same video-card HTML, mosaic-only, pagination with &page=N).
+     */
+    public static void getActressVideos(
+            String actressUrl,
+            int page,
+            PageCallback callback
+    ) {
+        String base =
+                actressUrl == null ? "" : actressUrl.trim();
+
+        if (base.isEmpty()) {
+            callback.onError(
+                    new IllegalStateException(
+                            "Actress URL မရှိပါ။"
+                    )
+            );
+            return;
+        }
+
+        final int safePage = Math.max(1, page);
+
+        StringBuilder url = new StringBuilder(base);
+
+        if (base.contains("?")) {
+            url.append("&videoType=reducing_mosaic");
+        } else {
+            url.append("?videoType=reducing_mosaic");
+        }
+
+        if (safePage > 1) {
+            url.append("&page=").append(safePage);
+        }
+
+        fetchListingUrl(url.toString(), callback);
+    }
+
+    /*
+     * Shared listing fetcher — listing ရော search
+     * ရော ဒီကနေပဲ သွားသည် (parse တူတူပဲ).
+     */
+    private static void fetchListingUrl(
+            final String url,
+            final PageCallback callback
+    ) {
         EXECUTOR.execute(() -> {
             try {
-                String url =
-                        safePage <= 1
-                                ? BASE_URL + LIST_PATH
-                                : BASE_URL + LIST_PATH
-                                        + "?page=" + safePage;
-
                 String html = get(url);
 
                 List<JavtifulVideo> videos =
@@ -163,7 +280,7 @@ public final class JavtifulClient {
     }
 
     /*
-     * Detail page → direct MP4 stream URL.
+     * Detail page → direct MP4 stream URL + actress list.
      * Never cached (fresh resolve every time).
      */
     public static void resolveStream(
@@ -184,6 +301,9 @@ public final class JavtifulClient {
                 String html = get(detailUrl.trim());
                 String streamUrl = parseDetail(html);
 
+                List<JavtifulActress> actresses =
+                        parseActresses(html);
+
                 if (
                         streamUrl == null ||
                                 streamUrl.isEmpty()
@@ -197,7 +317,8 @@ public final class JavtifulClient {
                         new JavtifulStream(
                                 streamUrl,
                                 detailUrl.trim()
-                        )
+                        ),
+                        actresses
                 );
             } catch (Exception error) {
                 callback.onError(error);
@@ -486,6 +607,113 @@ public final class JavtifulClient {
         }
 
         return "";
+    }
+
+    // ------------------------------------------------------------------
+    // Actress parser —
+    // <a href="/actress/{slug}" class="watch-actor-card">
+    //   <img src="..." alt="{name}">
+    //   <span>{name}</span>
+    // </a>
+    // ------------------------------------------------------------------
+
+    private static final Pattern ACTRESS_CARD =
+            Pattern.compile(
+                    "<a\\s+href=\"(/actress/[^\"]+)\"\\s+"
+                            + "class=\"watch-actor-card\">(.*?)</a>",
+                    Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+            );
+
+    private static final Pattern ACTRESS_IMG =
+            Pattern.compile(
+                    "<img[^>]+src=\"([^\"]+)\"[^>]*alt=\"([^\"]*)\"",
+                    Pattern.CASE_INSENSITIVE
+            );
+
+    private static final Pattern ACTRESS_IMG_ALT_FIRST =
+            Pattern.compile(
+                    "<img[^>]+alt=\"([^\"]*)\"[^>]*src=\"([^\"]+)\"",
+                    Pattern.CASE_INSENSITIVE
+            );
+
+    private static final Pattern ACTRESS_NAME_SPAN =
+            Pattern.compile(
+                    "<span>([^<]+)</span>",
+                    Pattern.CASE_INSENSITIVE
+            );
+
+    private static List<JavtifulActress> parseActresses(
+            String html
+    ) {
+        List<JavtifulActress> actresses = new ArrayList<>();
+
+        if (html == null || html.isEmpty()) {
+            return actresses;
+        }
+
+        Matcher cardMatcher = ACTRESS_CARD.matcher(html);
+
+        while (cardMatcher.find()) {
+            String pageUrl =
+                    absoluteUrl(
+                            cardMatcher.group(1).trim()
+                    );
+
+            String inner = cardMatcher.group(2);
+
+            String photoUrl = "";
+            String name = "";
+
+            Matcher imgMatcher = ACTRESS_IMG.matcher(inner);
+
+            if (imgMatcher.find()) {
+                photoUrl =
+                        absoluteUrl(
+                                imgMatcher.group(1).trim()
+                        );
+                name = unescapeHtml(
+                        imgMatcher.group(2).trim()
+                );
+            } else {
+                Matcher altFirstMatcher =
+                        ACTRESS_IMG_ALT_FIRST.matcher(inner);
+
+                if (altFirstMatcher.find()) {
+                    name = unescapeHtml(
+                            altFirstMatcher.group(1)
+                                    .trim()
+                    );
+                    photoUrl =
+                            absoluteUrl(
+                                    altFirstMatcher
+                                            .group(2).trim()
+                            );
+                }
+            }
+
+            if (name.isEmpty()) {
+                Matcher spanMatcher =
+                        ACTRESS_NAME_SPAN.matcher(inner);
+
+                if (spanMatcher.find()) {
+                    name = unescapeHtml(
+                            spanMatcher.group(1).trim()
+                    );
+                }
+            }
+
+            if (!pageUrl.isEmpty() && !name.isEmpty()) {
+                actresses.add(
+                        new JavtifulActress(
+                                name, photoUrl, pageUrl
+                        )
+                );
+            }
+        }
+
+        Log.d(TAG, "parseActresses: " + actresses.size());
+
+        return actresses;
     }
 
     // ------------------------------------------------------------------

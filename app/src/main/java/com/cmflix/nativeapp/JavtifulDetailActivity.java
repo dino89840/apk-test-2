@@ -6,8 +6,10 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -15,6 +17,8 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.bumptech.glide.Glide;
+
+import java.util.List;
 
 /*
  * Javtiful detail page.
@@ -156,7 +160,9 @@ public class JavtifulDetailActivity
                     @Override
                     public void onResult(
                             JavtifulClient.JavtifulStream
-                                    result
+                                    result,
+                            List<JavtifulClient.JavtifulActress>
+                                    actresses
                     ) {
                         runOnUiThread(() -> {
                             isResolving = false;
@@ -165,6 +171,8 @@ public class JavtifulDetailActivity
                             );
 
                             stream = result;
+
+                            showActresses(actresses);
 
                             if (
                                     stream != null &&
@@ -204,6 +212,109 @@ public class JavtifulDetailActivity
         buttonsBox.setVisibility(View.GONE);
         errorView.setText(message);
         errorView.setVisibility(View.VISIBLE);
+    }
+
+    // ------------------------------------------------------------------
+    // Actresses — horizontal row, tap → filmography
+    // ------------------------------------------------------------------
+
+    private void showActresses(
+            List<JavtifulClient.JavtifulActress> actresses
+    ) {
+        View label =
+                findViewById(
+                        R.id.javtifulDetailActressLabel
+                );
+        View scroll =
+                findViewById(
+                        R.id.javtifulDetailActressScroll
+                );
+        LinearLayout row =
+                findViewById(
+                        R.id.javtifulDetailActressRow
+                );
+
+        row.removeAllViews();
+
+        if (actresses == null || actresses.isEmpty()) {
+            label.setVisibility(View.GONE);
+            scroll.setVisibility(View.GONE);
+            return;
+        }
+
+        label.setVisibility(View.VISIBLE);
+        scroll.setVisibility(View.VISIBLE);
+
+        LayoutInflater inflater =
+                LayoutInflater.from(this);
+
+        for (
+                JavtifulClient.JavtifulActress actress
+                        : actresses
+        ) {
+            View item =
+                    inflater.inflate(
+                            R.layout.item_javtiful_actress,
+                            row,
+                            false
+                    );
+
+            ImageView photo =
+                    item.findViewById(R.id.actressPhoto);
+            TextView name =
+                    item.findViewById(R.id.actressName);
+
+            name.setText(actress.name);
+
+            if (
+                    actress.photoUrl != null &&
+                            !actress.photoUrl.isEmpty()
+            ) {
+                Glide.with(this)
+                        .load(actress.photoUrl)
+                        .circleCrop()
+                        .into(photo);
+            }
+
+            item.setOnClickListener(
+                    view -> openActress(actress)
+            );
+
+            row.addView(item);
+        }
+    }
+
+    private void openActress(
+            JavtifulClient.JavtifulActress actress
+    ) {
+        if (actress == null) {
+            return;
+        }
+
+        try {
+            Intent intent =
+                    new Intent(
+                            this,
+                            JavtifulActivity.class
+                    );
+
+            intent.putExtra(
+                    JavtifulActivity.EXTRA_ACTRESS_URL,
+                    actress.pageUrl
+            );
+            intent.putExtra(
+                    JavtifulActivity.EXTRA_ACTRESS_NAME,
+                    actress.name
+            );
+
+            startActivity(intent);
+        } catch (Exception error) {
+            Toast.makeText(
+                    this,
+                    "ဖွင့်၍မရပါ။",
+                    Toast.LENGTH_LONG
+            ).show();
+        }
     }
 
     // ------------------------------------------------------------------
