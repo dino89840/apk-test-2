@@ -121,6 +121,53 @@ private static final String KEY_NOTICE_SAVED_AT =
     }
 
     /*
+     * In-app APK update — server-driven version info။
+     *
+     * Backend /app-content မှ "apk": {"versionCode": N,
+     * "url": "<https apk url>"} ကို ဖတ်သည်။
+     *
+     * versionCode=0 (သို့မဟုတ်) url လွတ်နေလျှင် →
+     * update မရှိ။ MainActivity မှ BuildConfig.VERSION_CODE
+     * နှင့် နှိုင်းယှဉ်ပြီး dialog ပြမည်။
+     *
+     * cached /app-content JSON ထဲက ဖတ်သောကြောင့်
+     * network request အသစ် လုံးဝ မလိုပါ။
+     */
+    public static int getApkVersionCode(
+            JSONObject content
+    ) {
+        if (content == null) {
+            return 0;
+        }
+
+        JSONObject apk =
+                content.optJSONObject("apk");
+
+        if (apk == null) {
+            return 0;
+        }
+
+        return apk.optInt("versionCode", 0);
+    }
+
+    public static String getApkUrl(
+            JSONObject content
+    ) {
+        if (content == null) {
+            return "";
+        }
+
+        JSONObject apk =
+                content.optJSONObject("apk");
+
+        if (apk == null) {
+            return "";
+        }
+
+        return apk.optString("url", "").trim();
+    }
+
+    /*
      * Samusar proxy URL — server-configurable။
      *
      * Backend /app-content မှ "samusar": {"proxy": "<url>"}

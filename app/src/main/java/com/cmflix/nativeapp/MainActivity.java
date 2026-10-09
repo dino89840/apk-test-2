@@ -2063,6 +2063,18 @@ private void loadRemoteBanner() {
                         updateJavtifulDrawer(
                                 content
                         );
+
+                        /*
+                         * In-app APK update check —
+                         * /app-content ထဲက apk.versionCode/url
+                         * ကို စစ်သည်။ Network request အသစ်
+                         * မရှိ (ဒီ callback ရဲ့ JSON ကိုသုံးသည်)။
+                         * Session မှာ တစ်ခါသာ စစ်မည်။
+                         */
+                        ApkUpdateChecker.checkForUpdate(
+                                MainActivity.this,
+                                content
+                        );
                     });
                 }
 
