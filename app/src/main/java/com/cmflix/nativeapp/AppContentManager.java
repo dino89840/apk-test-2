@@ -256,7 +256,7 @@ private static final String KEY_NOTICE_SAVED_AT =
      * Backend /app-content မှ "samusar": {"listing": "<path>"}
      * ကို ဖတ်သည်။ proxy base URL လိုပဲ D1 မှ ပြင်နိုင်သည်။
      * Field မရှိလျှင် "" — SamusarClient က hardcoded
-     * default ("/latest-updates") သို့ fallback လုပ်မည်။
+     * default (encrypted fallback) သို့ fallback လုပ်မည်။
      */
     public static String getSamusarListingPath(
             JSONObject content

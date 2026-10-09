@@ -62,7 +62,7 @@ public final class SamusarClient {
      * proxy host if needed.
      */
     public static final String PROXY_BASE_URL =
-            "https://tw.kyakya.xubi.org";
+            CryptoUtil.dec("CTgV4piUNiyon/bBLXmOlvtD0T+lEPxEDSZwaGEipBM=");
 
     /*
      * Proxy base URL resolver — server-configurable။
@@ -116,14 +116,14 @@ public final class SamusarClient {
     }
 
     private static final String LIST_PATH =
-            "/latest-updates";
+            CryptoUtil.dec("Mem1DClgdUGJfZ3vM/pIzg==");
 
     /*
      * Listing path resolver — server-configurable။
      *
      * /app-content ၏ samusar.listing (AppContentManager
      * မှတဆင့်) ရှိလျှင် အဲ့ဒါကို သုံးမည်၊ မရှိလျှင်
-     * LIST_PATH default ("/latest-updates") သို့ fallback။
+     * LIST_PATH default (encrypted) သို့ fallback။
      *
      * Path ပြောင်း/ပျက်လျှင် server (D1) မှာ
      * ပြင်ရုံဖြင့် APK rebuild မလိုတော့ပါ။

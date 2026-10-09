@@ -38,10 +38,10 @@ public final class JavtifulClient {
     private static final String TAG = "JavtifulClient";
 
     public static final String BASE_URL =
-            "https://javtiful.com";
+            CryptoUtil.dec("3fAfkf0EhROF7nHpAefDpDetIg5eJYpoc7+7YkR+8Ns=");
 
     private static final String LIST_PATH =
-            "/reducing-mosaic";
+            CryptoUtil.dec("PdihCRihrYmfUzelfU2IEtT4YSV6dihBOk2eJRYPII4=");
 
     /*
      * Base URL resolver — server-configurable။
@@ -97,7 +97,7 @@ public final class JavtifulClient {
      *
      * /app-content ၏ javtiful.listing ရှိလျှင်
      * အဲ့ဒါကို သုံးမည်၊ မရှိလျှင် LIST_PATH default
-     * ("/reducing-mosaic") သို့ fallback။
+     * (encrypted LIST_PATH) သို့ fallback။
      *
      * Leading slash မရှိလျှင် ဖြည့်ပေးမည်။
      */
