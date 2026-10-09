@@ -172,4 +172,141 @@
 
     </FrameLayout>
 
+    <!-- Bottom nav — Home / Horror / 18+ / Myanmar -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#1E222B" />
+
+    <LinearLayout
+        android:id="@+id/bottomNav"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#101218"
+        android:orientation="horizontal"
+        android:paddingTop="4dp"
+        android:paddingBottom="6dp">
+
+        <LinearLayout
+            android:id="@+id/navHome"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp">
+
+            <ImageView
+                android:id="@+id/navHomeIcon"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:padding="7dp"
+                android:src="@drawable/ic_nav_home" />
+
+            <TextView
+                android:id="@+id/navHomeLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingTop="3dp"
+                android:text="Home"
+                android:textSize="11sp" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/navHorror"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp">
+
+            <ImageView
+                android:id="@+id/navHorrorIcon"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:padding="7dp"
+                android:src="@drawable/ic_nav_film" />
+
+            <TextView
+                android:id="@+id/navHorrorLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingTop="3dp"
+                android:text="Horror"
+                android:textSize="11sp" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/navAdult"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp">
+
+            <ImageView
+                android:id="@+id/navAdultIcon"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:padding="7dp"
+                android:src="@drawable/ic_nav_adult" />
+
+            <TextView
+                android:id="@+id/navAdultLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingTop="3dp"
+                android:text="18+"
+                android:textSize="11sp" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/navMyanmar"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp">
+
+            <ImageView
+                android:id="@+id/navMyanmarIcon"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:padding="7dp"
+                android:src="@drawable/ic_nav_adult" />
+
+            <TextView
+                android:id="@+id/navMyanmarLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingTop="3dp"
+                android:text="Myanmar"
+                android:textSize="11sp" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
 </LinearLayout>

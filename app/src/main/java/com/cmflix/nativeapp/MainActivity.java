@@ -1724,6 +1724,13 @@ private void ensureHomeSectionLoaded(String value) {
             openCategory("series", "Nosub 18+");
         } else if ("lugyi".equals(openCategory)) {
             openCategory("lugyi", "Mmsub 18+");
+        } else if ("movies".equals(openCategory)) {
+            /*
+             * Javtiful/Myanmar listing မှ Horror tab —
+             * bottom nav မှ တဆင့် ခေါ်လာလျှင် Horror
+             * category ကို တိုက်ရိုက်ဖွင့်မည်။
+             */
+            openCategory("movies", "Horror");
         }
 
         // consumed — rotation/recreate တွင် ပြန်မဖွင့်စေရန်

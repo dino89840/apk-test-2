@@ -167,7 +167,124 @@ public class MyanmarActivity extends AppCompatActivity {
 
         continueList.setAdapter(continueAdapter);
 
+        setupBottomNav();
+
         loadPage(1);
+    }
+
+    /*
+     * Bottom nav — Home / Horror / 18+ / Myanmar.
+     * Myanmar listing မှာမို့ Myanmar tab ကို active
+     * (gold) ပြမည်။
+     */
+    private void setupBottomNav() {
+        View navHome = findViewById(R.id.navHome);
+        View navHorror = findViewById(R.id.navHorror);
+        View navAdult = findViewById(R.id.navAdult);
+        View navMyanmar = findViewById(R.id.navMyanmar);
+
+        ImageView navHomeIcon =
+                findViewById(R.id.navHomeIcon);
+        TextView navHomeLabel =
+                findViewById(R.id.navHomeLabel);
+        ImageView navHorrorIcon =
+                findViewById(R.id.navHorrorIcon);
+        TextView navHorrorLabel =
+                findViewById(R.id.navHorrorLabel);
+        ImageView navAdultIcon =
+                findViewById(R.id.navAdultIcon);
+        TextView navAdultLabel =
+                findViewById(R.id.navAdultLabel);
+        ImageView navMyanmarIcon =
+                findViewById(R.id.navMyanmarIcon);
+        TextView navMyanmarLabel =
+                findViewById(R.id.navMyanmarLabel);
+
+        // Myanmar active (gold)
+        setBottomNavItem(navHomeIcon, navHomeLabel, false);
+        setBottomNavItem(navHorrorIcon, navHorrorLabel, false);
+        setBottomNavItem(navAdultIcon, navAdultLabel, false);
+        setBottomNavItem(navMyanmarIcon, navMyanmarLabel, true);
+
+        navHome.setOnClickListener(
+                view -> {
+                    Intent intent =
+                            new Intent(
+                                    this,
+                                    MainActivity.class
+                            );
+                    intent.addFlags(
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    );
+                    startActivity(intent);
+                    finish();
+                }
+        );
+
+        navHorror.setOnClickListener(
+                view -> {
+                    Intent intent =
+                            new Intent(
+                                    this,
+                                    MainActivity.class
+                            );
+                    intent.putExtra(
+                            "open_category", "movies"
+                    );
+                    intent.addFlags(
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    );
+                    startActivity(intent);
+                    finish();
+                }
+        );
+
+        navAdult.setOnClickListener(
+                view -> {
+                    Intent intent =
+                            new Intent(
+                                    this,
+                                    AdultHubActivity.class
+                            );
+                    intent.addFlags(
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    );
+                    startActivity(intent);
+                }
+        );
+
+        // Myanmar tab — ရောက်ပြီးသားမို့ ဘာမှမလုပ်ပါ
+        navMyanmar.setOnClickListener(
+                view -> {
+                    // already here
+                }
+        );
+    }
+
+    private void setBottomNavItem(
+            ImageView icon,
+            TextView label,
+            boolean active
+    ) {
+        int color =
+                active
+                        ? android.graphics.Color.parseColor(
+                                "#E8B93E"
+                        )
+                        : android.graphics.Color.parseColor(
+                                "#8A8F9C"
+                        );
+
+        icon.setColorFilter(color);
+        label.setTextColor(color);
+
+        if (active) {
+            icon.setBackgroundResource(
+                    R.drawable.drawer_icon_tile
+            );
+        } else {
+            icon.setBackgroundResource(0);
+        }
     }
 
     @Override

@@ -72,6 +72,12 @@ public class JavtifulActivity extends AppCompatActivity {
     private LinearLayout searchBar;
     private EditText searchInput;
 
+    /*
+     * Bottom nav — Home / Horror / 18+ / Myanmar
+     * (listing pages only, detail pages excluded).
+     */
+    private View navMyanmarTab;
+
     private VideoAdapter adapter;
 
     private final List<JavtifulClient.JavtifulVideo> videos =
@@ -223,7 +229,170 @@ public class JavtifulActivity extends AppCompatActivity {
                 }
         );
 
+        setupBottomNav();
+
         loadPage(1);
+    }
+
+    /*
+     * Bottom nav — Home / Horror / 18+ / Myanmar.
+     * Jav/Asian listing မှာမို့ 18+ tab ကို active
+     * (gold) ပြမည်။ Myanmar tab က kill-switch
+     * (AppContentManager.isMyanmarEnabled) မှ
+     * visibility ကို ထိန်းသည်။
+     */
+    private void setupBottomNav() {
+        View navHome = findViewById(R.id.navHome);
+        View navHorror = findViewById(R.id.navHorror);
+        View navAdult = findViewById(R.id.navAdult);
+        navMyanmarTab = findViewById(R.id.navMyanmar);
+
+        ImageView navHomeIcon =
+                findViewById(R.id.navHomeIcon);
+        TextView navHomeLabel =
+                findViewById(R.id.navHomeLabel);
+        ImageView navHorrorIcon =
+                findViewById(R.id.navHorrorIcon);
+        TextView navHorrorLabel =
+                findViewById(R.id.navHorrorLabel);
+        ImageView navAdultIcon =
+                findViewById(R.id.navAdultIcon);
+        TextView navAdultLabel =
+                findViewById(R.id.navAdultLabel);
+        ImageView navMyanmarIcon =
+                findViewById(R.id.navMyanmarIcon);
+        TextView navMyanmarLabel =
+                findViewById(R.id.navMyanmarLabel);
+
+        // 18+ active (gold) — Jav/Asian သည် 18+ hub အောက်မှာမို့
+        setBottomNavItem(navHomeIcon, navHomeLabel, false);
+        setBottomNavItem(navHorrorIcon, navHorrorLabel, false);
+        setBottomNavItem(navAdultIcon, navAdultLabel, true);
+        setBottomNavItem(navMyanmarIcon, navMyanmarLabel, false);
+
+        navHome.setOnClickListener(
+                view -> {
+                    Intent intent =
+                            new Intent(
+                                    this,
+                                    MainActivity.class
+                            );
+                    intent.addFlags(
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    );
+                    startActivity(intent);
+                    finish();
+                }
+        );
+
+        navHorror.setOnClickListener(
+                view -> {
+                    Intent intent =
+                            new Intent(
+                                    this,
+                                    MainActivity.class
+                            );
+                    intent.putExtra(
+                            "open_category", "movies"
+                    );
+                    intent.addFlags(
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    );
+                    startActivity(intent);
+                    finish();
+                }
+        );
+
+        navAdult.setOnClickListener(
+                view -> {
+                    Intent intent =
+                            new Intent(
+                                    this,
+                                    AdultHubActivity.class
+                            );
+                    intent.addFlags(
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    );
+                    startActivity(intent);
+                }
+        );
+
+        navMyanmarTab.setOnClickListener(
+                view ->
+                        startActivity(
+                                new Intent(
+                                        this,
+                                        MyanmarActivity.class
+                                )
+                        )
+        );
+
+        // Kill-switch — ပိတ်ထားလျှင် Myanmar tab ဖျောက်မည်
+        updateMyanmarTabVisibility(null);
+
+        AppContentManager.loadBanner(
+                this,
+                new AppContentManager.Callback() {
+                    @Override
+                    public void onContent(
+                            org.json.JSONObject content
+                    ) {
+                        runOnUiThread(() ->
+                                updateMyanmarTabVisibility(
+                                        content
+                                )
+                        );
+                    }
+
+                    @Override
+                    public void onError(Exception error) {
+                        // default (visible) အတိုင်း ထားမည်
+                    }
+                }
+        );
+    }
+
+    private void updateMyanmarTabVisibility(
+            org.json.JSONObject content
+    ) {
+        if (navMyanmarTab == null) {
+            return;
+        }
+
+        boolean enabled =
+                AppContentManager.isMyanmarEnabled(
+                        content
+                );
+
+        navMyanmarTab.setVisibility(
+                enabled ? View.VISIBLE : View.GONE
+        );
+    }
+
+    private void setBottomNavItem(
+            ImageView icon,
+            TextView label,
+            boolean active
+    ) {
+        int color =
+                active
+                        ? android.graphics.Color.parseColor(
+                                "#E8B93E"
+                        )
+                        : android.graphics.Color.parseColor(
+                                "#8A8F9C"
+                        );
+
+        icon.setColorFilter(color);
+        label.setTextColor(color);
+
+        if (active) {
+            icon.setBackgroundResource(
+                    R.drawable.drawer_icon_tile
+            );
+        } else {
+            icon.setBackgroundResource(0);
+        }
     }
 
     // ------------------------------------------------------------------
