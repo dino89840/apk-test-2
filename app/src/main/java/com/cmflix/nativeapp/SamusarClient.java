@@ -282,7 +282,7 @@ public final class SamusarClient {
             String url,
             String referer
     ) throws Exception {
-        String currentUrl = url;
+        String currentUrl = forceHttps(url);
         String currentReferer = referer;
 
         for (
@@ -453,12 +453,44 @@ public final class SamusarClient {
                 status == 308;
     }
 
+    private static String forceHttps(String url) {
+        if (
+                url != null
+                        && url.regionMatches(
+                                true, 0,
+                                "http://", 0, 7
+                        )
+        ) {
+            return "https://" + url.substring(7);
+        }
+
+        return url;
+    }
+
     private static String resolveUrl(
             String base,
             String location
     ) throws Exception {
-        return new URL(new URL(base), location)
-                .toString();
+        String resolved =
+                new URL(new URL(base), location)
+                        .toString();
+
+        /*
+         * samusar.com တခါတရံ http:// သို့ redirect
+         * ချတတ်သည် — Android 9+ က cleartext ကို
+         * ပိတ်ထားသောကြောင့် https:// သို့ အတင်း
+         * upgrade လုပ်မည်။
+         */
+        if (
+                resolved.regionMatches(
+                        true, 0,
+                        "http://", 0, 7
+                )
+        ) {
+            resolved = forceHttps(resolved);
+        }
+
+        return resolved;
     }
 
     private static synchronized void storeCookies(
