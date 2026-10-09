@@ -18,7 +18,7 @@
         android:id="@+id/actressPhoto"
         android:layout_width="64dp"
         android:layout_height="64dp"
-        android:background="#1A1D24"
+        android:background="@android:color/transparent"
         android:contentDescription="Actress photo" />
 
     <TextView

@@ -263,6 +263,14 @@ public class JavtifulActivity extends AppCompatActivity {
         if (isSearchMode()) {
             exitSearchMode();
         }
+
+        /*
+         * ✕ သည် "ပိတ်" ခလုတ် — စာသားရှင်းပြီး
+         * search mode မဟုတ်ရင် search bar ကို
+         * ဖျောက်မည် (user expectation)။
+         */
+        searchBar.setVisibility(View.GONE);
+        hideKeyboard();
     }
 
     private void exitSearchMode() {

@@ -164,15 +164,18 @@ public final class JavtifulClient {
                         : BASE_URL + LIST_PATH
                                 + "?page=" + safePage;
 
-        fetchListingUrl(url, callback);
+        fetchListingUrl(url, false, callback);
     }
 
     /*
      * Search — server-side rendered HTML, SAME
      * <article class="video-card"> structure as listing.
      *
-     * URL: /search?videoType=reducing_mosaic&q=...&page=N
-     * videoType=reducing_mosaic → mosaic-only results
+     * NOTE: javtiful.com IGNORES the videoType URL param
+     * (filter is JS-only). Mosaic-only is enforced
+     * client-side in parseListing (mosaicOnly=true).
+     *
+     * URL: /search?q=...&page=N
      * (JAV code နဲ့ရော မင်းသမီးနာမည်နဲ့ရော ရှာလို့ရသည်).
      */
     public static void searchVideos(
@@ -204,18 +207,18 @@ public final class JavtifulClient {
 
         String url =
                 BASE_URL
-                        + "/search?videoType=reducing_mosaic"
-                        + "&q=" + encoded
+                        + "/search?q=" + encoded
                         + (safePage > 1
                                 ? "&page=" + safePage
                                 : "");
 
-        fetchListingUrl(url, callback);
+        fetchListingUrl(url, true, callback);
     }
 
     /*
-     * Actress filmography — /actress/{slug}?videoType=reducing_mosaic
-     * (same video-card HTML, mosaic-only, pagination with &page=N).
+     * Actress filmography — /actress/{slug}
+     * (same video-card HTML; mosaic-only enforced
+     * client-side, pagination with &page=N).
      */
     public static void getActressVideos(
             String actressUrl,
@@ -238,25 +241,29 @@ public final class JavtifulClient {
 
         StringBuilder url = new StringBuilder(base);
 
-        if (base.contains("?")) {
-            url.append("&videoType=reducing_mosaic");
-        } else {
-            url.append("?videoType=reducing_mosaic");
-        }
-
         if (safePage > 1) {
-            url.append("&page=").append(safePage);
+            if (base.contains("?")) {
+                url.append("&page=").append(safePage);
+            } else {
+                url.append("?page=").append(safePage);
+            }
         }
 
-        fetchListingUrl(url.toString(), callback);
+        fetchListingUrl(url.toString(), true, callback);
     }
 
     /*
      * Shared listing fetcher — listing ရော search
      * ရော ဒီကနေပဲ သွားသည် (parse တူတူပဲ).
+     *
+     * mosaicOnly=true → "Reducing Mosaic" type span
+     * မပါတဲ့ card တွေကို ကျော်မည် (search +
+     * actress အတွက်; main listing က mosaic-only
+     * ဖြစ်ပြီးသားမို့ filter မလို).
      */
     private static void fetchListingUrl(
             final String url,
+            final boolean mosaicOnly,
             final PageCallback callback
     ) {
         EXECUTOR.execute(() -> {
@@ -264,11 +271,12 @@ public final class JavtifulClient {
                 String html = get(url);
 
                 List<JavtifulVideo> videos =
-                        parseListing(html);
+                        parseListing(html, mosaicOnly);
 
                 /*
-                 * 23 cards = full page → likely more.
-                 * Empty = no more pages.
+                 * Empty = no more pages. (Filtered
+                 * pages may return fewer than 23 —
+                 * pagination still works.)
                  */
                 boolean hasMore = !videos.isEmpty();
 
@@ -472,8 +480,20 @@ public final class JavtifulClient {
                     Pattern.CASE_INSENSITIVE
             );
 
+    /*
+     * <span class="video-card__type">Reducing Mosaic</span>
+     * — mosaic-only filter အတွက် (search + actress).
+     * Non-mosaic card တွေမှာ ဒီ span မပါပါ။
+     */
+    private static final Pattern TYPE_SPAN =
+            Pattern.compile(
+                    "class=\"video-card__type\"[^>]*>([^<]*)</span>",
+                    Pattern.CASE_INSENSITIVE
+            );
+
     private static List<JavtifulVideo> parseListing(
-            String html
+            String html,
+            boolean mosaicOnly
     ) {
         List<JavtifulVideo> videos = new ArrayList<>();
 
@@ -485,6 +505,32 @@ public final class JavtifulClient {
 
         while (articleMatcher.find()) {
             String body = articleMatcher.group(1);
+
+            /*
+             * Mosaic-only filter — "Reducing Mosaic"
+             * type span မပါတဲ့ card ကို ကျော်မည်။
+             */
+            if (mosaicOnly) {
+                Matcher typeMatcher =
+                        TYPE_SPAN.matcher(body);
+
+                boolean isMosaic = false;
+
+                if (typeMatcher.find()) {
+                    String typeText =
+                            typeMatcher.group(1).trim();
+
+                    isMosaic =
+                            "Reducing Mosaic"
+                                    .equalsIgnoreCase(
+                                            typeText
+                                    );
+                }
+
+                if (!isMosaic) {
+                    continue;
+                }
+            }
 
             String detailUrl = "";
             Matcher linkMatcher = THUMB_LINK.matcher(body);
