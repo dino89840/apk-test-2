@@ -119,6 +119,35 @@ public final class SamusarClient {
             "/latest-updates";
 
     /*
+     * Listing path resolver — server-configurable။
+     *
+     * /app-content ၏ samusar.listing (AppContentManager
+     * မှတဆင့်) ရှိလျှင် အဲ့ဒါကို သုံးမည်၊ မရှိလျှင်
+     * LIST_PATH default ("/latest-updates") သို့ fallback။
+     *
+     * Path ပြောင်း/ပျက်လျှင် server (D1) မှာ
+     * ပြင်ရုံဖြင့် APK rebuild မလိုတော့ပါ။
+     *
+     * Leading slash မရှိလျှင် ဖြည့်ပေးမည်။
+     */
+    public static String getListPath() {
+        String configured =
+                AppContentManager.getCachedSamusarListingPath();
+
+        if (configured != null) {
+            configured = configured.trim();
+
+            if (!configured.isEmpty()) {
+                return configured.startsWith("/")
+                        ? configured
+                        : "/" + configured;
+            }
+        }
+
+        return LIST_PATH;
+    }
+
+    /*
      * Samusar video များ၏ stable ID prefix။
      * LocalStore resume key အဖြစ်
      * "samusar:" + detailUrl ကို သုံးသည်။
@@ -390,11 +419,12 @@ public final class SamusarClient {
         EXECUTOR.execute(() -> {
             try {
                 String baseUrl = getBaseUrl();
+                String listPath = getListPath();
 
                 String url =
                         safePage <= 1
-                                ? baseUrl + LIST_PATH
-                                : baseUrl + LIST_PATH
+                                ? baseUrl + listPath
+                                : baseUrl + listPath
                                         + "/" + safePage + "/";
 
                 if (!refresh) {

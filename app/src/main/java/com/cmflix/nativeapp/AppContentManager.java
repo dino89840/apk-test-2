@@ -200,12 +200,100 @@ private static final String KEY_NOTICE_SAVED_AT =
     }
 
     /*
+     * Javtiful base URL + listing path — server-configurable။
+     *
+     * Backend /app-content မှ "javtiful": {"base": "<url>",
+     * "listing": "<path>"} ကို ဖတ်သည်။ Field မရှိလျှင် /
+     * လွတ်နေလျှင် "" ပြန်ပေးမည် — JavtifulClient က
+     * hardcoded default သို့ fallback လုပ်မည်။
+     *
+     * cached /app-content JSON ထဲက ဖတ်သောကြောင့်
+     * network request အသစ် လုံးဝ မလိုပါ။
+     */
+    public static String getJavtifulBaseUrl(
+            JSONObject content
+    ) {
+        if (content == null) {
+            return "";
+        }
+
+        JSONObject javtiful =
+                content.optJSONObject("javtiful");
+
+        if (javtiful == null) {
+            return "";
+        }
+
+        String base =
+                javtiful.optString("base", "");
+
+        return base == null ? "" : base.trim();
+    }
+
+    public static String getJavtifulListingPath(
+            JSONObject content
+    ) {
+        if (content == null) {
+            return "";
+        }
+
+        JSONObject javtiful =
+                content.optJSONObject("javtiful");
+
+        if (javtiful == null) {
+            return "";
+        }
+
+        String listing =
+                javtiful.optString("listing", "");
+
+        return listing == null ? "" : listing.trim();
+    }
+
+    /*
+     * Samusar listing path — server-configurable။
+     *
+     * Backend /app-content မှ "samusar": {"listing": "<path>"}
+     * ကို ဖတ်သည်။ proxy base URL လိုပဲ D1 မှ ပြင်နိုင်သည်။
+     * Field မရှိလျှင် "" — SamusarClient က hardcoded
+     * default ("/latest-updates") သို့ fallback လုပ်မည်။
+     */
+    public static String getSamusarListingPath(
+            JSONObject content
+    ) {
+        if (content == null) {
+            return "";
+        }
+
+        JSONObject samusar =
+                content.optJSONObject("samusar");
+
+        if (samusar == null) {
+            return "";
+        }
+
+        String listing =
+                samusar.optString("listing", "");
+
+        return listing == null ? "" : listing.trim();
+    }
+
+    /*
      * နောက်ဆုံး /app-content မှ ရသော proxy URL
      * (memory cache)။ loadBanner က content ရတိုင်း
      * update လုပ်သည် — cached path ရော network
      * path ရော။
      */
     private static volatile String cachedSamusarProxyUrl =
+            "";
+
+    private static volatile String cachedJavtifulBaseUrl =
+            "";
+
+    private static volatile String cachedJavtifulListingPath =
+            "";
+
+    private static volatile String cachedSamusarListingPath =
             "";
 
     private static void updateCachedSamusarProxyUrl(
@@ -215,8 +303,31 @@ private static final String KEY_NOTICE_SAVED_AT =
                 getSamusarProxyUrl(content);
     }
 
+    private static void updateCachedSourceUrls(
+            JSONObject content
+    ) {
+        cachedJavtifulBaseUrl =
+                getJavtifulBaseUrl(content);
+        cachedJavtifulListingPath =
+                getJavtifulListingPath(content);
+        cachedSamusarListingPath =
+                getSamusarListingPath(content);
+    }
+
     public static String getCachedSamusarProxyUrl() {
         return cachedSamusarProxyUrl;
+    }
+
+    public static String getCachedJavtifulBaseUrl() {
+        return cachedJavtifulBaseUrl;
+    }
+
+    public static String getCachedJavtifulListingPath() {
+        return cachedJavtifulListingPath;
+    }
+
+    public static String getCachedSamusarListingPath() {
+        return cachedSamusarListingPath;
     }
 
     public interface Callback {
@@ -258,6 +369,7 @@ private static final String KEY_NOTICE_SAVED_AT =
 
         if (cached != null) {
             updateCachedSamusarProxyUrl(cached);
+            updateCachedSourceUrls(cached);
             callback.onContent(cached);
         }
 
@@ -447,6 +559,7 @@ private static final String KEY_NOTICE_SAVED_AT =
                     );
 
             updateCachedSamusarProxyUrl(json);
+            updateCachedSourceUrls(json);
 
             preferences
                     .edit()

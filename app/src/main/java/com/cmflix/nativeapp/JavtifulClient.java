@@ -43,6 +43,81 @@ public final class JavtifulClient {
     private static final String LIST_PATH =
             "/reducing-mosaic";
 
+    /*
+     * Base URL resolver — server-configurable။
+     *
+     * /app-content ၏ javtiful.base (AppContentManager
+     * မှတဆင့်) ရှိလျှင် အဲ့ဒါကို သုံးမည်၊ မရှိလျှင် /
+     * လွတ်နေလျှင် BASE_URL default သို့ fallback။
+     *
+     * Domain ပျက်/ပြောင်းလျှင် server (D1) မှာ
+     * ပြင်ရုံဖြင့် APK rebuild မလိုတော့ပါ။
+     *
+     * Trailing slash များကို ဖယ်ပြီး http(s)
+     * URL စစ်မှန်ကြောင်း validate လုပ်သည်။
+     */
+    public static String getBaseUrl() {
+        String configured =
+                AppContentManager.getCachedJavtifulBaseUrl();
+
+        if (configured != null) {
+            configured = configured.trim();
+
+            while (
+                    configured.endsWith("/")
+                            && configured.length() > 1
+            ) {
+                configured =
+                        configured.substring(
+                                0,
+                                configured.length() - 1
+                        );
+            }
+
+            if (
+                    configured.regionMatches(
+                            true, 0,
+                            "https://", 0, 8
+                    )
+                            ||
+                    configured.regionMatches(
+                            true, 0,
+                            "http://", 0, 7
+                    )
+            ) {
+                return configured;
+            }
+        }
+
+        return BASE_URL;
+    }
+
+    /*
+     * Listing path resolver — server-configurable။
+     *
+     * /app-content ၏ javtiful.listing ရှိလျှင်
+     * အဲ့ဒါကို သုံးမည်၊ မရှိလျှင် LIST_PATH default
+     * ("/reducing-mosaic") သို့ fallback။
+     *
+     * Leading slash မရှိလျှင် ဖြည့်ပေးမည်။
+     */
+    public static String getListPath() {
+        String configured =
+                AppContentManager.getCachedJavtifulListingPath();
+
+        if (configured != null) {
+            configured = configured.trim();
+
+            if (!configured.isEmpty()) {
+                return configured.startsWith("/")
+                        ? configured
+                        : "/" + configured;
+            }
+        }
+
+        return LIST_PATH;
+    }
+
     public static final String ID_PREFIX = "javtiful:";
 
     public static String videoId(String detailUrl) {
@@ -160,8 +235,8 @@ public final class JavtifulClient {
 
         String url =
                 safePage <= 1
-                        ? BASE_URL + LIST_PATH
-                        : BASE_URL + LIST_PATH
+                        ? getBaseUrl() + getListPath()
+                        : getBaseUrl() + getListPath()
                                 + "?page=" + safePage;
 
         fetchListingUrl(url, safePage, false, callback);
@@ -206,7 +281,7 @@ public final class JavtifulClient {
         }
 
         String url =
-                BASE_URL
+                getBaseUrl()
                         + "/search?q=" + encoded
                         + (safePage > 1
                                 ? "&page=" + safePage
@@ -835,7 +910,7 @@ public final class JavtifulClient {
 
         try {
             return new URL(
-                    new URL(BASE_URL), trimmed
+                    new URL(getBaseUrl()), trimmed
             ).toString();
         } catch (Exception ignored) {
             return trimmed;
