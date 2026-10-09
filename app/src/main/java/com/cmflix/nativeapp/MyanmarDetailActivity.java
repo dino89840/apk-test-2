@@ -397,22 +397,27 @@ public class MyanmarDetailActivity
                 padding, padding, padding, padding
         );
 
-        ImageView playIcon = new ImageView(this);
+        int iconSize = (int) (28 * density);
 
-        playIcon.setImageResource(
+        /*
+         * Working play button — LEFT side, before
+         * the quality label. (The old decorative
+         * left icon was removed: it did nothing.)
+         */
+        ImageView playButton = new ImageView(this);
+
+        playButton.setImageResource(
                 android.R.drawable
                         .ic_media_play
         );
 
-        int iconSize = (int) (28 * density);
-
-        LinearLayout.LayoutParams iconParams =
+        LinearLayout.LayoutParams playParams =
                 new LinearLayout.LayoutParams(
                         iconSize, iconSize
                 );
 
-        playIcon.setLayoutParams(iconParams);
-        playIcon.setColorFilter(0xFFE8B93E);
+        playButton.setLayoutParams(playParams);
+        playButton.setColorFilter(0xFFE8B93E);
 
         TextView labelView = new TextView(this);
         labelView.setText(label);
@@ -432,25 +437,6 @@ public class MyanmarDetailActivity
         labelView.setLayoutParams(labelParams);
         labelView.setTextColor(0xFFFFFFFF);
         labelView.setTextSize(16);
-
-        ImageView playButton = new ImageView(this);
-
-        playButton.setImageResource(
-                android.R.drawable
-                        .ic_media_play
-        );
-
-        LinearLayout.LayoutParams playParams =
-                new LinearLayout.LayoutParams(
-                        iconSize, iconSize
-                );
-
-        playParams.setMarginEnd(
-                (int) (16 * density)
-        );
-
-        playButton.setLayoutParams(playParams);
-        playButton.setColorFilter(0xFFE8B93E);
 
         /*
          * selectableItemBackgroundBorderless သည်
@@ -532,9 +518,8 @@ public class MyanmarDetailActivity
                 view -> onDownloadClick(url)
         );
 
-        row.addView(playIcon);
-        row.addView(labelView);
         row.addView(playButton);
+        row.addView(labelView);
         row.addView(downloadButton);
 
         return row;

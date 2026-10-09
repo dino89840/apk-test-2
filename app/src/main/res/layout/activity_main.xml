@@ -391,7 +391,7 @@
                 android:layout_width="38dp"
                 android:layout_height="38dp"
                 android:padding="7dp"
-                android:src="@drawable/ic_nav_play" />
+                android:src="@drawable/ic_nav_adult" />
 
             <TextView
                 android:id="@+id/navNosubLabel"
@@ -421,7 +421,7 @@
                 android:layout_width="38dp"
                 android:layout_height="38dp"
                 android:padding="7dp"
-                android:src="@drawable/ic_nav_play" />
+                android:src="@drawable/ic_nav_adult" />
 
             <TextView
                 android:id="@+id/navMmsubLabel"
@@ -458,7 +458,7 @@
                 android:layout_width="38dp"
                 android:layout_height="38dp"
                 android:padding="7dp"
-                android:src="@drawable/ic_nav_film" />
+                android:src="@drawable/ic_nav_adult" />
 
             <TextView
                 android:id="@+id/navMyanmarLabel"

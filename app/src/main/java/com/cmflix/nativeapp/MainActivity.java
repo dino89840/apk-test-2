@@ -906,6 +906,20 @@ private void setupDrawer() {
                             )
             );
 
+    findViewById(R.id.drawerMyanmar)
+            .setOnClickListener(
+                    view ->
+                            runDrawerAction(
+                                    () ->
+                                            startActivity(
+                                                    new Intent(
+                                                            this,
+                                                            MyanmarActivity.class
+                                                    )
+                                            )
+                            )
+            );
+
     findViewById(R.id.drawerContinue)
             .setOnClickListener(
                     view ->

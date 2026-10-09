@@ -347,18 +347,12 @@ public class MyanmarActivity extends AppCompatActivity {
     }
 
     // ------------------------------------------------------------------
-    // Detail page — card tap / download button နှစ်မျိုးလုံး
-    // detail ကို ဖွင့်မည် (quality chooser ကို detail
-    // page ထဲမှာ ပြမည်)။
+    // Detail page — card tap opens detail
+    // (quality + download buttons are on the
+    // detail page per quality row).
     // ------------------------------------------------------------------
 
     private void onVideoClick(
-            SamusarClient.SamusarVideo video
-    ) {
-        openDetail(video);
-    }
-
-    private void onDownloadClick(
             SamusarClient.SamusarVideo video
     ) {
         openDetail(video);
@@ -483,10 +477,6 @@ public class MyanmarActivity extends AppCompatActivity {
             holder.itemView.setOnClickListener(
                     view -> onVideoClick(video)
             );
-
-            holder.downloadButton.setOnClickListener(
-                    view -> onDownloadClick(video)
-            );
         }
 
         @Override
@@ -499,7 +489,6 @@ public class MyanmarActivity extends AppCompatActivity {
 
             final ImageView thumb;
             final TextView title;
-            final ImageView downloadButton;
 
             Holder(@NonNull View itemView) {
                 super(itemView);
@@ -511,10 +500,6 @@ public class MyanmarActivity extends AppCompatActivity {
                 title =
                         itemView.findViewById(
                                 R.id.cardTitle
-                        );
-                downloadButton =
-                        itemView.findViewById(
-                                R.id.cardDownloadButton
                         );
             }
         }
