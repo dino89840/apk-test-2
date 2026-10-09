@@ -164,7 +164,7 @@ public final class JavtifulClient {
                         : BASE_URL + LIST_PATH
                                 + "?page=" + safePage;
 
-        fetchListingUrl(url, false, callback);
+        fetchListingUrl(url, safePage, false, callback);
     }
 
     /*
@@ -212,7 +212,7 @@ public final class JavtifulClient {
                                 ? "&page=" + safePage
                                 : "");
 
-        fetchListingUrl(url, true, callback);
+        fetchListingUrl(url, safePage, true, callback);
     }
 
     /*
@@ -249,7 +249,44 @@ public final class JavtifulClient {
             }
         }
 
-        fetchListingUrl(url.toString(), true, callback);
+        fetchListingUrl(
+                url.toString(),
+                safePage,
+                true,
+                callback
+        );
+    }
+
+    /*
+     * Site pagination summary — e.g.
+     * <span class="pagination__summary">Page 1 of 3</span>
+     * Returns total pages, or -1 if not found.
+     *
+     * (javtiful.com REPEATS the last page's content
+     * for ?page= beyond the end instead of returning
+     * empty — so hasMore must come from this, not
+     * from "non-empty response".)
+     */
+    private static int parseTotalPages(String html) {
+        if (html == null) {
+            return -1;
+        }
+
+        try {
+            java.util.regex.Matcher m =
+                    java.util.regex.Pattern.compile(
+                            "Page\\s+\\d+\\s+of\\s+(\\d+)",
+                            java.util.regex.Pattern
+                                    .CASE_INSENSITIVE
+                    ).matcher(html);
+
+            if (m.find()) {
+                return Integer.parseInt(m.group(1));
+            }
+        } catch (Exception ignored) {
+        }
+
+        return -1;
     }
 
     /*
@@ -263,6 +300,7 @@ public final class JavtifulClient {
      */
     private static void fetchListingUrl(
             final String url,
+            final int page,
             final boolean mosaicOnly,
             final PageCallback callback
     ) {
@@ -274,11 +312,18 @@ public final class JavtifulClient {
                         parseListing(html, mosaicOnly);
 
                 /*
-                 * Empty = no more pages. (Filtered
-                 * pages may return fewer than 23 —
-                 * pagination still works.)
+                 * hasMore comes from the site's own
+                 * "Page X of N" when present — the site
+                 * repeats the last page beyond the end,
+                 * so a non-empty response does NOT mean
+                 * more pages exist. Fallback: non-empty.
                  */
-                boolean hasMore = !videos.isEmpty();
+                int totalPages = parseTotalPages(html);
+
+                boolean hasMore =
+                        totalPages > 0
+                                ? page < totalPages
+                                : !videos.isEmpty();
 
                 callback.onResult(videos, hasMore);
             } catch (Exception error) {

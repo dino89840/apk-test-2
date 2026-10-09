@@ -378,11 +378,67 @@ public class JavtifulActivity extends AppCompatActivity {
                                 videos.clear();
                             }
 
-                            videos.addAll(newVideos);
+                            /*
+                             * Duplicate guard — server may
+                             * repeat a page's content (e.g.
+                             * actress pages repeat the last
+                             * page beyond the end). Only
+                             * append videos not already shown.
+                             */
+                            java.util.HashSet<String> seen =
+                                    new java.util.HashSet<>();
+
+                            for (
+                                    JavtifulClient.JavtifulVideo v
+                                            : videos
+                            ) {
+                                if (
+                                        v != null
+                                                && v.detailUrl
+                                                        != null
+                                ) {
+                                    seen.add(v.detailUrl);
+                                }
+                            }
+
+                            int added = 0;
+
+                            for (
+                                    JavtifulClient.JavtifulVideo v
+                                            : newVideos
+                            ) {
+                                if (
+                                        v == null
+                                                || v.detailUrl
+                                                        == null
+                                                || seen.contains(
+                                                        v.detailUrl
+                                                )
+                                ) {
+                                    continue;
+                                }
+
+                                seen.add(v.detailUrl);
+                                videos.add(v);
+                                added++;
+                            }
+
                             adapter.notifyDataSetChanged();
 
                             currentPage = page;
-                            hasMore = more;
+
+                            /*
+                             * Page added nothing new → stop
+                             * paginating (prevents infinite
+                             * repeat loops).
+                             */
+                            hasMore =
+                                    more
+                                            && !(
+                                                    page > 1
+                                                            && added
+                                                                    == 0
+                                            );
 
                             updateCount();
 
