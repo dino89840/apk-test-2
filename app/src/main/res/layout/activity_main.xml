@@ -374,7 +374,7 @@
         </LinearLayout>
 
         <LinearLayout
-            android:id="@+id/navNosub"
+            android:id="@+id/navAdult"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -387,49 +387,21 @@
             android:paddingBottom="4dp">
 
             <ImageView
-                android:id="@+id/navNosubIcon"
+                android:id="@+id/navAdultIcon"
                 android:layout_width="38dp"
                 android:layout_height="38dp"
                 android:padding="7dp"
                 android:src="@drawable/ic_nav_adult" />
 
             <TextView
-                android:id="@+id/navNosubLabel"
+                android:id="@+id/navAdultLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:paddingTop="3dp"
-                android:text="18+ Nosub"
+                android:text="18+"
                 android:textSize="11sp" />
 
         </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/navMmsub"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp">
-
-            <ImageView
-                android:id="@+id/navMmsubIcon"
-                android:layout_width="38dp"
-                android:layout_height="38dp"
-                android:padding="7dp"
-                android:src="@drawable/ic_nav_adult" />
-
-            <TextView
-                android:id="@+id/navMmsubLabel"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:paddingTop="3dp"
-                android:text="18+ Mmsub"
-                android:textSize="11sp" />
 
         </LinearLayout>
 
@@ -472,7 +444,6 @@
 
     </LinearLayout>
 
-    </LinearLayout>
 
     <!--
         ဒီ overlay က app content ပေါ်မှာသာရှိမည်။

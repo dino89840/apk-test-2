@@ -83,18 +83,15 @@ public class MainActivity extends AppCompatActivity {
 
     private View navHome;
     private View navHorror;
-    private View navNosub;
-    private View navMmsub;
+    private View navAdult;
     private View navMyanmar;
     private android.widget.ImageView navHomeIcon;
     private android.widget.ImageView navHorrorIcon;
-    private android.widget.ImageView navNosubIcon;
-    private android.widget.ImageView navMmsubIcon;
+    private android.widget.ImageView navAdultIcon;
     private android.widget.ImageView navMyanmarIcon;
     private TextView navHomeLabel;
     private TextView navHorrorLabel;
-    private TextView navNosubLabel;
-    private TextView navMmsubLabel;
+    private TextView navAdultLabel;
     private TextView navMyanmarLabel;
 
     /*
@@ -323,25 +320,20 @@ protected void onCreate(Bundle savedInstanceState) {
 
         navHome = findViewById(R.id.navHome);
         navHorror = findViewById(R.id.navHorror);
-        navNosub = findViewById(R.id.navNosub);
-        navMmsub = findViewById(R.id.navMmsub);
+        navAdult = findViewById(R.id.navAdult);
         navMyanmar = findViewById(R.id.navMyanmar);
         navHomeIcon = findViewById(R.id.navHomeIcon);
         navHorrorIcon =
                 findViewById(R.id.navHorrorIcon);
-        navNosubIcon =
-                findViewById(R.id.navNosubIcon);
-        navMmsubIcon =
-                findViewById(R.id.navMmsubIcon);
+        navAdultIcon =
+                findViewById(R.id.navAdultIcon);
         navMyanmarIcon =
                 findViewById(R.id.navMyanmarIcon);
         navHomeLabel = findViewById(R.id.navHomeLabel);
         navHorrorLabel =
                 findViewById(R.id.navHorrorLabel);
-        navNosubLabel =
-                findViewById(R.id.navNosubLabel);
-        navMmsubLabel =
-                findViewById(R.id.navMmsubLabel);
+        navAdultLabel =
+                findViewById(R.id.navAdultLabel);
         navMyanmarLabel =
                 findViewById(R.id.navMyanmarLabel);
 
@@ -902,6 +894,20 @@ private void setupDrawer() {
                                             openCategory(
                                                     "lugyi",
                                                     "Mmsub 18+"
+                                            )
+                            )
+            );
+
+    findViewById(R.id.drawerJavtiful)
+            .setOnClickListener(
+                    view ->
+                            runDrawerAction(
+                                    () ->
+                                            startActivity(
+                                                    new Intent(
+                                                            this,
+                                                            JavtifulActivity.class
+                                                    )
                                             )
                             )
             );
@@ -1657,42 +1663,19 @@ private void ensureHomeSectionLoaded(String value) {
                 }
         );
 
-        navNosub.setOnClickListener(
-                view -> {
-                    if (
-                            !homeMode &&
-                                    "series".equals(category)
-                    ) {
-                        recycler
-                                .smoothScrollToPosition(0);
-
-                        return;
-                    }
-
-                    openCategory(
-                            "series",
-                            "Nosub 18+"
-                    );
-                }
-        );
-
-        navMmsub.setOnClickListener(
-                view -> {
-                    if (
-                            !homeMode &&
-                                    "lugyi".equals(category)
-                    ) {
-                        recycler
-                                .smoothScrollToPosition(0);
-
-                        return;
-                    }
-
-                    openCategory(
-                            "lugyi",
-                            "Mmsub 18+"
-                    );
-                }
+        /*
+         * 18+ hub — Nosub / Mmsub / Javtiful
+         * sub-categories ကို AdultHubActivity မှ
+         * ရွေးမည်။ Horror က သီးသန့် tab အတိုင်း။
+         */
+        navAdult.setOnClickListener(
+                view ->
+                        startActivity(
+                                new Intent(
+                                        this,
+                                        AdultHubActivity.class
+                                )
+                        )
         );
 
         /*
@@ -1714,6 +1697,37 @@ private void ensureHomeSectionLoaded(String value) {
         );
 
         updateBottomNav();
+
+        /*
+         * AdultHubActivity မှ category တိုက်ရိုက်
+         * ဖွင့်ရန် — Intent extra "open_category"
+         * ("series"/"lugyi") ပါလာလျှင် ထို
+         * category ကို ချက်ချင်းဖွင့်မည်။
+         */
+        handleOpenCategoryIntent(getIntent());
+    }
+
+    /*
+     * AdultHub မှ "open_category" extra ဖြင့်
+     * ခေါ်လာလျှင် သက်ဆိုင်ရာ category ကို
+     * တိုက်ရိုက်ဖွင့်မည်။
+     */
+    private void handleOpenCategoryIntent(Intent intent) {
+        if (intent == null) {
+            return;
+        }
+
+        String openCategory =
+                intent.getStringExtra("open_category");
+
+        if ("series".equals(openCategory)) {
+            openCategory("series", "Nosub 18+");
+        } else if ("lugyi".equals(openCategory)) {
+            openCategory("lugyi", "Mmsub 18+");
+        }
+
+        // consumed — rotation/recreate တွင် ပြန်မဖွင့်စေရန်
+        intent.removeExtra("open_category");
     }
 
     private void updateBottomNav() {
@@ -1730,18 +1744,19 @@ private void ensureHomeSectionLoaded(String value) {
                         "movies".equals(category)
         );
 
+        /*
+         * 18+ tab — series (Nosub) သို့မဟုတ် lugyi
+         * (Mmsub) category ဖွင့်ထားလျှင် active
+         * ပြမည်။
+         */
         setBottomNavItem(
-                navNosubIcon,
-                navNosubLabel,
+                navAdultIcon,
+                navAdultLabel,
                 !homeMode &&
-                        "series".equals(category)
-        );
-
-        setBottomNavItem(
-                navMmsubIcon,
-                navMmsubLabel,
-                !homeMode &&
-                        "lugyi".equals(category)
+                        (
+                                "series".equals(category) ||
+                                        "lugyi".equals(category)
+                        )
         );
 
         /*
@@ -2027,6 +2042,7 @@ private void loadRemoteBanner() {
      * နှင့် အတူတူ ပါလာသော JSON ကိုသုံးသည်)။
      */
     updateMyanmarTab(null);
+    updateJavtifulDrawer(null);
 
     AppContentManager.loadBanner(
             this,
@@ -2041,6 +2057,10 @@ private void loadRemoteBanner() {
                         );
 
                         updateMyanmarTab(
+                                content
+                        );
+
+                        updateJavtifulDrawer(
                                 content
                         );
                     });
@@ -2064,6 +2084,29 @@ private void loadRemoteBanner() {
  * enabled=true (သို့မဟုတ် field မရှိသေးလျှင်
  * default true) → ပြမည်။ Explicitly false → ဝှက်မည်။
  */
+/*
+ * Javtiful drawer entry visibility — kill-switch။
+ * enabled=true (သို့မဟုတ် field မရှိသေးလျှင်
+ * default true) → ပြမည်။ Explicitly false → ဝှက်မည်။
+ */
+private void updateJavtifulDrawer(JSONObject content) {
+    View drawerJavtiful =
+            findViewById(R.id.drawerJavtiful);
+
+    if (drawerJavtiful == null) {
+        return;
+    }
+
+    boolean enabled =
+            AppContentManager.isJavtifulEnabled(
+                    content
+            );
+
+    drawerJavtiful.setVisibility(
+            enabled ? View.VISIBLE : View.GONE
+    );
+}
+
 private void updateMyanmarTab(
         JSONObject content
 ) {

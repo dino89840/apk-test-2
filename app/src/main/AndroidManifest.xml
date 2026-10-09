@@ -67,6 +67,21 @@
             android:name=".MyanmarDetailActivity"
             android:exported="false"
             android:screenOrientation="unspecified" />
+
+        <activity
+            android:name=".AdultHubActivity"
+            android:exported="false"
+            android:screenOrientation="unspecified" />
+
+        <activity
+            android:name=".JavtifulActivity"
+            android:exported="false"
+            android:screenOrientation="unspecified" />
+
+        <activity
+            android:name=".JavtifulDetailActivity"
+            android:exported="false"
+            android:screenOrientation="unspecified" />
                 <activity
             android:name=".ProfileActivity"
             android:exported="false"

@@ -96,6 +96,31 @@ private static final String KEY_NOTICE_SAVED_AT =
     }
 
     /*
+     * Javtiful category kill-switch.
+     *
+     * Backend /app-content မှ "javtiful": {"enabled": ...}
+     * ကို ဖတ်သည်။ Field မရိသေးလျှင် (backend cache
+     * မ refresh ရသေးလျှင်) default TRUE — card ပမည်။
+     * Explicitly false ဖစ်မှသာ ပိတ်မည်။
+     */
+    public static boolean isJavtifulEnabled(
+            JSONObject content
+    ) {
+        if (content == null) {
+            return true;
+        }
+
+        JSONObject javtiful =
+                content.optJSONObject("javtiful");
+
+        if (javtiful == null) {
+            return true;
+        }
+
+        return javtiful.optBoolean("enabled", true);
+    }
+
+    /*
      * Samusar proxy URL — server-configurable။
      *
      * Backend /app-content မှ "samusar": {"proxy": "<url>"}
