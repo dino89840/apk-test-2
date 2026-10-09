@@ -79,6 +79,20 @@ public class MyanmarActivity extends AppCompatActivity {
         continueList =
                 findViewById(R.id.myanmarContinueList);
 
+        findViewById(R.id.myanmarContinueClear)
+                .setOnClickListener(
+                        view -> {
+                            LocalStore
+                                    .clearAllSamusarProgress();
+                            refreshContinueWatching();
+                            Toast.makeText(
+                                    this,
+                                    "ရှင်းလင်းပြီးပါပြီ",
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                        }
+                );
+
         findViewById(R.id.myanmarBackButton)
                 .setOnClickListener(
                         view -> finish()
@@ -575,6 +589,53 @@ public class MyanmarActivity extends AppCompatActivity {
                                                 detailUrl
                                         )
                         );
+                    }
+            );
+
+            /*
+             * Long-press — ဒီ item တစ်ခုတည်းကို
+             * continue list ကနေ ဖယ်မည်။
+             */
+            holder.itemView.setOnLongClickListener(
+                    view -> {
+                        int pos =
+                                holder.getBindingAdapterPosition();
+
+                        if (
+                                pos < 0 ||
+                                        pos >=
+                                                continueItems
+                                                        .size()
+                        ) {
+                            return true;
+                        }
+
+                        LocalStore.SamusarProgress
+                                removed =
+                                continueItems.get(pos);
+
+                        LocalStore.clearSamusarProgress(
+                                removed.id
+                        );
+
+                        continueItems.remove(pos);
+                        continueAdapter
+                                .notifyItemRemoved(pos);
+
+                        if (continueItems.isEmpty()) {
+                            continueBox.setVisibility(
+                                    View.GONE
+                            );
+                        }
+
+                        Toast.makeText(
+                                        view.getContext(),
+                                        "ဖယ်ရှားပြီးပါပြီ",
+                                        Toast.LENGTH_SHORT
+                                )
+                                .show();
+
+                        return true;
                     }
             );
         }

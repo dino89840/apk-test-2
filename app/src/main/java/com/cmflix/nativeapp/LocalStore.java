@@ -1128,6 +1128,15 @@ public static synchronized void clearResumePosition(
                 index < source.length();
                 index++
         ) {
+            /*
+             * Storage မှာ MAX_SAMUSAR (20) cap
+             * ရှိပြီးသား — ဒါက defensive cap
+             * (ဗားရှင်းအဟောင်း data အတွက်)။
+             */
+            if (result.size() >= MAX_SAMUSAR) {
+                break;
+            }
+
             JSONObject item =
                     source.optJSONObject(index);
 
@@ -1209,6 +1218,17 @@ public static synchronized void clearResumePosition(
         saveArray(
                 KEY_SAMUSAR_PROGRESS,
                 store
+        );
+    }
+
+    /*
+     * Myanmar \"ဆက်လက်ကြည့်ရှုရန်\" row ကို
+     * အကုန်ရှင်းရန် — CLEAR button အတွက်။
+     */
+    public static synchronized void clearAllSamusarProgress() {
+        saveArray(
+                KEY_SAMUSAR_PROGRESS,
+                new JSONArray()
         );
     }
 
