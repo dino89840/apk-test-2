@@ -46,7 +46,7 @@ public class JavtifulTranslator {
                                 TranslateLanguage.ENGLISH
                         )
                         .setTargetLanguage(
-                                TranslateLanguage.BURMESE
+                                TranslateLanguage.MYANMAR
                         )
                         .build();
 
