@@ -367,26 +367,43 @@ public class MyanmarActivity extends AppCompatActivity {
     private void openDetail(
             SamusarClient.SamusarVideo video
     ) {
-        Intent intent =
-                new Intent(
-                        this,
-                        MyanmarDetailActivity.class
-                );
+        try {
+            if (video == null) {
+                return;
+            }
 
-        intent.putExtra(
-                MyanmarDetailActivity.EXTRA_TITLE,
-                video.title
-        );
-        intent.putExtra(
-                MyanmarDetailActivity.EXTRA_THUMB,
-                video.thumbUrl
-        );
-        intent.putExtra(
-                MyanmarDetailActivity.EXTRA_DETAIL_URL,
-                video.detailUrl
-        );
+            Intent intent =
+                    new Intent(
+                            this,
+                            MyanmarDetailActivity.class
+                    );
 
-        startActivity(intent);
+            intent.putExtra(
+                    MyanmarDetailActivity.EXTRA_TITLE,
+                    video.title
+            );
+            intent.putExtra(
+                    MyanmarDetailActivity.EXTRA_THUMB,
+                    video.thumbUrl
+            );
+            intent.putExtra(
+                    MyanmarDetailActivity.EXTRA_DETAIL_URL,
+                    video.detailUrl
+            );
+
+            startActivity(intent);
+        } catch (Exception error) {
+            Toast.makeText(
+                    this,
+                    "ဖွင့်၍မရပါ။ ("
+                            + error.getClass()
+                                    .getSimpleName()
+                            + ": "
+                            + error.getMessage()
+                            + ")",
+                    Toast.LENGTH_LONG
+            ).show();
+        }
     }
 
     // ------------------------------------------------------------------

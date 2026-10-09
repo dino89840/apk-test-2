@@ -3,9 +3,11 @@ package com.cmflix.nativeapp;
 import android.app.DownloadManager;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.ImageView;
@@ -64,6 +66,33 @@ public class MyanmarDetailActivity
                 R.layout.activity_myanmar_detail
         );
 
+        /*
+         * Crash diagnostic — errorView နှင့် progress
+         * ကို try block အပြင်မှာ ကြိုရှာထားမည်။
+         * onCreate ဘယ်နေရာမှာ crash ဖြစ်ဖြစ်
+         * error စာသား ပြနိုင်ရန် (activity ကို
+         * crash မဖြစ်စေရ)။
+         */
+        errorView =
+                findViewById(R.id.myanmarDetailError);
+        progress =
+                findViewById(
+                        R.id.myanmarDetailProgress
+                );
+
+        try {
+            onCreateSafe();
+        } catch (Exception fatal) {
+            showFatalError(fatal);
+        }
+    }
+
+    /*
+     * onCreate ၏ အမှန်တကယ် body — exception
+     * တက်လျှင် onCreate က catch လုပ်ပြီး error
+     * ပြမည်, crash မဖြစ်စေရ။
+     */
+    private void onCreateSafe() {
         Intent intent = getIntent();
 
         title =
@@ -96,12 +125,6 @@ public class MyanmarDetailActivity
                 findViewById(R.id.myanmarDetailThumb);
         titleView =
                 findViewById(R.id.myanmarDetailTitle);
-        progress =
-                findViewById(
-                        R.id.myanmarDetailProgress
-                );
-        errorView =
-                findViewById(R.id.myanmarDetailError);
         sourcesBox =
                 findViewById(
                         R.id.myanmarDetailSourcesBox
@@ -117,6 +140,46 @@ public class MyanmarDetailActivity
         }
 
         resolveStream();
+    }
+
+    /*
+     * onCreate အတွင်း ဘယ်နေရာမှာ exception
+     * တက်တက် — activity crash မဖြစ်စေဘဲ
+     * error စာသား ပြမည်။
+     */
+    private void showFatalError(Exception fatal) {
+        String detail =
+                "("
+                        + fatal.getClass()
+                                .getSimpleName()
+                        + ": "
+                        + fatal.getMessage()
+                        + ")";
+
+        try {
+            if (progress != null) {
+                progress.setVisibility(View.GONE);
+            }
+
+            if (errorView != null) {
+                errorView.setText(
+                        "Error: " + detail
+                );
+                errorView.setVisibility(
+                        View.VISIBLE
+                );
+            }
+        } catch (Exception ignored) {
+        }
+
+        try {
+            Toast.makeText(
+                    this,
+                    "Error: " + detail,
+                    Toast.LENGTH_LONG
+            ).show();
+        } catch (Exception ignored) {
+        }
     }
 
     // ------------------------------------------------------------------
@@ -154,29 +217,47 @@ public class MyanmarDetailActivity
                                     result
                     ) {
                         runOnUiThread(() -> {
-                            isResolving = false;
-                            progress.setVisibility(
-                                    View.GONE
-                            );
+                            try {
+                                isResolving = false;
+                                progress.setVisibility(
+                                        View.GONE
+                                );
 
-                            stream = result;
+                                stream = result;
 
-                            buildSourceRows();
+                                buildSourceRows();
+                            } catch (Exception uiError) {
+                                isResolving = false;
+
+                                showError(
+                                        "Error: ("
+                                                + uiError.getClass()
+                                                        .getSimpleName()
+                                                + ": "
+                                                + uiError
+                                                        .getMessage()
+                                                + ")"
+                                );
+                            }
                         });
                     }
 
                     @Override
                     public void onError(Exception error) {
                         runOnUiThread(() -> {
-                            isResolving = false;
-                            progress.setVisibility(
-                                    View.GONE
-                            );
+                            try {
+                                isResolving = false;
+                                progress.setVisibility(
+                                        View.GONE
+                                );
 
-                            showError(
-                                    "Video link ရယူ၍မရပါ။\n"
-                                            + "ပြန်စမ်းကြည့်ပါ။"
-                            );
+                                showError(
+                                        "Video link ရယူ၍မရပါ။\n"
+                                                + "ပြန်စမ်းကြည့်ပါ။"
+                                );
+                            } catch (Exception uiError) {
+                                // activity dying — nothing to show
+                            }
                         });
                     }
                 }
@@ -192,7 +273,27 @@ public class MyanmarDetailActivity
     // Quality rows — resolved quality များသာ
     // ------------------------------------------------------------------
 
+    /*
+     * buildSourceRows crash မဖြစ်စေရ — row
+     * တည်ဆောက်ရာတွင် exception တက်လျှင်
+     * error ပြမည်။
+     */
     private void buildSourceRows() {
+        try {
+            buildSourceRowsSafe();
+        } catch (Exception rowError) {
+            showError(
+                    "Error: ("
+                            + rowError.getClass()
+                                    .getSimpleName()
+                            + ": "
+                            + rowError.getMessage()
+                            + ")"
+            );
+        }
+    }
+
+    private void buildSourceRowsSafe() {
         sourcesBox.removeAllViews();
 
         if (stream == null || !stream.hasStream()) {
@@ -268,9 +369,28 @@ public class MyanmarDetailActivity
         rowParams.bottomMargin = (int) (6 * density);
         row.setLayoutParams(rowParams);
 
-        row.setBackgroundResource(
-                R.drawable.myanmar_source_row_bg
-        );
+        /*
+         * Row background — programmatic
+         * (myanmar_source_row_bg.xml နှင့် အတူ:
+         * solid #151820, 12dp corners,
+         * 1dp stroke #252A33)။
+         * Resource lookup crash ကို လုံးဝ
+         * ရှောင်ရန် code ဖြင့်သာ တည်ဆောက်သည်။
+         */
+        try {
+            GradientDrawable rowBg =
+                    new GradientDrawable();
+
+            rowBg.setColor(0xFF151820);
+            rowBg.setCornerRadius(12 * density);
+            rowBg.setStroke(
+                    (int) (1 * density),
+                    0xFF252A33
+            );
+
+            row.setBackground(rowBg);
+        } catch (Exception ignored) {
+        }
 
         int padding = (int) (12 * density);
         row.setPadding(
@@ -331,10 +451,32 @@ public class MyanmarDetailActivity
 
         playButton.setLayoutParams(playParams);
         playButton.setColorFilter(0xFFE8B93E);
-        playButton.setBackgroundResource(
-                android.R.attr
-                        .selectableItemBackgroundBorderless
-        );
+
+        /*
+         * selectableItemBackgroundBorderless သည်
+         * attr (drawable မဟုတ်) ဖြစ်သောကြောင့်
+         * setBackgroundResource ဖြင့် တိုက်ရိုက်
+         * သုံး၍မရပါ (NotFoundException crash) —
+         * theme ကနေ resolve လုပ်မည်။
+         */
+        try {
+            TypedValue rippleValue =
+                    new TypedValue();
+
+            getTheme().resolveAttribute(
+                    android.R.attr
+                            .selectableItemBackgroundBorderless,
+                    rippleValue,
+                    true
+            );
+
+            playButton.setBackgroundResource(
+                    rippleValue.resourceId
+            );
+        } catch (Exception ignored) {
+            // ripple မရှိလည်း ခလုတ် အလုပ်လုပ်သည်
+        }
+
         playButton.setClickable(true);
         playButton.setFocusable(true);
         playButton.setContentDescription(
@@ -358,10 +500,29 @@ public class MyanmarDetailActivity
 
         downloadButton.setLayoutParams(dlParams);
         downloadButton.setColorFilter(0xFFE8B93E);
-        downloadButton.setBackgroundResource(
-                android.R.attr
-                        .selectableItemBackgroundBorderless
-        );
+
+        /*
+         * Attr ကို theme ကနေ resolve လုပ်မည်
+         * (playButton နှင့် အတူ — direct
+         * setBackgroundResource(attr) က crash)။
+         */
+        try {
+            TypedValue rippleValue =
+                    new TypedValue();
+
+            getTheme().resolveAttribute(
+                    android.R.attr
+                            .selectableItemBackgroundBorderless,
+                    rippleValue,
+                    true
+            );
+
+            downloadButton.setBackgroundResource(
+                    rippleValue.resourceId
+            );
+        } catch (Exception ignored) {
+        }
+
         downloadButton.setClickable(true);
         downloadButton.setFocusable(true);
         downloadButton.setContentDescription(
