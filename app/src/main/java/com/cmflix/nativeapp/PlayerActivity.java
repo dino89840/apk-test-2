@@ -37,6 +37,7 @@ public class PlayerActivity extends AppCompatActivity {
     private ProgressBar playerProgress;
     private TextView resizeButton;
     private ImageView rotateButton;
+    private ImageView backButton;
 
     /*
      * True when playback started in portrait mode
@@ -103,6 +104,9 @@ public class PlayerActivity extends AppCompatActivity {
         rotateButton =
                 findViewById(R.id.rotateButton);
 
+        backButton =
+                findViewById(R.id.backButton);
+
         /*
          * Myanmar (vertical) videos start in portrait;
          * everything else keeps the existing landscape
@@ -114,12 +118,30 @@ public class PlayerActivity extends AppCompatActivity {
                         "video_orientation"
                 );
 
-        isPortraitMode =
-                "portrait".equalsIgnoreCase(
-                        orientationExtra != null
-                                ? orientationExtra.trim()
-                                : ""
-                );
+        /*
+         * If the activity was recreated after the user
+         * toggled the rotate button, keep their choice —
+         * otherwise the orientation would snap back to
+         * the launch default.
+         */
+        if (
+                savedInstanceState != null
+                        && savedInstanceState.containsKey(
+                                "player_is_portrait"
+                        )
+        ) {
+            isPortraitMode =
+                    savedInstanceState.getBoolean(
+                            "player_is_portrait"
+                    );
+        } else {
+            isPortraitMode =
+                    "portrait".equalsIgnoreCase(
+                            orientationExtra != null
+                                    ? orientationExtra.trim()
+                                    : ""
+                    );
+        }
 
         String url =
                 getIntent().getStringExtra(
@@ -216,6 +238,7 @@ public class PlayerActivity extends AppCompatActivity {
 
         setupResizeButton();
         setupRotateButton();
+        setupBackButton();
         applyResizeMode(false);
 
         initializePlayer(
@@ -249,6 +272,12 @@ public class PlayerActivity extends AppCompatActivity {
                                     buttonVisibility
                             );
                         }
+
+                        if (backButton != null) {
+                            backButton.setVisibility(
+                                    buttonVisibility
+                            );
+                        }
                     }
                 }
         );
@@ -261,6 +290,12 @@ public class PlayerActivity extends AppCompatActivity {
 
         if (rotateButton != null) {
             rotateButton.setVisibility(
+                    resizeButton.getVisibility()
+            );
+        }
+
+        if (backButton != null) {
+            backButton.setVisibility(
                     resizeButton.getVisibility()
             );
         }
@@ -915,6 +950,30 @@ public class PlayerActivity extends AppCompatActivity {
         return value == null
                 ? ""
                 : value.trim();
+    }
+
+    /*
+     * Back button (top-start corner) — exits the player.
+     * Shows/hides with the player controller, like the
+     * rotate button.
+     */
+    private void setupBackButton() {
+        if (backButton == null) {
+            return;
+        }
+
+        backButton.setOnClickListener(view -> finish());
+    }
+
+    @Override
+    protected void onSaveInstanceState(
+            Bundle outState
+    ) {
+        super.onSaveInstanceState(outState);
+        outState.putBoolean(
+                "player_is_portrait",
+                isPortraitMode
+        );
     }
 
     @Override

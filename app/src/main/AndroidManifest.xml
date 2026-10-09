@@ -50,7 +50,8 @@
         <activity
             android:name=".PlayerActivity"
             android:exported="false"
-            android:screenOrientation="unspecified" />
+            android:screenOrientation="unspecified"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout" />
 
         <activity
             android:name=".DetailActivity"

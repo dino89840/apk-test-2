@@ -26,6 +26,21 @@
         android:indeterminate="true"
         android:visibility="visible" />
 
+    <!-- Back button: exit player (top-start corner) -->
+    <ImageView
+        android:id="@+id/backButton"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:layout_gravity="top|start"
+        android:layout_marginTop="14dp"
+        android:layout_marginStart="16dp"
+        android:background="@drawable/player_resize_button_bg"
+        android:clickable="true"
+        android:elevation="14dp"
+        android:focusable="true"
+        android:padding="8dp"
+        android:src="@drawable/ic_auth_back" />
+
     <!-- Rotate toggle: portrait <-> landscape -->
     <ImageView
         android:id="@+id/rotateButton"
