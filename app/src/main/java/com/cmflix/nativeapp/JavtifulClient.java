@@ -842,12 +842,49 @@ public final class JavtifulClient {
         }
     }
 
+    /*
+     * Numeric character references: &#039; &#39; &#x27; ...
+     * (javtiful emits &#039; with a leading zero, which the
+     * old fixed list missed).
+     */
+    private static final Pattern NUMERIC_ENTITY =
+            Pattern.compile("&#(\\d+);|&#x([0-9a-fA-F]+);");
+
     private static String unescapeHtml(String text) {
-        return text
+        if (text == null) {
+            return "";
+        }
+
+        Matcher numeric = NUMERIC_ENTITY.matcher(text);
+        StringBuffer decoded = new StringBuffer();
+
+        while (numeric.find()) {
+            int codePoint;
+
+            try {
+                if (numeric.group(1) != null) {
+                    codePoint = Integer.parseInt(numeric.group(1));
+                } else {
+                    codePoint = Integer.parseInt(numeric.group(2), 16);
+                }
+            } catch (NumberFormatException invalid) {
+                continue;
+            }
+
+            numeric.appendReplacement(
+                    decoded,
+                    Matcher.quoteReplacement(
+                            new String(Character.toChars(codePoint))
+                    )
+            );
+        }
+
+        numeric.appendTail(decoded);
+
+        return decoded.toString()
                 .replace("&amp;", "&")
                 .replace("&quot;", "\"")
-                .replace("&#39;", "'")
-                .replace("&#x27;", "'")
+                .replace("&apos;", "'")
                 .replace("&lt;", "<")
                 .replace("&gt;", ">")
                 .replace("&nbsp;", " ")
