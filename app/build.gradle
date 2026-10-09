@@ -221,4 +221,8 @@ dependencies {
 
     implementation 'com.github.bumptech.glide:glide:4.16.0'
     implementation 'com.facebook.shimmer:shimmer:0.5.0'
+
+    // ML Kit on-device English→Burmese translation
+    // (Javtiful titles; no server requests, free)
+    implementation 'com.google.mlkit:translate:17.0.3'
 }

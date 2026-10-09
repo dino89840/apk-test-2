@@ -93,6 +93,8 @@ public class JavtifulDetailActivity
                 findViewById(R.id.javtifulDetailTitle);
         titleView.setText(title);
 
+        translateTitleToMyanmar(title);
+
         TextView durationView =
                 findViewById(R.id.javtifulDetailDuration);
 
@@ -132,6 +134,86 @@ public class JavtifulDetailActivity
     ) {
         String value = intent.getStringExtra(key);
         return value == null ? "" : value;
+    }
+
+    // ------------------------------------------------------------------
+    // On-device English → Burmese title (ML Kit)
+    //
+    // Async — UI ကို block မလုပ်ပါ။ Fail ရင်
+    // silently hide (English title ပဲ ကျန်မည်).
+    // ------------------------------------------------------------------
+
+    private void translateTitleToMyanmar(String english) {
+        TextView mmView =
+                findViewById(R.id.javtifulDetailTitleMm);
+
+        if (mmView == null) {
+            return;
+        }
+
+        if (english == null || english.trim().isEmpty()) {
+            mmView.setVisibility(View.GONE);
+            return;
+        }
+
+        mmView.setText("ဘာသာပြန်နေသည်...");
+        mmView.setVisibility(View.VISIBLE);
+
+        try {
+            JavtifulTranslator.get().translateToMyanmar(
+                    english,
+                    new JavtifulTranslator.Callback() {
+                        @Override
+                        public void onTranslated(
+                                String burmese
+                        ) {
+                            runOnUiThread(() -> {
+                                if (isFinishing()
+                                        || isDestroyed()) {
+                                    return;
+                                }
+
+                                if (burmese == null
+                                        || burmese
+                                                .trim()
+                                                .isEmpty()) {
+                                    mmView.setVisibility(
+                                            View.GONE
+                                    );
+                                    return;
+                                }
+
+                                mmView.setText(burmese);
+                                mmView.setVisibility(
+                                        View.VISIBLE
+                                );
+                            });
+                        }
+
+                        @Override
+                        public void onError(
+                                Exception error
+                        ) {
+                            runOnUiThread(() -> {
+                                if (isFinishing()
+                                        || isDestroyed()) {
+                                    return;
+                                }
+
+                                // Fail silently — English
+                                // title ပဲ ပြထားမည်။
+                                mmView.setVisibility(
+                                        View.GONE
+                                );
+                            });
+                        }
+                    }
+            );
+        } catch (Exception error) {
+            // ML Kit မရှိရင် / init fail ရင်
+            // English ပဲ ပြမည်။
+            mmView.setVisibility(View.GONE);
+        }
     }
 
     // ------------------------------------------------------------------
