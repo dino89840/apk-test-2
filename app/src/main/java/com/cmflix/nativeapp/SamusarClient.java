@@ -1,0 +1,925 @@
+package com.cmflix.nativeapp;
+
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpCookie;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/*
+ * samusar.com scraper — listing + stream resolve.
+ *
+ * - Network request အားလုံး background thread ပေါ်မှာ။
+ * - Cookie များကို request တိုင်းတွင် ပြန်ပို့သည်
+ *   (detail page session + tokenized mp4 URL များအတွက်)။
+ * - Stream URL များကို ဘယ်နေရာမှ cache မလုပ်ပါ —
+ *   token များသည် session-bound ဖြစ်သောကြောင့်
+ *   play/download မလုပ်မီ အမြဲ fresh resolve လုပ်ရမည်။
+ *
+ * NOTE: CookieManager ကို global default အဖြစ်
+ * မသတ်မှတ်ပါ — ApiClient ၏ request များကို
+ * လုံးဝ မထိခိုက်စေရန် manual cookie jar သုံးသည်။
+ */
+public final class SamusarClient {
+
+    private static final String BASE_URL =
+            "https://www.samusar.com";
+
+    private static final String LIST_PATH =
+            "/latest-updates";
+
+    /*
+     * Samusar video များ၏ stable ID prefix။
+     * LocalStore resume key အဖြစ်
+     * "samusar:" + detailUrl ကို သုံးသည်။
+     */
+    public static final String ID_PREFIX =
+            "samusar:";
+
+    public static String videoId(String detailUrl) {
+        String url =
+                detailUrl == null
+                        ? ""
+                        : detailUrl.trim();
+
+        if (url.startsWith(ID_PREFIX)) {
+            return url;
+        }
+
+        return ID_PREFIX + url;
+    }
+
+    public static String detailUrlFromId(String videoId) {
+        String id =
+                videoId == null
+                        ? ""
+                        : videoId.trim();
+
+        if (id.startsWith(ID_PREFIX)) {
+            return id.substring(ID_PREFIX.length());
+        }
+
+        return id;
+    }
+
+    /*
+     * Browser-like UA — samusar သည် bot UA များကို
+     * block လုပ်နိုင်သောကြောင့်။
+     */
+    public static final String USER_AGENT =
+            "Mozilla/5.0 (Linux; Android 13; Pixel 7) "
+                    + "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    + "Chrome/120.0 Mobile Safari/537.36";
+
+    private static final int CONNECT_TIMEOUT_MS = 15000;
+    private static final int READ_TIMEOUT_MS = 20000;
+    private static final int MAX_REDIRECTS = 5;
+
+    private static final ExecutorService EXECUTOR =
+            Executors.newCachedThreadPool();
+
+    /*
+     * Samusar-only in-memory cookie jar.
+     * Synchronized — background thread အများအပြားမှ
+     * တစ်ပြိုင်နက် သုံးနိုင်သည်။
+     */
+    private static final List<HttpCookie> COOKIE_JAR =
+            new ArrayList<>();
+
+    private SamusarClient() {
+    }
+
+    public static final class SamusarVideo {
+        public final String title;
+        public final String thumbUrl;
+        public final String detailUrl;
+
+        public SamusarVideo(
+                String title,
+                String thumbUrl,
+                String detailUrl
+        ) {
+            this.title = title;
+            this.thumbUrl = thumbUrl;
+            this.detailUrl = detailUrl;
+        }
+    }
+
+    public static final class SamusarStream {
+        public final String url480;
+        public final String url720;
+        public final String url1080;
+
+        /*
+         * Detail page request မှ ရသော session cookies
+         * ("Cookie" header အဖြစ် ပြန်ပို့ရန်)။
+         */
+        public final String cookieHeader;
+
+        /*
+         * Video detail page URL — "Referer" header အဖြစ်
+         * ပြန်ပို့ရန်။
+         */
+        public final String referer;
+
+        public SamusarStream(
+                String url480,
+                String url720,
+                String url1080,
+                String cookieHeader,
+                String referer
+        ) {
+            this.url480 = url480;
+            this.url720 = url720;
+            this.url1080 = url1080;
+            this.cookieHeader = cookieHeader;
+            this.referer = referer;
+        }
+
+        /*
+         * Default 720p, fallback 480p, နောက်ဆုံး 1080p။
+         */
+        public String bestUrl() {
+            if (
+                    url720 != null &&
+                            !url720.isEmpty()
+            ) {
+                return url720;
+            }
+
+            if (
+                    url480 != null &&
+                            !url480.isEmpty()
+            ) {
+                return url480;
+            }
+
+            return url1080 == null ? "" : url1080;
+        }
+
+        public boolean hasStream() {
+            return !bestUrl().isEmpty();
+        }
+    }
+
+    public interface PageCallback {
+        void onResult(
+                List<SamusarVideo> videos,
+                boolean hasMore
+        );
+
+        void onError(Exception error);
+    }
+
+    public interface StreamCallback {
+        void onResult(SamusarStream stream);
+
+        void onError(Exception error);
+    }
+
+    /*
+     * Listing page N ကို fetch လုပ်သည်။
+     * Page 1 = /latest-updates , page N = /latest-updates/N/
+     */
+    public static void fetchPage(
+            int page,
+            PageCallback callback
+    ) {
+        final int safePage = Math.max(1, page);
+
+        EXECUTOR.execute(() -> {
+            try {
+                String url =
+                        safePage <= 1
+                                ? BASE_URL + LIST_PATH
+                                : BASE_URL + LIST_PATH
+                                        + "/" + safePage + "/";
+
+                String html = get(url, BASE_URL + "/");
+
+                List<SamusarVideo> videos =
+                        parseListing(html);
+
+                /*
+                 * Card အရေအတွက် 0 ဖြစ်နေလျှင်
+                 * နောက် page မရှိတော့ဟု ယူဆသည်။
+                 */
+                boolean hasMore = !videos.isEmpty();
+
+                callback.onResult(videos, hasMore);
+            } catch (Exception error) {
+                callback.onError(error);
+            }
+        });
+    }
+
+    /*
+     * Detail page ကို fetch လုပ်ပြီး tokenized mp4
+     * URL များကို fresh resolve လုပ်သည်။
+     * Stream URL ကို cache လုံးဝ မလုပ်ပါ။
+     */
+    public static void resolveStream(
+            String detailUrl,
+            StreamCallback callback
+    ) {
+        EXECUTOR.execute(() -> {
+            try {
+                if (
+                        detailUrl == null ||
+                                detailUrl.trim().isEmpty()
+                ) {
+                    throw new IllegalStateException(
+                            "Detail URL မရှိပါ။"
+                    );
+                }
+
+                String html =
+                        get(detailUrl.trim(), BASE_URL + "/");
+
+                SamusarStream stream =
+                        parseDetail(
+                                html,
+                                detailUrl.trim(),
+                                currentCookieHeader()
+                        );
+
+                if (!stream.hasStream()) {
+                    throw new IllegalStateException(
+                            "Video link ရှာမတွေ့ပါ။"
+                    );
+                }
+
+                callback.onResult(stream);
+            } catch (Exception error) {
+                callback.onError(error);
+            }
+        });
+    }
+
+    // ------------------------------------------------------------------
+    // HTTP layer — cookie-preserving, manual redirect handling
+    // ------------------------------------------------------------------
+
+    private static String get(
+            String url,
+            String referer
+    ) throws Exception {
+        String currentUrl = url;
+        String currentReferer = referer;
+
+        for (
+                int hop = 0;
+                hop <= MAX_REDIRECTS;
+                hop++
+        ) {
+            HttpURLConnection connection = null;
+
+            try {
+                connection =
+                        (HttpURLConnection)
+                                new URL(currentUrl)
+                                        .openConnection();
+
+                connection.setInstanceFollowRedirects(
+                        false
+                );
+                connection.setConnectTimeout(
+                        CONNECT_TIMEOUT_MS
+                );
+                connection.setReadTimeout(
+                        READ_TIMEOUT_MS
+                );
+                connection.setRequestMethod("GET");
+
+                connection.setRequestProperty(
+                        "User-Agent",
+                        USER_AGENT
+                );
+                connection.setRequestProperty(
+                        "Accept",
+                        "text/html,application/xhtml+xml,"
+                                + "application/xml;q=0.9,"
+                                + "image/avif,image/webp,*/*;q=0.8"
+                );
+                connection.setRequestProperty(
+                        "Accept-Language",
+                        "en-US,en;q=0.9"
+                );
+
+                if (
+                        currentReferer != null &&
+                                !currentReferer.isEmpty()
+                ) {
+                    connection.setRequestProperty(
+                            "Referer",
+                            currentReferer
+                    );
+                }
+
+                String cookieHeader =
+                        currentCookieHeader();
+
+                if (!cookieHeader.isEmpty()) {
+                    connection.setRequestProperty(
+                            "Cookie",
+                            cookieHeader
+                    );
+                }
+
+                int status =
+                        connection.getResponseCode();
+
+                storeCookies(connection);
+
+                if (isRedirect(status)) {
+                    String location =
+                            connection.getHeaderField(
+                                    "Location"
+                            );
+
+                    if (
+                            location == null ||
+                                    location.isEmpty()
+                    ) {
+                        throw new IllegalStateException(
+                                "Redirect location မရှိပါ: "
+                                        + status
+                        );
+                    }
+
+                    currentReferer = currentUrl;
+                    currentUrl =
+                            resolveUrl(
+                                    currentUrl,
+                                    location.trim()
+                            );
+
+                    continue;
+                }
+
+                if (
+                        status < 200 ||
+                                status >= 300
+                ) {
+                    throw new IllegalStateException(
+                            "Request failed: " + status
+                    );
+                }
+
+                return readStream(
+                        connection.getInputStream()
+                );
+            } finally {
+                if (connection != null) {
+                    connection.disconnect();
+                }
+            }
+        }
+
+        throw new IllegalStateException(
+                "Redirect အလွန်အကျွံများနေသည်။"
+        );
+    }
+
+    private static boolean isRedirect(int status) {
+        return status == 301 ||
+                status == 302 ||
+                status == 303 ||
+                status == 307 ||
+                status == 308;
+    }
+
+    private static String resolveUrl(
+            String base,
+            String location
+    ) throws Exception {
+        return new URL(new URL(base), location)
+                .toString();
+    }
+
+    private static synchronized void storeCookies(
+            HttpURLConnection connection
+    ) {
+        Map<String, List<String>> headers =
+                connection.getHeaderFields();
+
+        if (headers == null) {
+            return;
+        }
+
+        for (
+                Map.Entry<String, List<String>> entry :
+                        headers.entrySet()
+        ) {
+            if (
+                    entry.getKey() == null ||
+                            !entry.getKey()
+                                    .equalsIgnoreCase(
+                                            "Set-Cookie"
+                                    )
+            ) {
+                continue;
+            }
+
+            for (String value : entry.getValue()) {
+                try {
+                    List<HttpCookie> parsed =
+                            HttpCookie.parse(value);
+
+                    for (HttpCookie cookie : parsed) {
+                        /*
+                         * နာမည်တူ cookie အဟောင်းကို
+                         * အစားထိုးမည်။
+                         */
+                        COOKIE_JAR.removeIf(
+                                existing ->
+                                        existing.getName()
+                                                .equals(
+                                                        cookie.getName()
+                                                )
+                        );
+
+                        if (
+                                !cookie.hasExpired()
+                        ) {
+                            COOKIE_JAR.add(cookie);
+                        }
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+        }
+    }
+
+    private static synchronized String currentCookieHeader() {
+        StringBuilder builder = new StringBuilder();
+
+        COOKIE_JAR.removeIf(
+                cookie -> {
+                    try {
+                        return cookie.hasExpired();
+                    } catch (Exception ignored) {
+                        return true;
+                    }
+                }
+        );
+
+        for (HttpCookie cookie : COOKIE_JAR) {
+            if (builder.length() > 0) {
+                builder.append("; ");
+            }
+
+            builder.append(cookie.getName())
+                    .append("=")
+                    .append(cookie.getValue());
+        }
+
+        return builder.toString();
+    }
+
+    private static String readStream(
+            InputStream input
+    ) throws Exception {
+        if (input == null) {
+            return "";
+        }
+
+        try (
+                BufferedReader reader =
+                        new BufferedReader(
+                                new InputStreamReader(
+                                        input,
+                                        StandardCharsets.UTF_8
+                                )
+                        )
+        ) {
+            StringBuilder result =
+                    new StringBuilder();
+
+            char[] buffer = new char[8192];
+            int read;
+
+            while (
+                    (read =
+                            reader.read(
+                                    buffer,
+                                    0,
+                                    buffer.length
+                            )) != -1
+            ) {
+                result.append(buffer, 0, read);
+            }
+
+            return result.toString();
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Listing parser
+    // ------------------------------------------------------------------
+
+    /*
+     * Video card anchor:
+     * <a href=".../videos/<id>/<hash>/"> ... </a>
+     */
+    private static final Pattern CARD_ANCHOR =
+            Pattern.compile(
+                    "<a\\b[^>]*?href\\s*=\\s*\"([^\"]*?/videos/\\d+/[A-Za-z0-9]+/?(?:\\?[^\"]*)?)\"[^>]*>(.*?)</a>",
+                    Pattern.CASE_INSENSITIVE
+                            | Pattern.DOTALL
+            );
+
+    private static final Pattern IMG_SRC =
+            Pattern.compile(
+                    "<img\\b[^>]*?(?:data-src|data-original|src)\\s*=\\s*\"([^\"]+)\"",
+                    Pattern.CASE_INSENSITIVE
+            );
+
+    private static final Pattern IMG_ALT =
+            Pattern.compile(
+                    "\\b(?:alt|title)\\s*=\\s*\"([^\"]+)\"",
+                    Pattern.CASE_INSENSITIVE
+            );
+
+    private static List<SamusarVideo> parseListing(
+            String html
+    ) {
+        List<SamusarVideo> videos = new ArrayList<>();
+
+        if (html == null || html.isEmpty()) {
+            return videos;
+        }
+
+        /*
+         * JSON-escaped slash များ (https:\/\/...) ကို
+         * normalize လုပ်မည်။
+         */
+        String normalized =
+                html.replace("\\/", "/");
+
+        Matcher cardMatcher =
+                CARD_ANCHOR.matcher(normalized);
+
+        while (cardMatcher.find()) {
+            String href = cardMatcher.group(1).trim();
+            String body = cardMatcher.group(2);
+
+            if (href.isEmpty()) {
+                continue;
+            }
+
+            String detailUrl = absoluteUrl(href);
+
+            /*
+             * Listing card များသာ — /videos/<id>/<hash>/
+             * ပုံစံမဟုတ်လျှင် ကျော်မည်။
+             */
+            if (
+                    !detailUrl.matches(
+                            "(?i).*?/videos/\\d+/[A-Za-z0-9]+/?(\\?.*)?$"
+                    )
+            ) {
+                continue;
+            }
+
+            String thumbUrl = "";
+            String title = "";
+
+            if (body != null) {
+                Matcher imgMatcher =
+                        IMG_SRC.matcher(body);
+
+                if (imgMatcher.find()) {
+                    thumbUrl =
+                            absoluteUrl(
+                                    imgMatcher
+                                            .group(1)
+                                            .trim()
+                            );
+                }
+
+                /*
+                 * Title ကို img alt/title attr မှ
+                 * အရင်ရှာမည်။
+                 */
+                Matcher altMatcher =
+                        IMG_ALT.matcher(body);
+
+                if (altMatcher.find()) {
+                    title =
+                            unescapeHtml(
+                                    altMatcher
+                                            .group(1)
+                                            .trim()
+                            );
+                }
+
+                if (title.isEmpty()) {
+                    title =
+                            unescapeHtml(
+                                    stripTags(body)
+                                            .trim()
+                            );
+                }
+            }
+
+            if (title.isEmpty()) {
+                title = "အမည်မသိ ဗီဒီယို";
+            }
+
+            /*
+             * Detail URL တူနေသော card အထပ်များကို
+             * ဖယ်မည်။
+             */
+            boolean duplicate = false;
+
+            for (SamusarVideo existing : videos) {
+                if (
+                        existing.detailUrl.equals(
+                                detailUrl
+                        )
+                ) {
+                    duplicate = true;
+                    break;
+                }
+            }
+
+            if (!duplicate) {
+                videos.add(
+                        new SamusarVideo(
+                                title,
+                                thumbUrl,
+                                detailUrl
+                        )
+                );
+            }
+        }
+
+        return videos;
+    }
+
+    // ------------------------------------------------------------------
+    // Detail parser — tokenized mp4 URLs
+    // ------------------------------------------------------------------
+
+    private static final Pattern MP4_URL =
+            Pattern.compile(
+                    "(https?://[^\"'\\s<>\\\\]+?\\.mp4(?:\\?[^\"'\\s<>\\\\]*)?)",
+                    Pattern.CASE_INSENSITIVE
+            );
+
+    /*
+     * Quality label: "label":"720p" / label="720p" /
+     * 720p / 720 စသည်။
+     */
+    private static final Pattern QUALITY_LABEL =
+            Pattern.compile(
+                    "(\\d{3,4})\\s*p?",
+                    Pattern.CASE_INSENSITIVE
+            );
+
+    private static SamusarStream parseDetail(
+            String html,
+            String detailUrl,
+            String cookieHeader
+    ) {
+        String url480 = "";
+        String url720 = "";
+        String url1080 = "";
+
+        if (html != null && !html.isEmpty()) {
+            String normalized =
+                    html.replace("\\/", "/");
+
+            Matcher matcher =
+                    MP4_URL.matcher(normalized);
+
+            /*
+             * URL တူများ dedupe လုပ်ရန်။
+             */
+            Map<String, String> seen =
+                    new LinkedHashMap<>();
+
+            while (matcher.find()) {
+                String mp4Url =
+                        matcher.group(1).trim();
+
+                if (seen.containsKey(mp4Url)) {
+                    continue;
+                }
+
+                int start =
+                        Math.max(
+                                0,
+                                matcher.start() - 400
+                        );
+                int end =
+                        Math.min(
+                                normalized.length(),
+                                matcher.end() + 400
+                        );
+
+                String window =
+                        normalized.substring(start, end);
+
+                int quality =
+                        detectQuality(mp4Url, window);
+
+                seen.put(mp4Url, String.valueOf(quality));
+
+                if (
+                        quality == 480 &&
+                                url480.isEmpty()
+                ) {
+                    url480 = mp4Url;
+                } else if (
+                        quality == 720 &&
+                                url720.isEmpty()
+                ) {
+                    url720 = mp4Url;
+                } else if (
+                        quality == 1080 &&
+                                url1080.isEmpty()
+                ) {
+                    url1080 = mp4Url;
+                }
+            }
+
+            /*
+             * Quality label မတွေ့သော mp4 တစ်ခုတည်းသာ
+             * ရှိလျှင် 720p အဖြစ် သတ်မှတ်မည်။
+             */
+            if (
+                    url480.isEmpty() &&
+                            url720.isEmpty() &&
+                            url1080.isEmpty() &&
+                            !seen.isEmpty()
+            ) {
+                url720 =
+                        seen.keySet()
+                                .iterator()
+                                .next();
+            }
+        }
+
+        return new SamusarStream(
+                url480,
+                url720,
+                url1080,
+                cookieHeader == null
+                        ? ""
+                        : cookieHeader,
+                detailUrl
+        );
+    }
+
+    private static int detectQuality(
+            String mp4Url,
+            String window
+    ) {
+        /*
+         * 1) URL ထဲမှာ quality ပါလျှင် အရင်ယူမည်
+         *    (ဥပမာ .../720p/...mp4 , ..._720p.mp4)
+         */
+        int fromUrl =
+                qualityFromText(mp4Url);
+
+        if (fromUrl > 0) {
+            return fromUrl;
+        }
+
+        /*
+         * 2) URL အနီးအနားက label ကိုရှာမည်
+         *    ("label":"720p" စသည်)
+         */
+        return qualityFromText(window);
+    }
+
+    private static int qualityFromText(String text) {
+        Matcher matcher =
+                QUALITY_LABEL.matcher(text);
+
+        while (matcher.find()) {
+            int value;
+
+            try {
+                value =
+                        Integer.parseInt(
+                                matcher.group(1)
+                        );
+            } catch (NumberFormatException ignored) {
+                continue;
+            }
+
+            if (
+                    value == 480 ||
+                            value == 720 ||
+                            value == 1080
+            ) {
+                return value;
+            }
+
+            /*
+             * 360 / 240 စသော quality နိမ့်များကို
+             * 480 bucket ထဲထည့်မည်။
+             */
+            if (value < 480) {
+                return 480;
+            }
+
+            /*
+             * 1440 / 2160 စသည်များကို
+             * 1080 bucket ထဲထည့်မည်။
+             */
+            if (value > 1080) {
+                return 1080;
+            }
+        }
+
+        return 0;
+    }
+
+    // ------------------------------------------------------------------
+    // Helpers
+    // ------------------------------------------------------------------
+
+    private static String absoluteUrl(String url) {
+        if (url == null) {
+            return "";
+        }
+
+        String trimmed = url.trim();
+
+        if (trimmed.isEmpty()) {
+            return "";
+        }
+
+        if (
+                trimmed.startsWith("//")
+        ) {
+            return "https:" + trimmed;
+        }
+
+        if (
+                trimmed
+                        .toLowerCase(Locale.US)
+                        .startsWith("http")
+        ) {
+            return trimmed;
+        }
+
+        try {
+            return new URL(
+                    new URL(BASE_URL),
+                    trimmed
+            ).toString();
+        } catch (Exception ignored) {
+            return trimmed;
+        }
+    }
+
+    private static String stripTags(String html) {
+        String noTags =
+                html.replaceAll(
+                        "<[^>]+>",
+                        " "
+                );
+
+        return noTags
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    private static String unescapeHtml(String text) {
+        return text
+                .replace("&amp;", "&")
+                .replace("&quot;", "\"")
+                .replace("&#39;", "'")
+                .replace("&#x27;", "'")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&nbsp;", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    /*
+     * Cookie jar ကို ရှင်းရန် (logout / session
+     * ပြန်စရန် လိုအပ်ပါက)။
+     */
+    public static synchronized void clearCookies() {
+        COOKIE_JAR.clear();
+    }
+}

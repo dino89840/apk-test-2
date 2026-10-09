@@ -433,6 +433,43 @@
 
         </LinearLayout>
 
+        <!--
+            မြန်မာ (samusar) tab — backend /app-content ရဲ့
+            myanmar.enabled kill-switch မှ visibility
+            ကို ထိန်းသည်။ Default GONE (fail-closed)
+            content check ပြီးမှ ပြမည်။
+        -->
+        <LinearLayout
+            android:id="@+id/navMyanmar"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/navMyanmarIcon"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:padding="7dp"
+                android:src="@drawable/ic_nav_film" />
+
+            <TextView
+                android:id="@+id/navMyanmarLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingTop="3dp"
+                android:text="မြန်မာ"
+                android:textSize="11sp" />
+
+        </LinearLayout>
+
     </LinearLayout>
 
     </LinearLayout>
