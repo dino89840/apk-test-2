@@ -280,16 +280,37 @@ public class MyanmarActivity extends AppCompatActivity {
                                     View.GONE
                             );
 
+                            /*
+                             * Debug: အမှန်တကယ် error ကို
+                             * ပြသမည် (user က report
+                             * လုပ်နိုင်ရန်)။
+                             */
+                            String detail =
+                                    error.getClass()
+                                            .getSimpleName()
+                                            + ": "
+                                            + String.valueOf(
+                                                    error.getMessage()
+                                            );
+
                             if (videos.isEmpty()) {
                                 showEmpty(
-                                        "ဗီဒီယိုများ ရယူ၍မရပါ။\nပြန်စမ်းကြည့်ပါ။",
+                                        "ဗီဒီယိုများ ရယူ၍မရပါ။\nပြန်စမ်းကြည့်ပါ။\n("
+                                                + detail + ")",
                                         true
                                 );
+
+                                Toast.makeText(
+                                        MyanmarActivity.this,
+                                        detail,
+                                        Toast.LENGTH_LONG
+                                ).show();
                             } else {
                                 Toast.makeText(
                                         MyanmarActivity.this,
-                                        "နောက် page ရယူ၍မရပါ။",
-                                        Toast.LENGTH_SHORT
+                                        "နောက် page ရယူ၍မရပါ။\n"
+                                                + detail,
+                                        Toast.LENGTH_LONG
                                 ).show();
                             }
                         });

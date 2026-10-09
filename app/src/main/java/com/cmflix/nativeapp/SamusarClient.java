@@ -1,5 +1,7 @@
 package com.cmflix.nativeapp;
 
+import android.util.Log;
+
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -17,6 +19,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.zip.GZIPInputStream;
 
 /*
  * samusar.com scraper — listing + stream resolve.
@@ -33,6 +36,9 @@ import java.util.regex.Pattern;
  * လုံးဝ မထိခိုက်စေရန် manual cookie jar သုံးသည်။
  */
 public final class SamusarClient {
+
+    private static final String TAG =
+            "SamusarClient";
 
     private static final String BASE_URL =
             "https://www.samusar.com";
@@ -317,6 +323,10 @@ public final class SamusarClient {
                         "Accept-Language",
                         "en-US,en;q=0.9"
                 );
+                connection.setRequestProperty(
+                        "Accept-Encoding",
+                        "identity"
+                );
 
                 if (
                         currentReferer != null &&
@@ -342,6 +352,12 @@ public final class SamusarClient {
                         connection.getResponseCode();
 
                 storeCookies(connection);
+
+                Log.d(
+                        TAG,
+                        "GET " + currentUrl
+                                + " -> HTTP " + status
+                );
 
                 if (isRedirect(status)) {
                     String location =
@@ -373,14 +389,50 @@ public final class SamusarClient {
                         status < 200 ||
                                 status >= 300
                 ) {
+                    String errorBody =
+                            readErrorBody(connection);
+
+                    Log.d(
+                            TAG,
+                            "GET " + currentUrl
+                                    + " error body length="
+                                    + errorBody.length()
+                    );
+
+                    if (isCloudflareChallenge(errorBody)) {
+                        throw new IllegalStateException(
+                                "Cloudflare protection blocked"
+                                        + " the request (HTTP "
+                                        + status + ")"
+                        );
+                    }
+
                     throw new IllegalStateException(
                             "Request failed: " + status
                     );
                 }
 
-                return readStream(
-                        connection.getInputStream()
+                String body =
+                        readStream(
+                                connection,
+                                connection.getInputStream()
+                        );
+
+                Log.d(
+                        TAG,
+                        "GET " + currentUrl
+                                + " body length="
+                                + body.length()
                 );
+
+                if (isCloudflareChallenge(body)) {
+                    throw new IllegalStateException(
+                            "Cloudflare protection blocked"
+                                    + " the request"
+                    );
+                }
+
+                return body;
             } finally {
                 if (connection != null) {
                     connection.disconnect();
@@ -489,18 +541,40 @@ public final class SamusarClient {
         return builder.toString();
     }
 
+    /*
+     * Response body ကို ဖတ်သည်။ Server က gzip
+     * ပေးလိုက်လျှင် (Accept-Encoding: identity
+     * တောင်းထားသော်လည်း တချို့ server/CDN များ
+     * gzip ပေးတတ်သည်) decompress လုပ်မည်။
+     */
     private static String readStream(
+            HttpURLConnection connection,
             InputStream input
     ) throws Exception {
         if (input == null) {
             return "";
         }
 
+        InputStream decoded = input;
+
+        String contentEncoding =
+                connection.getContentEncoding();
+
+        if (
+                contentEncoding != null &&
+                        contentEncoding.equalsIgnoreCase(
+                                "gzip"
+                        )
+        ) {
+            Log.d(TAG, "response is gzip-encoded, decompressing");
+            decoded = new GZIPInputStream(input);
+        }
+
         try (
                 BufferedReader reader =
                         new BufferedReader(
                                 new InputStreamReader(
-                                        input,
+                                        decoded,
                                         StandardCharsets.UTF_8
                                 )
                         )
@@ -524,6 +598,57 @@ public final class SamusarClient {
 
             return result.toString();
         }
+    }
+
+    /*
+     * HTTP error (4xx/5xx) response ၏ body ကို
+     * ဖတ်သည်။ Cloudflare challenge စစ်ဆေးရန်
+     * သုံးသည်။
+     */
+    private static String readErrorBody(
+            HttpURLConnection connection
+    ) {
+        try {
+            InputStream errorStream =
+                    connection.getErrorStream();
+
+            if (errorStream == null) {
+                return "";
+            }
+
+            return readStream(
+                    connection,
+                    errorStream
+            );
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
+    /*
+     * Cloudflare bot-protection / challenge page
+     * ဟုတ်မဟုတ် စစ်သည်။
+     */
+    private static boolean isCloudflareChallenge(
+            String body
+    ) {
+        if (body == null || body.isEmpty()) {
+            return false;
+        }
+
+        String lower =
+                body.toLowerCase(Locale.US);
+
+        return lower.contains("cloudflare")
+                && (
+                        lower.contains("challenge")
+                                || lower.contains(
+                                        "attention required"
+                                )
+                                || lower.contains(
+                                        "just a moment"
+                                )
+                );
     }
 
     // ------------------------------------------------------------------
@@ -674,6 +799,35 @@ public final class SamusarClient {
     // Detail parser — tokenized mp4 URLs
     // ------------------------------------------------------------------
 
+    // ------------------------------------------------------------------
+    // Detail parser — JS player config (video_url / video_alt_url /
+    // video_alt_url2) with tokenized get_file URLs.
+    //
+    // Example:
+    //   video_url: 'https://www.samusar.com/get_file/1/<hash>/.../56894.mp4/?v-acctoken=<b64>',
+    //   video_url_text: '480p',
+    //   video_alt_url: '.../56894_720p.mp4/?v-acctoken=<b64>',
+    //   video_alt_url_text: '720p',
+    //   video_alt_url2: '.../56894_1080p.mp4/?v-acctoken=<b64>',
+    //   video_alt_url2_text: '1080p',
+    // ------------------------------------------------------------------
+
+    /*
+     * video_url / video_alt_url / video_alt_url2 နှင့်
+     * ၎င်းတို့၏ text label များ။
+     */
+    private static final Pattern PLAYER_URL =
+            Pattern.compile(
+                    "\\bvideo(_alt(_url2|_url)?|_url2?)\\s*:\\s*'([^']+)'",
+                    Pattern.CASE_INSENSITIVE
+            );
+
+    private static final Pattern PLAYER_URL_TEXT =
+            Pattern.compile(
+                    "\\bvideo(_alt(_url2|_url)?|_url2?)_text\\s*:\\s*'([^']+)'",
+                    Pattern.CASE_INSENSITIVE
+            );
+
     private static final Pattern MP4_URL =
             Pattern.compile(
                     "(https?://[^\"'\\s<>\\\\]+?\\.mp4(?:\\?[^\"'\\s<>\\\\]*)?)",
@@ -703,74 +857,189 @@ public final class SamusarClient {
             String normalized =
                     html.replace("\\/", "/");
 
-            Matcher matcher =
-                    MP4_URL.matcher(normalized);
-
             /*
-             * URL တူများ dedupe လုပ်ရန်။
+             * 1) JS player config ကို အရင်ရှာမည်
+             *    (video_url / video_alt_url / video_alt_url2)။
+             *    *_text label မှ quality ကို ယူမည်၊
+             *    label မရှိလျှင် key အစဉ်လိုက်
+             *    480 / 720 / 1080 အဖြစ် သတ်မှတ်မည်။
              */
-            Map<String, String> seen =
+            Map<String, String> playerUrls =
+                    new LinkedHashMap<>();
+            Map<String, String> playerTexts =
                     new LinkedHashMap<>();
 
-            while (matcher.find()) {
-                String mp4Url =
-                        matcher.group(1).trim();
+            Matcher urlMatcher =
+                    PLAYER_URL.matcher(normalized);
 
-                if (seen.containsKey(mp4Url)) {
+            while (urlMatcher.find()) {
+                String key =
+                        "video" + urlMatcher.group(1);
+                String value =
+                        urlMatcher.group(3).trim();
+
+                if (
+                        !value.isEmpty()
+                                && !playerUrls.containsKey(key)
+                ) {
+                    playerUrls.put(key, value);
+                }
+            }
+
+            Matcher textMatcher =
+                    PLAYER_URL_TEXT.matcher(normalized);
+
+            while (textMatcher.find()) {
+                String key =
+                        "video" + textMatcher.group(1);
+                String value =
+                        textMatcher.group(3).trim();
+
+                if (
+                        !value.isEmpty()
+                                && !playerTexts.containsKey(key)
+                ) {
+                    playerTexts.put(key, value);
+                }
+            }
+
+            /*
+             * Key → default quality mapping
+             * (label မရှိသည့်အခါ သုံးရန်)။
+             */
+            String[][] keyOrder = {
+                    {"video_url", "480"},
+                    {"video_alt_url", "720"},
+                    {"video_alt_url2", "1080"},
+            };
+
+            for (String[] entry : keyOrder) {
+                String key = entry[0];
+                String streamUrl = playerUrls.get(key);
+
+                if (streamUrl == null || streamUrl.isEmpty()) {
                     continue;
                 }
 
-                int start =
-                        Math.max(
-                                0,
-                                matcher.start() - 400
-                        );
-                int end =
-                        Math.min(
-                                normalized.length(),
-                                matcher.end() + 400
-                        );
+                int quality;
 
-                String window =
-                        normalized.substring(start, end);
+                String label = playerTexts.get(key);
 
-                int quality =
-                        detectQuality(mp4Url, window);
+                if (label != null && !label.isEmpty()) {
+                    quality = qualityFromText(label);
 
-                seen.put(mp4Url, String.valueOf(quality));
+                    if (quality <= 0) {
+                        quality =
+                                Integer.parseInt(entry[1]);
+                    }
+                } else {
+                    quality =
+                            Integer.parseInt(entry[1]);
+                }
 
                 if (
                         quality == 480 &&
                                 url480.isEmpty()
                 ) {
-                    url480 = mp4Url;
+                    url480 = streamUrl;
                 } else if (
                         quality == 720 &&
                                 url720.isEmpty()
                 ) {
-                    url720 = mp4Url;
+                    url720 = streamUrl;
                 } else if (
                         quality == 1080 &&
                                 url1080.isEmpty()
                 ) {
-                    url1080 = mp4Url;
+                    url1080 = streamUrl;
                 }
+
+                Log.d(
+                        TAG,
+                        "parseDetail: " + key + " -> "
+                                + quality + "p"
+                );
             }
 
             /*
-             * Quality label မတွေ့သော mp4 တစ်ခုတည်းသာ
-             * ရှိလျှင် 720p အဖြစ် သတ်မှတ်မည်။
+             * 2) Player config မတွေ့လျှင် generic
+             *    .mp4 scan ကို fallback အဖြစ် သုံးမည်။
              */
             if (
                     url480.isEmpty() &&
                             url720.isEmpty() &&
-                            url1080.isEmpty() &&
-                            !seen.isEmpty()
+                            url1080.isEmpty()
             ) {
-                url720 =
-                        seen.keySet()
-                                .iterator()
-                                .next();
+                Matcher matcher =
+                        MP4_URL.matcher(normalized);
+
+                Map<String, String> seen =
+                        new LinkedHashMap<>();
+
+                while (matcher.find()) {
+                    String mp4Url =
+                            matcher.group(1).trim();
+
+                    if (seen.containsKey(mp4Url)) {
+                        continue;
+                    }
+
+                    int start =
+                            Math.max(
+                                    0,
+                                    matcher.start() - 400
+                            );
+                    int end =
+                            Math.min(
+                                    normalized.length(),
+                                    matcher.end() + 400
+                            );
+
+                    String window =
+                            normalized.substring(start, end);
+
+                    int quality =
+                            detectQuality(mp4Url, window);
+
+                    seen.put(
+                            mp4Url,
+                            String.valueOf(quality)
+                    );
+
+                    if (
+                            quality == 480 &&
+                                    url480.isEmpty()
+                    ) {
+                        url480 = mp4Url;
+                    } else if (
+                            quality == 720 &&
+                                    url720.isEmpty()
+                    ) {
+                        url720 = mp4Url;
+                    } else if (
+                            quality == 1080 &&
+                                    url1080.isEmpty()
+                    ) {
+                        url1080 = mp4Url;
+                    }
+                }
+
+                /*
+                 * Quality label မတွေ့သော mp4
+                 * တစ်ခုတည်းသာ ရှိလျှင် 720p
+                 * အဖြစ် သတ်မှတ်မည်။
+                 */
+                if (
+                        url480.isEmpty() &&
+                                url720.isEmpty() &&
+                                url1080.isEmpty() &&
+                                !seen.isEmpty()
+                ) {
+                    url720 =
+                            seen.keySet()
+                                    .iterator()
+                                    .next();
+                }
             }
         }
 
