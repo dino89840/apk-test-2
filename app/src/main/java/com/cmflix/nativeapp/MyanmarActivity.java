@@ -17,6 +17,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -354,7 +355,21 @@ public class MyanmarActivity extends AppCompatActivity {
                     ) {
                         runOnUiThread(() -> {
                             isResolving = false;
-                            openPlayer(video, stream);
+
+                            /*
+                             * Quality chooser (720p default) —
+                             * quality တစ်ခုတည်းရှိလျှင်
+                             * dialog မပြဘဲ တန်းဖွင့်မည်။
+                             */
+                            chooseQuality(
+                                    stream,
+                                    url ->
+                                            openPlayer(
+                                                    video,
+                                                    stream,
+                                                    url
+                                            )
+                            );
                         });
                     }
 
@@ -374,13 +389,105 @@ public class MyanmarActivity extends AppCompatActivity {
         );
     }
 
+    /*
+     * Quality chooser dialog — play နှင့် download
+     * နှစ်မျိုးလုံး ဒီကနေဖြတ်သည်။
+     * Default 720p (ရှိလျှင်)။
+     */
+    private interface QualityCallback {
+        void onQuality(String url);
+    }
+
+    private void chooseQuality(
+            SamusarClient.SamusarStream stream,
+            QualityCallback callback
+    ) {
+        List<String> labels = new ArrayList<>();
+        List<String> urls = new ArrayList<>();
+
+        if (
+                stream.url1080 != null &&
+                        !stream.url1080.isEmpty()
+        ) {
+            labels.add("1080p");
+            urls.add(stream.url1080);
+        }
+
+        if (
+                stream.url720 != null &&
+                        !stream.url720.isEmpty()
+        ) {
+            labels.add("720p");
+            urls.add(stream.url720);
+        }
+
+        if (
+                stream.url480 != null &&
+                        !stream.url480.isEmpty()
+        ) {
+            labels.add("480p");
+            urls.add(stream.url480);
+        }
+
+        /*
+         * Quality တစ်ခုတည်းရှိလျှင် chooser မပြပါ။
+         */
+        if (urls.size() <= 1) {
+            callback.onQuality(stream.bestUrl());
+            return;
+        }
+
+        /*
+         * Default = 720p (ရှိလျှင်)။
+         */
+        int defaultIndex =
+                urls.indexOf(stream.url720);
+
+        if (defaultIndex < 0) {
+            defaultIndex = 0;
+        }
+
+        final int[] selected = {defaultIndex};
+
+        String[] labelArray =
+                labels.toArray(new String[0]);
+
+        /*
+         * Default quality ကို label မှာ အမှတ်အသားလုပ်မည်။
+         */
+        labelArray[defaultIndex] =
+                labelArray[defaultIndex] + " (default)";
+
+        new AlertDialog.Builder(this)
+                .setTitle("Quality ရွေးပါ")
+                .setSingleChoiceItems(
+                        labelArray,
+                        defaultIndex,
+                        (dialog, which) ->
+                                selected[0] = which
+                )
+                .setPositiveButton(
+                        "OK",
+                        (dialog, which) ->
+                                callback.onQuality(
+                                        urls.get(
+                                                selected[0]
+                                        )
+                                )
+                )
+                .setNegativeButton(
+                        "မလုပ်တော့ပါ",
+                        null
+                )
+                .show();
+    }
+
     private void openPlayer(
             SamusarClient.SamusarVideo video,
-            SamusarClient.SamusarStream stream
+            SamusarClient.SamusarStream stream,
+            String url
     ) {
-        String url = stream.bestUrl();
-
-        if (url.isEmpty()) {
+        if (url == null || url.isEmpty()) {
             Toast.makeText(
                     this,
                     "Video link မရှိပါ။",
@@ -478,7 +585,21 @@ public class MyanmarActivity extends AppCompatActivity {
                     ) {
                         runOnUiThread(() -> {
                             isResolving = false;
-                            enqueueDownload(video, stream);
+
+                            /*
+                             * Fresh resolve ပြီးချင်း quality
+                             * ရွေးခိုင်းမည် — token expire
+                             * မဖြစ်ခင် တန်း enqueue လုပ်ရန်။
+                             */
+                            chooseQuality(
+                                    stream,
+                                    url ->
+                                            enqueueDownload(
+                                                    video,
+                                                    stream,
+                                                    url
+                                            )
+                            );
                         });
                     }
 
@@ -500,11 +621,10 @@ public class MyanmarActivity extends AppCompatActivity {
 
     private void enqueueDownload(
             SamusarClient.SamusarVideo video,
-            SamusarClient.SamusarStream stream
+            SamusarClient.SamusarStream stream,
+            String url
     ) {
-        String url = stream.bestUrl();
-
-        if (url.isEmpty()) {
+        if (url == null || url.isEmpty()) {
             Toast.makeText(
                     this,
                     "Download link မရှိပါ။",
