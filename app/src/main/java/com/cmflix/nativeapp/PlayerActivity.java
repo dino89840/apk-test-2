@@ -13,6 +13,7 @@ import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.animation.DecelerateInterpolator;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -35,6 +36,14 @@ public class PlayerActivity extends AppCompatActivity {
     private PlayerView playerView;
     private ProgressBar playerProgress;
     private TextView resizeButton;
+    private ImageView rotateButton;
+
+    /*
+     * True when playback started in portrait mode
+     * (Myanmar vertical videos). The rotate button
+     * toggles between portrait and landscape.
+     */
+    private boolean isPortraitMode = false;
 
     private Dialog resumeDialog;
 
@@ -90,6 +99,27 @@ public class PlayerActivity extends AppCompatActivity {
 
         resizeButton =
                 findViewById(R.id.resizeButton);
+
+        rotateButton =
+                findViewById(R.id.rotateButton);
+
+        /*
+         * Myanmar (vertical) videos start in portrait;
+         * everything else keeps the existing landscape
+         * behavior. Intent extra "video_orientation"
+         * = "portrait" is set by MyanmarDetailActivity.
+         */
+        String orientationExtra =
+                getIntent().getStringExtra(
+                        "video_orientation"
+                );
+
+        isPortraitMode =
+                "portrait".equalsIgnoreCase(
+                        orientationExtra != null
+                                ? orientationExtra.trim()
+                                : ""
+                );
 
         String url =
                 getIntent().getStringExtra(
@@ -172,12 +202,20 @@ public class PlayerActivity extends AppCompatActivity {
 
         enterImmersive();
 
-        setRequestedOrientation(
-                ActivityInfo
-                        .SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-        );
+        if (isPortraitMode) {
+            setRequestedOrientation(
+                    ActivityInfo
+                            .SCREEN_ORIENTATION_PORTRAIT
+            );
+        } else {
+            setRequestedOrientation(
+                    ActivityInfo
+                            .SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            );
+        }
 
         setupResizeButton();
+        setupRotateButton();
         applyResizeMode(false);
 
         initializePlayer(
@@ -197,11 +235,20 @@ public class PlayerActivity extends AppCompatActivity {
                     public void onVisibilityChanged(
                             int visibility
                     ) {
-                        resizeButton.setVisibility(
+                        int buttonVisibility =
                                 visibility == View.VISIBLE
                                         ? View.VISIBLE
-                                        : View.GONE
+                                        : View.GONE;
+
+                        resizeButton.setVisibility(
+                                buttonVisibility
                         );
+
+                        if (rotateButton != null) {
+                            rotateButton.setVisibility(
+                                    buttonVisibility
+                            );
+                        }
                     }
                 }
         );
@@ -211,6 +258,12 @@ public class PlayerActivity extends AppCompatActivity {
                         ? View.VISIBLE
                         : View.GONE
         );
+
+        if (rotateButton != null) {
+            rotateButton.setVisibility(
+                    resizeButton.getVisibility()
+            );
+        }
 
         resizeButton.setOnClickListener(view -> {
             resizeModeIndex++;
@@ -224,6 +277,42 @@ public class PlayerActivity extends AppCompatActivity {
             );
 
             applyResizeMode(true);
+            playerView.showController();
+            enterImmersive();
+        });
+    }
+
+    /*
+     * Rotate toggle button — switches between
+     * portrait and landscape. Myanmar videos start
+     * in portrait (vertical content); Horror/18+
+     * start in landscape but the user can still
+     * toggle manually.
+     */
+    private void setupRotateButton() {
+        if (rotateButton == null) {
+            return;
+        }
+
+        rotateButton.setOnClickListener(view -> {
+            isPortraitMode = !isPortraitMode;
+
+            setRequestedOrientation(
+                    isPortraitMode
+                            ? ActivityInfo
+                                    .SCREEN_ORIENTATION_PORTRAIT
+                            : ActivityInfo
+                                    .SCREEN_ORIENTATION_LANDSCAPE
+            );
+
+            Toast.makeText(
+                    this,
+                    isPortraitMode
+                            ? "Portrait mode"
+                            : "Landscape mode",
+                    Toast.LENGTH_SHORT
+            ).show();
+
             playerView.showController();
             enterImmersive();
         });

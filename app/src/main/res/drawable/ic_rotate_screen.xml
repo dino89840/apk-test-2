@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Screen rotation: circular arrows around a phone -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="
+        M 12,3
+        C 7,3 3,7 3,12
+        L 5.2,12
+        C 5.2,8.2 8.2,5.2 12,5.2
+        C 14.5,5.2 16.7,6.5 18.2,8.5
+        L 15.5,8.5
+        L 15.5,10.5
+        L 20.5,10.5
+        L 20.5,5.5
+        L 18.5,5.5
+        L 18.5,7.2
+        C 16.7,4.9 14.5,3 12,3
+        Z" />
+
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="
+        M 12,21
+        C 17,21 21,17 21,12
+        L 18.8,12
+        C 18.8,15.8 15.8,18.8 12,18.8
+        C 9.5,18.8 7.3,17.5 5.8,15.5
+        L 8.5,15.5
+        L 8.5,13.5
+        L 3.5,13.5
+        L 3.5,18.5
+        L 5.5,18.5
+        L 5.5,16.8
+        C 7.3,19.1 9.5,21 12,21
+        Z" />
+</vector>

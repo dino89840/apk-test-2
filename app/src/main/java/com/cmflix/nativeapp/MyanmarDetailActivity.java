@@ -574,6 +574,14 @@ public class MyanmarDetailActivity
         intent.putExtra("video_type", "mp4");
 
         /*
+         * Myanmar videos are mostly vertical (reel-style):
+         * start playback in portrait, user can rotate
+         * via the player rotate button if desired.
+         * Horror/18+ keep the default landscape behavior.
+         */
+        intent.putExtra("video_orientation", "portrait");
+
+        /*
          * Resume support — MyanmarActivity နှင့်
          * အတူ "samusar:" prefix (LocalStore)။
          */
