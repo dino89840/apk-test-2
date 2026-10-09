@@ -71,10 +71,9 @@
                 <ImageView
                     android:layout_width="44dp"
                     android:layout_height="44dp"
-                    android:padding="8dp"
-                    android:background="@drawable/drawer_icon_tile"
-                    android:src="@drawable/ic_nav_adult"
-                    android:tint="#E8B93E" />
+                    android:background="@drawable/poster_rounded_bg"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/ic_cat_nosub" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -120,10 +119,9 @@
                 <ImageView
                     android:layout_width="44dp"
                     android:layout_height="44dp"
-                    android:padding="8dp"
-                    android:background="@drawable/drawer_icon_tile"
-                    android:src="@drawable/ic_nav_adult"
-                    android:tint="#E8B93E" />
+                    android:background="@drawable/poster_rounded_bg"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/ic_cat_mmsub" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -169,10 +167,9 @@
                 <ImageView
                     android:layout_width="44dp"
                     android:layout_height="44dp"
-                    android:padding="8dp"
-                    android:background="@drawable/drawer_icon_tile"
-                    android:src="@drawable/ic_nav_adult"
-                    android:tint="#E8B93E" />
+                    android:background="@drawable/poster_rounded_bg"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/ic_cat_jav" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -218,10 +215,9 @@
                 <ImageView
                     android:layout_width="44dp"
                     android:layout_height="44dp"
-                    android:padding="8dp"
-                    android:background="@drawable/drawer_icon_tile"
-                    android:src="@drawable/ic_nav_adult"
-                    android:tint="#E8B93E" />
+                    android:background="@drawable/poster_rounded_bg"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/ic_cat_asian" />
 
                 <LinearLayout
                     android:layout_width="0dp"

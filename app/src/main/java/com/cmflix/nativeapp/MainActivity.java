@@ -898,7 +898,7 @@ private void setupDrawer() {
                             )
             );
 
-    findViewById(R.id.drawerJavtiful)
+    findViewById(R.id.drawerJav)
             .setOnClickListener(
                     view ->
                             runDrawerAction(
@@ -908,6 +908,28 @@ private void setupDrawer() {
                                                             this,
                                                             JavtifulActivity.class
                                                     )
+                                                            .putExtra(
+                                                                    JavtifulActivity.EXTRA_MODE,
+                                                                    JavtifulActivity.MODE_MOSAIC
+                                                            )
+                                            )
+                            )
+            );
+
+    findViewById(R.id.drawerAsian)
+            .setOnClickListener(
+                    view ->
+                            runDrawerAction(
+                                    () ->
+                                            startActivity(
+                                                    new Intent(
+                                                            this,
+                                                            JavtifulActivity.class
+                                                    )
+                                                            .putExtra(
+                                                                    JavtifulActivity.EXTRA_MODE,
+                                                                    JavtifulActivity.MODE_UNCENSORED
+                                                            )
                                             )
                             )
             );
@@ -2104,26 +2126,31 @@ private void loadRemoteBanner() {
  * default true) → ပြမည်။ Explicitly false → ဝှက်မည်။
  */
 /*
- * Javtiful drawer entry visibility — kill-switch။
+ * Jav/Asian drawer entry visibility — kill-switch။
  * enabled=true (သို့မဟုတ် field မရှိသေးလျှင်
  * default true) → ပြမည်။ Explicitly false → ဝှက်မည်။
  */
 private void updateJavtifulDrawer(JSONObject content) {
-    View drawerJavtiful =
-            findViewById(R.id.drawerJavtiful);
-
-    if (drawerJavtiful == null) {
-        return;
-    }
-
     boolean enabled =
             AppContentManager.isJavtifulEnabled(
                     content
             );
 
-    drawerJavtiful.setVisibility(
-            enabled ? View.VISIBLE : View.GONE
-    );
+    View drawerJav =
+            findViewById(R.id.drawerJav);
+    if (drawerJav != null) {
+        drawerJav.setVisibility(
+                enabled ? View.VISIBLE : View.GONE
+        );
+    }
+
+    View drawerAsian =
+            findViewById(R.id.drawerAsian);
+    if (drawerAsian != null) {
+        drawerAsian.setVisibility(
+                enabled ? View.VISIBLE : View.GONE
+        );
+    }
 }
 
 private void updateMyanmarTab(
