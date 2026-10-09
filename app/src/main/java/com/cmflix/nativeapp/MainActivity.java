@@ -230,7 +230,7 @@ private long lastProfileRefreshAttemptAt = 0L;
         {"Horror", "movies"},
         {"Nosub 18+", "series"},
         {"Mmsub 18+", "lugyi"},
-        {"မြန်မာ", "myanmar"},
+        {"Myanmar", "myanmar"},
         {"Continue", "continue"},
         {"Recent", "recent"},
         {"Downloads", "downloads"},
@@ -1728,6 +1728,18 @@ private void ensureHomeSectionLoaded(String value) {
                 navMmsubLabel,
                 !homeMode &&
                         "lugyi".equals(category)
+        );
+
+        /*
+         * မြန်မာ tab — MyanmarActivity သီးသန့်
+         * ဖွင့်သောကြောင့် MainActivity တွင် "active"
+         * ဘယ်တော့မှ မဖြစ်ပါ။ Inactive color (#8A8F9C)
+         * အမြဲရမည် (label မပျောက်စေရန်)။
+         */
+        setBottomNavItem(
+                navMyanmarIcon,
+                navMyanmarLabel,
+                false
         );
     }
 

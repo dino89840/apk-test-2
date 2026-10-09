@@ -1,11 +1,8 @@
 package com.cmflix.nativeapp;
 
-import android.app.DownloadManager;
 import android.content.Context;
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
-import android.os.Environment;
 import android.util.DisplayMetrics;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -17,7 +14,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -67,12 +63,6 @@ public class MyanmarActivity extends AppCompatActivity {
     private int currentPage = 0;
     private boolean isLoading = false;
     private boolean hasMore = true;
-
-    /*
-     * Resolve request တစ်ခု run နေစဉ်
-     * ထပ်နှိပ်ခြင်းကို ကာကွယ်ရန်။
-     */
-    private boolean isResolving = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -343,428 +333,46 @@ public class MyanmarActivity extends AppCompatActivity {
     }
 
     // ------------------------------------------------------------------
-    // Play — VIP only, fresh resolve
+    // Detail page — card tap / download button နှစ်မျိုးလုံး
+    // detail ကို ဖွင့်မည် (quality chooser ကို detail
+    // page ထဲမှာ ပြမည်)။
     // ------------------------------------------------------------------
 
     private void onVideoClick(
             SamusarClient.SamusarVideo video
     ) {
-        if (!SessionManager.isVipActive()) {
-            PremiumDialog.show(this);
-            return;
-        }
-
-        if (isResolving) {
-            return;
-        }
-
-        isResolving = true;
-
-        Toast.makeText(
-                this,
-                "Video link ထုတ်နေသည်…",
-                Toast.LENGTH_SHORT
-        ).show();
-
-        SamusarClient.resolveStream(
-                video.detailUrl,
-                new SamusarClient.StreamCallback() {
-                    @Override
-                    public void onResult(
-                            SamusarClient.SamusarStream
-                                    stream
-                    ) {
-                        runOnUiThread(() -> {
-                            isResolving = false;
-
-                            /*
-                             * Quality chooser (720p default) —
-                             * quality တစ်ခုတည်းရှိလျှင်
-                             * dialog မပြဘဲ တန်းဖွင့်မည်။
-                             */
-                            chooseQuality(
-                                    stream,
-                                    url ->
-                                            openPlayer(
-                                                    video,
-                                                    stream,
-                                                    url
-                                            )
-                            );
-                        });
-                    }
-
-                    @Override
-                    public void onError(Exception error) {
-                        runOnUiThread(() -> {
-                            isResolving = false;
-
-                            Toast.makeText(
-                                    MyanmarActivity.this,
-                                    "Video ဖွင့်၍မရပါ။ ပြန်စမ်းပါ။",
-                                    Toast.LENGTH_LONG
-                            ).show();
-                        });
-                    }
-                }
-        );
+        openDetail(video);
     }
-
-    /*
-     * Quality chooser dialog — play နှင့် download
-     * နှစ်မျိုးလုံး ဒီကနေဖြတ်သည်။
-     * Default 720p (ရှိလျှင်)။
-     */
-    private interface QualityCallback {
-        void onQuality(String url);
-    }
-
-    private void chooseQuality(
-            SamusarClient.SamusarStream stream,
-            QualityCallback callback
-    ) {
-        List<String> labels = new ArrayList<>();
-        List<String> urls = new ArrayList<>();
-
-        if (
-                stream.url1080 != null &&
-                        !stream.url1080.isEmpty()
-        ) {
-            labels.add("1080p");
-            urls.add(stream.url1080);
-        }
-
-        if (
-                stream.url720 != null &&
-                        !stream.url720.isEmpty()
-        ) {
-            labels.add("720p");
-            urls.add(stream.url720);
-        }
-
-        if (
-                stream.url480 != null &&
-                        !stream.url480.isEmpty()
-        ) {
-            labels.add("480p");
-            urls.add(stream.url480);
-        }
-
-        /*
-         * Quality တစ်ခုတည်းရှိလျှင် chooser မပြပါ။
-         */
-        if (urls.size() <= 1) {
-            callback.onQuality(stream.bestUrl());
-            return;
-        }
-
-        /*
-         * Default = 720p (ရှိလျှင်)။
-         */
-        int defaultIndex =
-                urls.indexOf(stream.url720);
-
-        if (defaultIndex < 0) {
-            defaultIndex = 0;
-        }
-
-        final int[] selected = {defaultIndex};
-
-        String[] labelArray =
-                labels.toArray(new String[0]);
-
-        /*
-         * Default quality ကို label မှာ အမှတ်အသားလုပ်မည်။
-         */
-        labelArray[defaultIndex] =
-                labelArray[defaultIndex] + " (default)";
-
-        new AlertDialog.Builder(this)
-                .setTitle("Quality ရွေးပါ")
-                .setSingleChoiceItems(
-                        labelArray,
-                        defaultIndex,
-                        (dialog, which) ->
-                                selected[0] = which
-                )
-                .setPositiveButton(
-                        "OK",
-                        (dialog, which) ->
-                                callback.onQuality(
-                                        urls.get(
-                                                selected[0]
-                                        )
-                                )
-                )
-                .setNegativeButton(
-                        "မလုပ်တော့ပါ",
-                        null
-                )
-                .show();
-    }
-
-    private void openPlayer(
-            SamusarClient.SamusarVideo video,
-            SamusarClient.SamusarStream stream,
-            String url
-    ) {
-        if (url == null || url.isEmpty()) {
-            Toast.makeText(
-                    this,
-                    "Video link မရှိပါ။",
-                    Toast.LENGTH_LONG
-            ).show();
-
-            return;
-        }
-
-        Intent intent =
-                new Intent(
-                        this,
-                        PlayerActivity.class
-                );
-
-        intent.putExtra("video_url", url);
-        intent.putExtra("video_type", "mp4");
-
-        /*
-         * Resume support — title_id အဖြစ် detail URL
-         * ("samusar:" prefix ဖြင့်)။ PlayerActivity မှ
-         * LocalStore သီးသန့် store တွင် position
-         * သိမ်းမည်။ Backend flow များ မထိပါ။
-         */
-        intent.putExtra(
-                "title_id",
-                SamusarClient.videoId(video.detailUrl)
-        );
-        intent.putExtra("video_title", video.title);
-        intent.putExtra("video_thumb", video.thumbUrl);
-
-        /*
-         * Samusar tokenized URL များအတွက် လိုအပ်သော
-         * request headers — PlayerActivity မှ
-         * ExoPlayer data source တွင် ပြန်ထည့်မည်။
-         * URL ကို log/cache လုံးဝ မလုပ်ပါ။
-         */
-        intent.putExtra(
-                "video_referer",
-                stream.referer
-        );
-        intent.putExtra(
-                "video_user_agent",
-                SamusarClient.USER_AGENT
-        );
-        intent.putExtra(
-                "video_cookie",
-                stream.cookieHeader
-        );
-
-        startActivity(intent);
-    }
-
-    // ------------------------------------------------------------------
-    // Download — VIP only, fresh resolve, headers via DownloadManager
-    // ------------------------------------------------------------------
 
     private void onDownloadClick(
             SamusarClient.SamusarVideo video
     ) {
-        if (!SessionManager.isVipActive()) {
-            PremiumDialog.show(this);
-            return;
-        }
-
-        if (isResolving) {
-            return;
-        }
-
-        if (!NetworkUtils.isOnline(this)) {
-            Toast.makeText(
-                    this,
-                    "Download link ထုတ်ရန် အင်တာနက်ချိတ်ဆက်ပါ။",
-                    Toast.LENGTH_LONG
-            ).show();
-
-            return;
-        }
-
-        isResolving = true;
-
-        Toast.makeText(
-                this,
-                "Download link ထုတ်နေသည်…",
-                Toast.LENGTH_SHORT
-        ).show();
-
-        SamusarClient.resolveStream(
-                video.detailUrl,
-                new SamusarClient.StreamCallback() {
-                    @Override
-                    public void onResult(
-                            SamusarClient.SamusarStream
-                                    stream
-                    ) {
-                        runOnUiThread(() -> {
-                            isResolving = false;
-
-                            /*
-                             * Fresh resolve ပြီးချင်း quality
-                             * ရွေးခိုင်းမည် — token expire
-                             * မဖြစ်ခင် တန်း enqueue လုပ်ရန်။
-                             */
-                            chooseQuality(
-                                    stream,
-                                    url ->
-                                            enqueueDownload(
-                                                    video,
-                                                    stream,
-                                                    url
-                                            )
-                            );
-                        });
-                    }
-
-                    @Override
-                    public void onError(Exception error) {
-                        runOnUiThread(() -> {
-                            isResolving = false;
-
-                            Toast.makeText(
-                                    MyanmarActivity.this,
-                                    "Download link မရပါ။ ပြန်စမ်းပါ။",
-                                    Toast.LENGTH_LONG
-                            ).show();
-                        });
-                    }
-                }
-        );
+        openDetail(video);
     }
 
-    private void enqueueDownload(
-            SamusarClient.SamusarVideo video,
-            SamusarClient.SamusarStream stream,
-            String url
+    private void openDetail(
+            SamusarClient.SamusarVideo video
     ) {
-        if (url == null || url.isEmpty()) {
-            Toast.makeText(
-                    this,
-                    "Download link မရှိပါ။",
-                    Toast.LENGTH_LONG
-            ).show();
-
-            return;
-        }
-
-        String fileName =
-                buildFileName(video.title);
-
-        try {
-            DownloadManager.Request request =
-                    new DownloadManager.Request(
-                            Uri.parse(url)
-                    );
-
-            /*
-             * Samusar session headers —
-             * detail page request မှ fresh ရထားသော
-             * cookies + referer။
-             */
-            request.addRequestHeader(
-                    "User-Agent",
-                    SamusarClient.USER_AGENT
-            );
-
-            if (
-                    stream.referer != null &&
-                            !stream.referer.isEmpty()
-            ) {
-                request.addRequestHeader(
-                        "Referer",
-                        stream.referer
+        Intent intent =
+                new Intent(
+                        this,
+                        MyanmarDetailActivity.class
                 );
-            }
 
-            if (
-                    stream.cookieHeader != null &&
-                            !stream.cookieHeader.isEmpty()
-            ) {
-                request.addRequestHeader(
-                        "Cookie",
-                        stream.cookieHeader
-                );
-            }
+        intent.putExtra(
+                MyanmarDetailActivity.EXTRA_TITLE,
+                video.title
+        );
+        intent.putExtra(
+                MyanmarDetailActivity.EXTRA_THUMB,
+                video.thumbUrl
+        );
+        intent.putExtra(
+                MyanmarDetailActivity.EXTRA_DETAIL_URL,
+                video.detailUrl
+        );
 
-            request.setTitle(video.title);
-            request.setDescription("CM FLIX");
-
-            request.setNotificationVisibility(
-                    DownloadManager.Request
-                            .VISIBILITY_VISIBLE_NOTIFY_COMPLETED
-            );
-
-            request.setDestinationInExternalPublicDir(
-                    Environment.DIRECTORY_DOWNLOADS,
-                    "CMFLIX/" + fileName
-            );
-
-            DownloadManager manager =
-                    (DownloadManager)
-                            getSystemService(
-                                    Context.DOWNLOAD_SERVICE
-                            );
-
-            if (manager == null) {
-                throw new IllegalStateException(
-                        "DownloadManager မရှိပါ။"
-                );
-            }
-
-            manager.enqueue(request);
-
-            Toast.makeText(
-                    this,
-                    "Download စတင်ပါပြီ။",
-                    Toast.LENGTH_LONG
-            ).show();
-        } catch (Exception error) {
-            Toast.makeText(
-                    this,
-                    "Download စတင်၍မရပါ။",
-                    Toast.LENGTH_LONG
-            ).show();
-        }
-    }
-
-    private static String buildFileName(String title) {
-        String safe =
-                title == null ? "" : title.trim();
-
-        /*
-         * Filesystem တွင် အန္တရာယ်ရှိသော
-         * character များ ဖယ်မည်။
-         */
-        safe =
-                safe.replaceAll(
-                        "[\\\\/:*?\"<>|\\p{Cntrl}]",
-                        "_"
-                ).trim();
-
-        if (safe.isEmpty()) {
-            safe = "cmflix_myanmar_video";
-        }
-
-        if (safe.length() > 80) {
-            safe = safe.substring(0, 80).trim();
-        }
-
-        if (
-                !safe.toLowerCase()
-                        .endsWith(".mp4")
-        ) {
-            safe = safe + ".mp4";
-        }
-
-        return safe;
+        startActivity(intent);
     }
 
     // ------------------------------------------------------------------
