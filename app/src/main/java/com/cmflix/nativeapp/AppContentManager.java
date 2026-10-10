@@ -280,35 +280,6 @@ private static final String KEY_NOTICE_SAVED_AT =
     }
 
     /*
-     * Maintenance retry အတွက် — cache ကို ကျော်ပြီး
-     * /app-content ကို network ကနေ အမြဲ ပြန်ခေါ်မည်။
-     * User ကိုယ်တိုင် "ပြန်စမ်းမယ်" နှိပ်မှသာ
-     * ခေါ်သောကြောင့် request spam မဖြစ်ပါ။
-     *
-     * hasCachedBody=false ပေးထားသောကြောင့် network
-     * error ဖြစ်လျှင်လည်း onError ပြန်လာမည်
-     * (silent fallback မလုပ်ပါ)။
-     */
-    public static void refreshAppContentNow(
-            Context context,
-            Callback callback
-    ) {
-        Context appContext =
-                context.getApplicationContext();
-
-        SharedPreferences preferences =
-                preferences(appContext);
-
-        EXECUTOR.execute(() ->
-                requestBanner(
-                        preferences,
-                        false,
-                        callback
-                )
-        );
-    }
-
-    /*
      * Samusar proxy URL — server-configurable။
      *
      * Backend /app-content မှ "samusar": {"proxy": "<url>"}

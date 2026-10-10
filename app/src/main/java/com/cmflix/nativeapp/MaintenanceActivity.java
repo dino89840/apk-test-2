@@ -1,16 +1,10 @@
 package com.cmflix.nativeapp;
 
-import android.content.Intent;
 import android.os.Bundle;
-import android.view.View;
 import android.widget.Button;
-import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
-
-import org.json.JSONObject;
 
 /*
  * Maintenance mode full-screen။
@@ -21,12 +15,8 @@ import org.json.JSONObject;
  * - Message ကို intent extra EXTRA_MESSAGE ကနေ ယူမည်
  *   (MainActivity က AppContentManager
  *   .getMaintenanceMessage() နဲ့ ဖြည့်ပေးသည်)။
- * - "ပြန်စမ်းမယ်" နှိပ်လျှင် /app-content ကို network
- *   ကနေ ပြန်ခေါ်ပြီး (user-initiated, spam မဖြစ်)
- *   maintenance ပိတ်သွားပြီလား စစ်မည်။
- * - Maintenance ပိတ်သွားလျှင် MainActivity ဖွင့်ပြီး
- *   ဒီ screen ကို ပိတ်မည်။
- * - Network error ဖြစ်လျှင် ဒီ screen မှာပဲ ဆက်နေမည်။
+ * - "ထွက်မယ်" နှိပ်လျှင် app ကို အပြီးပိတ်မည်
+ *   (finishAffinity)။
  */
 public class MaintenanceActivity extends AppCompatActivity {
 
@@ -34,10 +24,7 @@ public class MaintenanceActivity extends AppCompatActivity {
             "maintenance_message";
 
     private TextView messageView;
-    private Button retryButton;
-    private ProgressBar progressView;
-
-    private boolean checking = false;
+    private Button exitButton;
 
     @Override
     protected void onCreate(
@@ -54,14 +41,9 @@ public class MaintenanceActivity extends AppCompatActivity {
                         R.id.maintenanceMessage
                 );
 
-        retryButton =
+        exitButton =
                 findViewById(
-                        R.id.maintenanceRetryButton
-                );
-
-        progressView =
-                findViewById(
-                        R.id.maintenanceProgress
+                        R.id.maintenanceExitButton
                 );
 
         String message =
@@ -81,139 +63,8 @@ public class MaintenanceActivity extends AppCompatActivity {
 
         messageView.setText(message);
 
-        retryButton.setOnClickListener(
-                v -> checkAgain()
-        );
-    }
-
-    private void checkAgain() {
-        if (checking) {
-            return;
-        }
-
-        checking = true;
-
-        retryButton.setEnabled(false);
-
-        progressView.setVisibility(
-                View.VISIBLE
-        );
-
-        AppContentManager.refreshAppContentNow(
-                this,
-                new AppContentManager.Callback() {
-                    @Override
-                    public void onContent(
-                            JSONObject content
-                    ) {
-                        runOnUiThread(() -> {
-                            checking = false;
-
-                            if (isFinishing()) {
-                                return;
-                            }
-
-                            if (
-                                    !AppContentManager
-                                            .isMaintenanceMode(
-                                                    content
-                                            )
-                            ) {
-                                Intent intent =
-                                        new Intent(
-                                                MaintenanceActivity.this,
-                                                MainActivity.class
-                                        );
-
-                                startActivity(intent);
-
-                                finish();
-                            } else {
-                                messageView.setText(
-                                        AppContentManager
-                                                .getMaintenanceMessage(
-                                                        content
-                                                )
-                                );
-
-                                retryButton.setEnabled(
-                                        true
-                                );
-
-                                progressView.setVisibility(
-                                        View.GONE
-                                );
-                            }
-                        });
-                    }
-
-                    @Override
-                    public void onError(
-                            Exception error
-                    ) {
-                        runOnUiThread(() -> {
-                            checking = false;
-
-                            if (isFinishing()) {
-                                return;
-                            }
-
-                            retryButton.setEnabled(
-                                    true
-                            );
-
-                            progressView.setVisibility(
-                                    View.GONE
-                            );
-
-                            /*
-                             * Maintenance ပိတ်မသွားသေးလျှင်
-                             * (backend 503 + {"error":
-                             * "maintenance"}) ဒီ screen မှာပဲ
-                             * ဆက်နေပြီး message ကို update
-                             * လုပ်မည် — "no internet" မပြပါ။
-                             */
-                            if (
-                                    error instanceof
-                                            MaintenanceException
-                            ) {
-                                String maintMessage =
-                                        error.getMessage();
-
-                                if (
-                                        maintMessage == null ||
-                                                maintMessage
-                                                        .trim()
-                                                        .isEmpty()
-                                ) {
-                                    maintMessage =
-                                            AppContentManager
-                                                    .getMaintenanceMessage(
-                                                            null
-                                                    );
-                                }
-
-                                messageView.setText(
-                                        maintMessage.trim()
-                                );
-
-                                return;
-                            }
-
-                            /*
-                             * တကယ့် network failure
-                             * (timeout / connection error)
-                             * မှသာ "no internet" ပြမည်။
-                             */
-                            Toast.makeText(
-                                            MaintenanceActivity.this,
-                                            "အင်တာနက်ချိတ်ဆက်မှု မရှိပါ။",
-                                            Toast.LENGTH_SHORT
-                                    )
-                                    .show();
-                        });
-                    }
-                }
+        exitButton.setOnClickListener(
+                v -> finishAffinity()
         );
     }
 

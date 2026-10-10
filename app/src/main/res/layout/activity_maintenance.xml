@@ -47,7 +47,7 @@
         android:textSize="14sp" />
 
     <Button
-        android:id="@+id/maintenanceRetryButton"
+        android:id="@+id/maintenanceExitButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="28dp"
@@ -56,16 +56,9 @@
         android:minWidth="160dp"
         android:paddingStart="24dp"
         android:paddingEnd="24dp"
-        android:text="ပြန်စမ်းမယ်"
+        android:text="ထွက်မယ်"
         android:textColor="#14161C"
         android:textSize="15sp"
         android:textStyle="bold" />
-
-    <ProgressBar
-        android:id="@+id/maintenanceProgress"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="28dp"
-        android:visibility="gone" />
 
 </LinearLayout>
