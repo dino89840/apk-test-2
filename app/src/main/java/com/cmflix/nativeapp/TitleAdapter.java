@@ -1,5 +1,6 @@
 package com.cmflix.nativeapp;
 
+import android.graphics.Matrix;
 import android.util.DisplayMetrics;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -57,6 +58,16 @@ public class TitleAdapter
      * ကို သုံးမည်။
      */
     private boolean landscapeMode = false;
+
+    /*
+     * RecyclerView view types — portrait နှင့်
+     * landscape layout များကို သီးခြား view type
+     * အဖြစ် ခွဲထားခြင်းဖြင့် category ပြောင်းချိန်တွင်
+     * မှားယွင်းသော layout holder ပြန်လည်အသုံးပြုမှု
+     * (black/empty image) ကို ကာကွယ်မည်။
+     */
+    private static final int VIEW_TYPE_PORTRAIT = 0;
+    private static final int VIEW_TYPE_LANDSCAPE = 1;
 
     private boolean favoriteMode = false;
 private static final Object
@@ -180,11 +191,25 @@ public void refreshProgressSnapshot() {
     }
 
     /*
+     * View-holder recycling bug fix — portrait နှင့်
+     * landscape ကို သီးခြား view type အဖြစ်
+     * ကြေညာခြင်းဖြင့် RecyclerView က layout
+     * မှားယွင်းစွာ ပြန်လည်အသုံးပြုခြင်းကို
+     * တားဆီးမည်။
+     */
+    @Override
+    public int getItemViewType(int position) {
+        return landscapeMode
+                ? VIEW_TYPE_LANDSCAPE
+                : VIEW_TYPE_PORTRAIT;
+    }
+
+    /*
      * Landscape mode ဖွင့်ထားလျှင် landscape layout
      * ကို ပြန်ပေးမည်။
      */
-    private int getEffectiveLayoutRes() {
-        if (!landscapeMode) {
+    private int getEffectiveLayoutRes(boolean landscape) {
+        if (!landscape) {
             return layoutRes;
         }
 
@@ -201,7 +226,16 @@ public void refreshProgressSnapshot() {
             @NonNull ViewGroup parent,
             int viewType
     ) {
-        int effectiveRes = getEffectiveLayoutRes();
+        /*
+         * View type ကို အခြေခံပြီး layout ရွေးမည် —
+         * mutable landscapeMode flag ကို တိုက်ရိုက်
+         * မသုံးပါ (recycling bug ကာကွယ်ရန်)။
+         */
+        boolean isLandscape =
+                viewType == VIEW_TYPE_LANDSCAPE;
+
+        int effectiveRes =
+                getEffectiveLayoutRes(isLandscape);
 
         View view =
                 LayoutInflater
@@ -215,7 +249,11 @@ public void refreshProgressSnapshot() {
         if (effectiveRes == R.layout.item_title_row
                 || effectiveRes
                         == R.layout.item_title_row_landscape) {
-            applyResponsiveRowWidth(parent, view);
+            applyResponsiveRowWidth(
+                    parent,
+                    view,
+                    isLandscape
+            );
         }
 
         return new Holder(view);
@@ -230,7 +268,8 @@ public void refreshProgressSnapshot() {
      */
     private void applyResponsiveRowWidth(
             ViewGroup parent,
-            View view
+            View view,
+            boolean isLandscape
     ) {
         DisplayMetrics dm =
                 parent.getResources()
@@ -258,7 +297,7 @@ public void refreshProgressSnapshot() {
          * Landscape cover များ 16:9 မို့ တစ်တန်းမှာ
          * ၂ ခု ပြမည်။ Portrait poster များ ၃ ခု။
          */
-        float perRow = landscapeMode ? 2.0f : 3.0f;
+        float perRow = isLandscape ? 2.0f : 3.0f;
 
         int itemTotalPx =
                 (int) (rowContentPx / perRow);
@@ -355,6 +394,15 @@ holder.vipRibbon.setVisibility(
                         ""
                 );
 
+        /*
+         * View type အလိုက် decode resolution —
+         * landscape cover (16:9) အတွက် 640x360,
+         * portrait poster (2:3) အတွက် 480x720။
+         */
+        boolean bindLandscape =
+                holder.getItemViewType() ==
+                        VIEW_TYPE_LANDSCAPE;
+
         RequestBuilder<?> posterRequest =
         Glide.with(holder.poster)
                 .load(posterUrl)
@@ -376,7 +424,10 @@ holder.vipRibbon.setVisibility(
                  *
                  * Poster frame သည် 2:3 ratio ဖြစ်သည်။
                  */
-                .override(480, 720)
+                .override(
+                        bindLandscape ? 640 : 480,
+                        bindLandscape ? 360 : 720
+                )
 
                 /*
                  * Poster ပုံများအတွက် RGB_565 သုံးခြင်းဖြင့်
@@ -644,6 +695,14 @@ private String getCategoryBadgeLabel(
     ) {
         Glide.with(holder.poster)
                 .clear(holder.poster);
+
+        /*
+         * TopCropImageView ရဲ့ custom matrix ကို
+         * reset လုပ်မည် — မတူသော aspect ratio ရှိ
+         * ပုံဟောင်းရဲ့ matrix ကျန်နေခြင်းကို
+         * ကာကွယ်ရန်။
+         */
+        holder.poster.setImageMatrix(new Matrix());
 
         holder.favoriteRemove
                 .setOnClickListener(null);

@@ -1180,6 +1180,15 @@ private void enterCategory(
         adapter.setLandscapeMode(
                 "series".equals(value)
         );
+
+        /*
+         * View-holder recycling bug fix — mode
+         * ပြောင်းချိန်တွင် layout မှားယွင်းနေသော
+         * recycled holder များကို စွန့်ပစ်မည်။
+         */
+        if (recycler != null) {
+            recycler.getRecycledViewPool().clear();
+        }
     }
 
     /*
