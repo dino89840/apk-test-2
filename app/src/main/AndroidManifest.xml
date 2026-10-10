@@ -68,6 +68,11 @@
             android:screenOrientation="unspecified" />
 
         <activity
+            android:name=".MyanmarHubActivity"
+            android:exported="false"
+            android:screenOrientation="unspecified" />
+
+        <activity
             android:name=".MyanmarDetailActivity"
             android:exported="false"
             android:screenOrientation="unspecified" />

@@ -41,6 +41,11 @@ import java.util.zip.GZIPInputStream;
  * NOTE: CookieManager ကို global default အဖြစ်
  * မသတ်မှတ်ပါ — ApiClient ၏ request များကို
  * လုံးဝ မထိခိုက်စေရန် manual cookie jar သုံးသည်။
+ *
+ * Direct mode (setDirectMode(true)) — proxy ကို
+ * ကျော်ပြီး https://www.samusar.com သို့
+ * တိုက်ရိုက်ဆက်သွယ်သည် ("Myanmar 2" source;
+ * မြန်မာနိုင်ငံမှ VPN လိုအပ်နိုင်သည်)။
  */
 public final class SamusarClient {
 
@@ -65,6 +70,31 @@ public final class SamusarClient {
             CryptoUtil.dec("CTgV4piUNiyon/bBLXmOlvtD0T+lEPxEDSZwaGEipBM=");
 
     /*
+     * Direct samusar.com base URL — proxy မသုံးဘဲ
+     * တိုက်ရိုက်ဆက်သွယ်ရန် ("Myanmar 2" source)။
+     * samusar.com သည် မြန်မာနိုင်ငံမှ VPN မရှိဘဲ
+     * block ထားသောကြောင့် VPN လိုအပ်နိုင်သည်။
+     */
+    public static final String DIRECT_BASE_URL =
+            "https://www.samusar.com";
+
+    /*
+     * Direct mode — true ဆိုလျှင် proxy/D1 config
+     * ကို ကျော်ပြီး DIRECT_BASE_URL ကို တိုက်ရိုက်
+     * သုံးမည်။ MyanmarActivity ("Myanmar 2") က
+     * onCreate မှာ set လုပ်သည်။
+     */
+    private static boolean directMode = false;
+
+    public static void setDirectMode(boolean direct) {
+        directMode = direct;
+    }
+
+    public static boolean isDirectMode() {
+        return directMode;
+    }
+
+    /*
      * Proxy base URL resolver — server-configurable။
      *
      * /app-content ၏ samusar.proxy (AppContentManager
@@ -79,6 +109,14 @@ public final class SamusarClient {
      * URL စစ်မှန်ကြောင်း validate လုပ်သည်။
      */
     public static String getBaseUrl() {
+        /*
+         * Direct mode — D1 proxy config ကို ကျော်ပြီး
+         * samusar.com တိုက်ရိုက် သုံးမည်။
+         */
+        if (directMode) {
+            return DIRECT_BASE_URL;
+        }
+
         String configured =
                 AppContentManager
                         .getCachedSamusarProxyUrl();

@@ -863,16 +863,20 @@ public class PlayerActivity extends AppCompatActivity {
         }
 
         /*
-         * Samusar video ဖြစ်လျှင် သီးသန့် progress
-         * store တွင် title/thumbnail နှင့်အတူ သိမ်းမည် —
-         * MyanmarActivity ၏ Continue Watching
-         * section အတွက်။ Backend title များမှာ
-         * အရင် saveProgress() အတိုင်း။
+         * Samusar / Mmtube video ဖြစ်လျှင် သီးသန့်
+         * progress store တွင် title/thumbnail နှင့်အတူ
+         * သိမ်းမည် — MyanmarActivity ၏ Continue
+         * Watching section အတွက်။ Backend title
+         * များမှာ အရင် saveProgress() အတိုင်း။
          */
         if (
                 titleId.startsWith(
                         SamusarClient.ID_PREFIX
                 )
+                        ||
+                        titleId.startsWith(
+                                MmtubeClient.ID_PREFIX
+                        )
         ) {
             LocalStore.saveSamusarProgress(
                     titleId,

@@ -26,11 +26,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 /*
- * မြန်မာ (samusar) detail page — reference APK ပုံစံ။
+ * မြန်မာ detail page — source ရွေးချယ်မှု
+ * (MyanmarActivity မှ EXTRA_SOURCE)။
+ *
+ * - "mmtube"  (Myanmar 1): mmtube.net တိုက်ရိုက် —
+ *   single MP4 (HD/SD label)။
+ * - "samusar" (Myanmar 2): samusar.com တိုက်ရိုက်
+ *   (direct mode) — 1080p/720p/480p quality rows။
  *
  * - 16:9 thumbnail (Glide) + Burmese title
- * - "Available sources" — resolved quality
- *   (1080p/720p/480p) တစ်ခုချင်းစီအတွက် row
  * - Row တိုင်းတွင် play + download button
  *
  * Stream ကို page ဖွင့်ချင်း resolve လုပ်ပြီး
@@ -46,10 +50,14 @@ public class MyanmarDetailActivity
             "video_thumb";
     public static final String EXTRA_DETAIL_URL =
             "video_detail_url";
+    public static final String EXTRA_SOURCE =
+            "myanmar_source";
 
     private String title = "";
     private String thumbUrl = "";
     private String detailUrl = "";
+    private String sourceMode =
+            MyanmarActivity.SOURCE_MMTUBE;
 
     private ImageView thumbView;
     private TextView titleView;
@@ -58,6 +66,7 @@ public class MyanmarDetailActivity
     private LinearLayout sourcesBox;
 
     private SamusarClient.SamusarStream stream;
+    private MmtubeClient.MmtubeStream mmtubeStream;
     private boolean isResolving = false;
 
     private int pendingActionAfterLogin = 0; // 0=none, 1=play, 2=download
@@ -77,18 +86,10 @@ public class MyanmarDetailActivity
                         pendingActionAfterLogin = 0;
                         pendingUrlAfterLogin = "";
                         if (action == 1) {
-    onPlayClick(url);
-} else if (action == 2) {
-    onDownloadClick(url);
-} else if (action == 3) {
-    if (SessionManager.isVipActive()) {
-        errorView.setOnClickListener(null);
-        resolveStream();
-    } else {
-        PremiumDialog.show(this);
-    }
-}
-
+                            onPlayClick(url);
+                        } else if (action == 2) {
+                            onDownloadClick(url);
+                        }
                     }
             );
 
@@ -150,6 +151,25 @@ public class MyanmarDetailActivity
             detailUrl = "";
         }
 
+        /*
+         * Source mode — MyanmarActivity မှ
+         * EXTRA_SOURCE ("mmtube" / "samusar")။
+         * Default: mmtube (Myanmar 1)။
+         */
+        String modeExtra =
+                intent.getStringExtra(EXTRA_SOURCE);
+
+        if (
+                MyanmarActivity.SOURCE_SAMUSAR
+                        .equals(modeExtra)
+        ) {
+            sourceMode =
+                    MyanmarActivity.SOURCE_SAMUSAR;
+        } else {
+            sourceMode =
+                    MyanmarActivity.SOURCE_MMTUBE;
+        }
+
         findViewById(R.id.myanmarDetailBackButton)
                 .setOnClickListener(
                         view -> finish()
@@ -173,40 +193,7 @@ public class MyanmarDetailActivity
                     .into(thumbView);
         }
 
-        if (!SessionManager.isLoggedIn()) {
-    showError(
-            "Video ကြည့်ရန် Login ဝင်ပါ။"
-    );
-
-    errorView.setOnClickListener(view -> {
-        pendingActionAfterLogin = 3;
-        pendingUrlAfterLogin = "";
-
-        authLauncher.launch(
-                new Intent(
-                        this,
-                        AuthActivity.class
-                )
-        );
-    });
-
-    return;
-}
-
-if (!SessionManager.isVipActive()) {
-    showError(
-            "Video source ရယူရန် VIP လိုအပ်ပါသည်။"
-    );
-
-    errorView.setOnClickListener(
-            view -> PremiumDialog.show(this)
-    );
-
-    return;
-}
-
-resolveStream();
-
+        resolveStream();
     }
 
     /*
@@ -275,6 +262,17 @@ resolveStream();
         errorView.setVisibility(View.GONE);
         sourcesBox.removeAllViews();
 
+        if (
+                MyanmarActivity.SOURCE_SAMUSAR
+                        .equals(sourceMode)
+        ) {
+            resolveSamusarStream();
+        } else {
+            resolveMmtubeStream();
+        }
+    }
+
+    private void resolveSamusarStream() {
         SamusarClient.resolveStream(
                 detailUrl,
                 new SamusarClient.StreamCallback() {
@@ -291,6 +289,63 @@ resolveStream();
                                 );
 
                                 stream = result;
+
+                                buildSourceRows();
+                            } catch (Exception uiError) {
+                                isResolving = false;
+
+                                showError(
+                                        "Error: ("
+                                                + uiError.getClass()
+                                                        .getSimpleName()
+                                                + ": "
+                                                + uiError
+                                                        .getMessage()
+                                                + ")"
+                                );
+                            }
+                        });
+                    }
+
+                    @Override
+                    public void onError(Exception error) {
+                        runOnUiThread(() -> {
+                            try {
+                                isResolving = false;
+                                progress.setVisibility(
+                                        View.GONE
+                                );
+
+                                showError(
+                                        "Video link ရယူ၍မရပါ။\n"
+                                                + "ပြန်စမ်းကြည့်ပါ။"
+                                );
+                            } catch (Exception uiError) {
+                                // activity dying — nothing to show
+                            }
+                        });
+                    }
+                }
+        );
+    }
+
+    private void resolveMmtubeStream() {
+        MmtubeClient.resolveStream(
+                detailUrl,
+                new MmtubeClient.StreamCallback() {
+                    @Override
+                    public void onResult(
+                            MmtubeClient.MmtubeStream
+                                    result
+                    ) {
+                        runOnUiThread(() -> {
+                            try {
+                                isResolving = false;
+                                progress.setVisibility(
+                                        View.GONE
+                                );
+
+                                mmtubeStream = result;
 
                                 buildSourceRows();
                             } catch (Exception uiError) {
@@ -360,8 +415,46 @@ resolveStream();
         }
     }
 
+    /*
+     * Mmtube source ဟုတ်မဟုတ် — samusar
+     * မဟုတ်လျှင် mmtube အဖြစ် သတ်မှတ်သည်။
+     */
+    private boolean isMmtube() {
+        return !MyanmarActivity.SOURCE_SAMUSAR
+                .equals(sourceMode);
+    }
+
     private void buildSourceRowsSafe() {
         sourcesBox.removeAllViews();
+
+        /*
+         * Mmtube — single direct MP4 (quality
+         * variants မရှိ)။ HD flag ရှိလျှင် "HD",
+         * မရှိလျှင် "SD" label။
+         */
+        if (isMmtube()) {
+            if (
+                    mmtubeStream == null
+                            || !mmtubeStream.hasStream()
+            ) {
+                showError(
+                        "Video link ရှာမတွေ့ပါ။"
+                );
+
+                return;
+            }
+
+            sourcesBox.addView(
+                    buildSourceRow(
+                            mmtubeStream.isHd
+                                    ? "HD"
+                                    : "SD",
+                            mmtubeStream.bestUrl()
+                    )
+            );
+
+            return;
+        }
 
         if (stream == null || !stream.hasStream()) {
             showError(
@@ -596,6 +689,49 @@ resolveStream();
     // Play — VIP only
     // ------------------------------------------------------------------
 
+    /*
+     * လက်ရှိ source အလိုက် header များ —
+     * mmtube နှင့် samusar နှစ်မျိုးလုံး
+     * detail-page Referer + session Cookie +
+     * browser UA ပို့သည်။
+     */
+    private String currentReferer() {
+        if (isMmtube()) {
+            return mmtubeStream == null
+                    ? ""
+                    : mmtubeStream.referer;
+        }
+
+        return stream == null ? "" : stream.referer;
+    }
+
+    private String currentCookie() {
+        if (isMmtube()) {
+            return mmtubeStream == null
+                    ? ""
+                    : mmtubeStream.cookieHeader;
+        }
+
+        return stream == null ? "" : stream.cookieHeader;
+    }
+
+    private String currentUserAgent() {
+        if (isMmtube()) {
+            return MmtubeClient.USER_AGENT;
+        }
+
+        return SamusarClient.USER_AGENT;
+    }
+
+    private boolean hasResolvedStream() {
+        if (isMmtube()) {
+            return mmtubeStream != null
+                    && mmtubeStream.hasStream();
+        }
+
+        return stream != null && stream.hasStream();
+    }
+
     private void onPlayClick(String url) {
         if (!SessionManager.isLoggedIn()) {
             pendingActionAfterLogin = 1;
@@ -629,7 +765,7 @@ resolveStream();
             return;
         }
 
-        if (stream == null) {
+        if (!hasResolvedStream()) {
             Toast.makeText(
                     this,
                     "Video link မရှိပါ။",
@@ -657,31 +793,33 @@ resolveStream();
         intent.putExtra("video_orientation", "portrait");
 
         /*
-         * Resume support — MyanmarActivity နှင့်
-         * အတူ "samusar:" prefix (LocalStore)။
+         * Resume support — "mmtube:" / "samusar:"
+         * prefix (LocalStore)။
          */
         intent.putExtra(
                 "title_id",
-                SamusarClient.videoId(detailUrl)
+                isMmtube()
+                        ? MmtubeClient.videoId(detailUrl)
+                        : SamusarClient.videoId(detailUrl)
         );
         intent.putExtra("video_title", title);
         intent.putExtra("video_thumb", thumbUrl);
 
         /*
-         * Samusar tokenized URL headers —
-         * MyanmarActivity.openPlayer နှင့် အတူ။
+         * Tokenized URL headers —
+         * source အလိုက် Referer/Cookie/UA။
          */
         intent.putExtra(
                 "video_referer",
-                stream.referer
+                currentReferer()
         );
         intent.putExtra(
                 "video_user_agent",
-                SamusarClient.USER_AGENT
+                currentUserAgent()
         );
         intent.putExtra(
                 "video_cookie",
-                stream.cookieHeader
+                currentCookie()
         );
 
         startActivity(intent);
@@ -734,7 +872,7 @@ resolveStream();
             return;
         }
 
-        if (stream == null) {
+        if (!hasResolvedStream()) {
             Toast.makeText(
                     this,
                     "Download link မရှိပါ။",
@@ -753,32 +891,29 @@ resolveStream();
                     );
 
             /*
-             * Samusar session headers —
-             * MyanmarActivity.enqueueDownload
-             * နှင့် အတူ။
+             * Session headers —
+             * source အလိုက် Referer/Cookie/UA။
              */
             request.addRequestHeader(
                     "User-Agent",
-                    SamusarClient.USER_AGENT
+                    currentUserAgent()
             );
 
-            if (
-                    stream.referer != null &&
-                            !stream.referer.isEmpty()
-            ) {
+            String referer = currentReferer();
+
+            if (!referer.isEmpty()) {
                 request.addRequestHeader(
                         "Referer",
-                        stream.referer
+                        referer
                 );
             }
 
-            if (
-                    stream.cookieHeader != null &&
-                            !stream.cookieHeader.isEmpty()
-            ) {
+            String cookie = currentCookie();
+
+            if (!cookie.isEmpty()) {
                 request.addRequestHeader(
                         "Cookie",
-                        stream.cookieHeader
+                        cookie
                 );
             }
 

@@ -425,7 +425,7 @@ public class JavtifulActivity extends AppCompatActivity {
                         startActivity(
                                 new Intent(
                                         this,
-                                        MyanmarActivity.class
+                                        MyanmarHubActivity.class
                                 )
                         )
         );
