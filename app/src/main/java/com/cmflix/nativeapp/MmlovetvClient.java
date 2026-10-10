@@ -1098,31 +1098,102 @@ public final class MmlovetvClient {
      * WebView ၏ CookieManager မှ cookie header
      * ထုတ်ယူသည် (HttpOnly Worker cookie အပါအဝင် —
      * getCookie() သည် HttpOnly များပါ ပြန်ပေးသည်)။
+     *
+     * အရေးကြီး: getCookie(url) သည် ပေးထားသော URL
+     * သို့ ပေးပို့မည့် cookie များသာ ပြန်ပေးသည် —
+     * Domain AND Path နှစ်ခုလုံး ကိုက်ညီမှုရှိမှ။
+     * "https://mmlovetv.com" (root path) တစ်ခုတည်းကို
+     * မေးလျှင် Path=/wp-json/ လို sub-path scoped
+     * cookie များ လွတ်သွားတတ်သည်။ ထို့ကြောင့်
+     * video stream URL အပါအဝင် URL scope
+     * အများအပြားကို မေးပြီး cookie name အလိုက်
+     * ပေါင်းမည် (အတိအကျဆုံး path ကို ဦးစားပေးသည်)။
      */
-    private static String getWebViewCookies(String logTag) {
-        String cookies = "";
+    private static String getWebViewCookies(
+            String logTag,
+            String videoUrl,
+            String detailUrl
+    ) {
+        java.util.Map<String, String> merged =
+                new java.util.LinkedHashMap<>();
 
-        try {
-            android.webkit.CookieManager
-                    .getInstance()
-                    .flush();
+        String[] urls = {
+                videoUrl,
+                "https://mmlovetv.com/wp-json/cfr2ss/v1/",
+                detailUrl,
+                "https://mmlovetv.com/",
+        };
 
-            String c =
-                    android.webkit.CookieManager
-                            .getInstance()
-                            .getCookie(
-                                    "https://mmlovetv.com"
-                            );
-
-            if (c != null) {
-                cookies = c;
+        for (String u : urls) {
+            if (u == null || u.trim().isEmpty()) {
+                continue;
             }
-        } catch (Exception e) {
-            android.util.Log.d(
-                    logTag,
-                    "getCookie failed: " + e
-            );
+
+            String c = null;
+
+            try {
+                c = android.webkit.CookieManager
+                        .getInstance()
+                        .getCookie(u.trim());
+            } catch (Exception e) {
+                android.util.Log.d(
+                        logTag,
+                        "getCookie failed for "
+                                + u + ": " + e
+                );
+            }
+
+            if (c == null || c.isEmpty()) {
+                continue;
+            }
+
+            for (String pair : c.split(";")) {
+                String p = pair.trim();
+
+                int eq = p.indexOf('=');
+
+                if (eq <= 0) {
+                    continue;
+                }
+
+                String name =
+                        p.substring(0, eq).trim();
+
+                if (
+                        !name.isEmpty()
+                                && !merged.containsKey(name)
+                ) {
+                    merged.put(
+                            name,
+                            p.substring(eq + 1).trim()
+                    );
+                }
+            }
         }
+
+        StringBuilder sb = new StringBuilder();
+        StringBuilder names = new StringBuilder();
+
+        for (
+                java.util.Map.Entry<String, String> e :
+                        merged.entrySet()
+        ) {
+            if (sb.length() > 0) {
+                sb.append("; ");
+            }
+
+            sb.append(e.getKey())
+                    .append("=")
+                    .append(e.getValue());
+
+            if (names.length() > 0) {
+                names.append(",");
+            }
+
+            names.append(e.getKey());
+        }
+
+        String cookies = sb.toString();
 
         if (cookies.isEmpty()) {
             cookies = getCookieHeader();
@@ -1130,13 +1201,62 @@ public final class MmlovetvClient {
 
         android.util.Log.d(
                 logTag,
-                "cookies length="
+                "cookies: count="
+                        + merged.size()
+                        + " names=["
+                        + names
+                        + "] len="
                         + cookies.length()
                         + " empty="
                         + cookies.isEmpty()
         );
 
         return cookies;
+    }
+
+    /*
+     * Presigned URL ၏ cfr2ss_exp ကို log ထုတ်သည် —
+     * URL ဘယ်လောက်ကြာကြာ valid ဖြစ်လဲ သိရန်
+     * (on-device diagnostics အတွက်)။
+     */
+    public static void logUrlExpiry(
+            String url,
+            String tag
+    ) {
+        try {
+            if (url == null) {
+                return;
+            }
+
+            java.util.regex.Matcher m =
+                    java.util.regex.Pattern.compile(
+                            "[?&]cfr2ss_exp=(\\d+)"
+                    ).matcher(url);
+
+            if (m.find()) {
+                long exp =
+                        Long.parseLong(m.group(1));
+                long now =
+                        System.currentTimeMillis()
+                                / 1000L;
+
+                android.util.Log.d(
+                        tag,
+                        "presigned URL expiry: exp="
+                                + exp
+                                + " now="
+                                + now
+                                + " valid_for_sec="
+                                + (exp - now)
+                );
+            } else {
+                android.util.Log.d(
+                        tag,
+                        "presigned URL: no cfr2ss_exp found"
+                );
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     private static void resolveViaWebViewOnMain(
@@ -1309,10 +1429,19 @@ public final class MmlovetvClient {
                                         return;
                                 }
 
+                                logUrlExpiry(
+                                        cleanUrl,
+                                        WV_TAG
+                                );
+
                                 MmlovetvStream stream =
                                         new MmlovetvStream(
                                                 cleanUrl,
-                                                getWebViewCookies(WV_TAG),
+                                                getWebViewCookies(
+                                                        WV_TAG,
+                                                        cleanUrl,
+                                                        detailUrl
+                                                ),
                                                 detailUrl
                                         );
 
@@ -1470,10 +1599,16 @@ public final class MmlovetvClient {
                                                 false, true
                                         )
                         ) {
+                            logUrlExpiry(src, WV_TAG);
+
                             MmlovetvStream stream =
                                     new MmlovetvStream(
                                             src,
-                                            getWebViewCookies(WV_TAG),
+                                            getWebViewCookies(
+                                                    WV_TAG,
+                                                    src,
+                                                    detailUrl
+                                            ),
                                             detailUrl
                                     );
 
