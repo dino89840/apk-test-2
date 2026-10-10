@@ -227,7 +227,7 @@ private long lastProfileRefreshAttemptAt = 0L;
         {"Horror", "movies"},
         {"Nosub 18+", "series"},
         {"Mmsub 18+", "lugyi"},
-        {"Myanmar", "myanmar"},
+        {"Myanmar+All", "myanmar"},
         {"Continue", "continue"},
         {"Recent", "recent"},
         {"Downloads", "downloads"},
