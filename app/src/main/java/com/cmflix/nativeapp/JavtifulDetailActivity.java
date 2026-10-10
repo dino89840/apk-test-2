@@ -14,6 +14,8 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.bumptech.glide.Glide;
@@ -53,6 +55,26 @@ public class JavtifulDetailActivity
 
     private JavtifulClient.JavtifulStream stream;
     private boolean isResolving = false;
+
+    private int pendingActionAfterLogin = 0; // 0=none, 1=play, 2=download
+
+    private final ActivityResultLauncher<Intent> authLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.StartActivityForResult(),
+                    result -> {
+                        if (result.getResultCode() != RESULT_OK) {
+                            pendingActionAfterLogin = 0;
+                            return;
+                        }
+                        int action = pendingActionAfterLogin;
+                        pendingActionAfterLogin = 0;
+                        if (action == 1) {
+                            onPlayClick();
+                        } else if (action == 2) {
+                            onDownloadClick();
+                        }
+                    }
+            );
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -322,6 +344,12 @@ public class JavtifulDetailActivity
     // ------------------------------------------------------------------
 
     private void onPlayClick() {
+        if (!SessionManager.isLoggedIn()) {
+            pendingActionAfterLogin = 1;
+            authLauncher.launch(new Intent(this, AuthActivity.class));
+            return;
+        }
+
         if (!SessionManager.isVipActive()) {
             PremiumDialog.show(this);
             return;
@@ -386,6 +414,12 @@ public class JavtifulDetailActivity
     // ------------------------------------------------------------------
 
     private void onDownloadClick() {
+        if (!SessionManager.isLoggedIn()) {
+            pendingActionAfterLogin = 2;
+            authLauncher.launch(new Intent(this, AuthActivity.class));
+            return;
+        }
+
         if (!SessionManager.isVipActive()) {
             PremiumDialog.show(this);
             return;

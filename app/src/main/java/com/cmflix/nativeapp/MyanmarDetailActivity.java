@@ -16,6 +16,8 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.bumptech.glide.Glide;
@@ -57,6 +59,30 @@ public class MyanmarDetailActivity
 
     private SamusarClient.SamusarStream stream;
     private boolean isResolving = false;
+
+    private int pendingActionAfterLogin = 0; // 0=none, 1=play, 2=download
+    private String pendingUrlAfterLogin = "";
+
+    private final ActivityResultLauncher<Intent> authLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.StartActivityForResult(),
+                    result -> {
+                        if (result.getResultCode() != RESULT_OK) {
+                            pendingActionAfterLogin = 0;
+                            pendingUrlAfterLogin = "";
+                            return;
+                        }
+                        int action = pendingActionAfterLogin;
+                        String url = pendingUrlAfterLogin;
+                        pendingActionAfterLogin = 0;
+                        pendingUrlAfterLogin = "";
+                        if (action == 1) {
+                            onPlayClick(url);
+                        } else if (action == 2) {
+                            onDownloadClick(url);
+                        }
+                    }
+            );
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -530,6 +556,14 @@ public class MyanmarDetailActivity
     // ------------------------------------------------------------------
 
     private void onPlayClick(String url) {
+        if (!SessionManager.isLoggedIn()) {
+            pendingActionAfterLogin = 1;
+            pendingUrlAfterLogin = url;
+            authLauncher.launch(new Intent(this, AuthActivity.class));
+
+            return;
+        }
+
         if (!SessionManager.isVipActive()) {
             PremiumDialog.show(this);
 
@@ -617,6 +651,14 @@ public class MyanmarDetailActivity
     // ------------------------------------------------------------------
 
     private void onDownloadClick(String url) {
+        if (!SessionManager.isLoggedIn()) {
+            pendingActionAfterLogin = 2;
+            pendingUrlAfterLogin = url;
+            authLauncher.launch(new Intent(this, AuthActivity.class));
+
+            return;
+        }
+
         if (!SessionManager.isVipActive()) {
             PremiumDialog.show(this);
 
