@@ -22,3 +22,5 @@ public class MaintenanceException
         super(message);
     }
 }
+
+// Rebuild trigger: ensure MaintenanceException is compiled into the APK.
