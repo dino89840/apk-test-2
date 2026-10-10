@@ -366,37 +366,47 @@ public final class MmlovetvClient {
                 String html =
                         get(trimmedUrl, BASE_URL + "/");
 
-                MmlovetvStream stream =
-                        parseDetail(
-                                html,
-                                trimmedUrl,
-                                getCookieHeader()
-                        );
+                /*
+                 * The web player ALWAYS fetches a fresh
+                 * presigned URL via get-video-url API
+                 * (the <source src> in HTML is Varnish-
+                 * cached and often expired/invalid).
+                 * So we try the API FIRST.
+                 */
+                String attachmentId =
+                        parseAttachmentId(html);
 
-                if (!stream.hasStream()) {
-                    /*
-                     * Fallback: fresh presigned URL
-                     * via get-video-url API.
-                     */
-                    String attachmentId =
-                            parseAttachmentId(html);
+                MmlovetvStream stream = null;
 
-                    if (!attachmentId.isEmpty()) {
-                        String freshUrl =
-                                fetchFreshVideoUrl(
-                                        attachmentId,
+                if (!attachmentId.isEmpty()) {
+                    String freshUrl =
+                            fetchFreshVideoUrl(
+                                    attachmentId,
+                                    trimmedUrl
+                            );
+
+                    if (!freshUrl.isEmpty()) {
+                        stream =
+                                new MmlovetvStream(
+                                        freshUrl,
+                                        getCookieHeader(),
                                         trimmedUrl
                                 );
-
-                        if (!freshUrl.isEmpty()) {
-                            stream =
-                                    new MmlovetvStream(
-                                            freshUrl,
-                                            getCookieHeader(),
-                                            trimmedUrl
-                                    );
-                        }
                     }
+                }
+
+                if (stream == null || !stream.hasStream()) {
+                    /*
+                     * Fallback: <source src> URL from HTML
+                     * (may be cached/expired, but worth
+                     * trying if API failed).
+                     */
+                    stream =
+                            parseDetail(
+                                    html,
+                                    trimmedUrl,
+                                    getCookieHeader()
+                            );
                 }
 
                 if (!stream.hasStream()) {
