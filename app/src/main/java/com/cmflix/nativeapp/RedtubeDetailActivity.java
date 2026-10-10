@@ -16,6 +16,8 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.bumptech.glide.Glide;
+
 /*
  * "Free Porn" detail page (redtube.com).
  * (UI label is "Free Porn"; the word "redtube" never
@@ -23,18 +25,14 @@ import androidx.appcompat.app.AppCompatActivity;
  *
  * - 16:9 thumbnail + title (+ duration)
  * - Single Play button + single Download button
- *   (best quality auto-selected: 720p → 480p → 1080p → 240p)
+ *   (best quality auto-selected)
  * - Play + Download: FREE (no VIP), LOGIN required.
  *   Not logged in → AuthActivity prompt; after login
  *   returns, user must tap Play/Download again manually
  *   (no auto-resume).
- * - PIN မရှိပါ
- * - Landscape playback (video_orientation extra
- *   မထည့်ပါ — default landscape)
  * - Download: in-APK DownloadManager
  */
-public class RedtubeDetailActivity
-        extends AppCompatActivity {
+public class RedtubeDetailActivity extends AppCompatActivity {
 
     public static final String EXTRA_TITLE = "video_title";
     public static final String EXTRA_THUMB = "video_thumb";
@@ -55,15 +53,15 @@ public class RedtubeDetailActivity
     private RedtubeClient.RedtubeStream stream;
     private boolean isResolving = false;
 
-    private int pendingActionAfterLogin = 0; // 0=none, 1=play, 2=download
+    private int pendingActionAfterLogin = 0;
 
     private final ActivityResultLauncher<Intent> authLauncher =
             registerForActivityResult(
-                    new ActivityResultContracts.StartActivityForResult(),
+                    new ActivityResultContracts
+                            .StartActivityForResult(),
                     result -> {
-                        // Login ပြီးရင် auto play/download မလုပ်ပါ —
-                        // user က Play/Download ကို ကိုယ်တိုင် ပြန်နှိပ်ရမည်
-                        // (18+ mmsub/eng/horror တို့နဲ့ အပြုအမူ တူညီရန်)။
+                        // Login ပြီးရင် auto play/download
+                        // မလုပ်ပါ — user က ကိုယ်တိုင် ပြန်နှိပ်ရမည်။
                         pendingActionAfterLogin = 0;
                     }
             );
@@ -87,7 +85,8 @@ public class RedtubeDetailActivity
             showError(
                     "Error: ("
                             + fatal.getClass().getSimpleName()
-                            + ": " + fatal.getMessage() + ")"
+                            + ": " + fatal.getMessage()
+                            + ")"
             );
         }
     }
@@ -148,10 +147,6 @@ public class RedtubeDetailActivity
         return value == null ? "" : value;
     }
 
-    // ------------------------------------------------------------------
-    // Stream resolve
-    // ------------------------------------------------------------------
-
     private void resolveStream() {
         if (detailUrl.isEmpty()) {
             showError("Video link မရှိပါ။");
@@ -184,10 +179,8 @@ public class RedtubeDetailActivity
 
                             stream = result;
 
-                            if (
-                                    stream != null &&
-                                            stream.hasStream()
-                            ) {
+                            if (stream != null
+                                    && stream.hasStream()) {
                                 buttonsBox.setVisibility(
                                         View.VISIBLE
                                 );
@@ -224,15 +217,13 @@ public class RedtubeDetailActivity
         errorView.setVisibility(View.VISIBLE);
     }
 
-    // ------------------------------------------------------------------
-    // Play — FREE (login required, no VIP), landscape (default)
-    // ------------------------------------------------------------------
-
     private void onPlayClick() {
         // Free Porn: login required, VIP NOT required.
         if (!SessionManager.isLoggedIn()) {
             pendingActionAfterLogin = 1;
-            authLauncher.launch(new Intent(this, AuthActivity.class));
+            authLauncher.launch(
+                    new Intent(this, AuthActivity.class)
+            );
             return;
         }
 
@@ -248,7 +239,6 @@ public class RedtubeDetailActivity
                     "Video link မရှိပါ။",
                     Toast.LENGTH_LONG
             ).show();
-
             return;
         }
 
@@ -257,38 +247,24 @@ public class RedtubeDetailActivity
 
         intent.putExtra("video_url", url);
         intent.putExtra("video_type", "mp4");
-
-        /*
-         * Javtiful videos are landscape — do NOT set
-         * video_orientation=portrait (default landscape
-         * behavior, same as Horror/18+).
-         */
-
         intent.putExtra("video_title", title);
         intent.putExtra("video_thumb", thumbUrl);
+        intent.putExtra(
+                "title_id",
+                RedtubeClient.videoId(detailUrl)
+        );
 
-        /*
-         * NOTE: title_id မထည့်ပါ — javtiful progress
-         * store သီးသန့် မရှိသေးသောကြောင့် backend
-         * history ထဲ ရောမဝင်စေရန်။
-         */
-
-        if (
-                stream.referer != null &&
-                        !stream.referer.isEmpty()
-        ) {
+        if (stream.referer != null
+                && !stream.referer.isEmpty()) {
             intent.putExtra(
                     "video_referer", stream.referer
             );
         }
 
-        if (
-                stream.cookieHeader != null &&
-                        !stream.cookieHeader.isEmpty()
-        ) {
+        if (stream.cookieHeader != null
+                && !stream.cookieHeader.isEmpty()) {
             intent.putExtra(
-                    "video_cookie",
-                    stream.cookieHeader
+                    "video_cookie", stream.cookieHeader
             );
         }
 
@@ -300,15 +276,13 @@ public class RedtubeDetailActivity
         startActivity(intent);
     }
 
-    // ------------------------------------------------------------------
-    // Download — VIP only, in-APK DownloadManager
-    // ------------------------------------------------------------------
-
     private void onDownloadClick() {
         // Free Porn: login required, VIP NOT required.
         if (!SessionManager.isLoggedIn()) {
             pendingActionAfterLogin = 2;
-            authLauncher.launch(new Intent(this, AuthActivity.class));
+            authLauncher.launch(
+                    new Intent(this, AuthActivity.class)
+            );
             return;
         }
 
@@ -322,7 +296,6 @@ public class RedtubeDetailActivity
                     "Download လုပ်ရန် အင်တာနက်ချိတ်ဆက်ပါ။",
                     Toast.LENGTH_LONG
             ).show();
-
             return;
         }
 
@@ -334,7 +307,6 @@ public class RedtubeDetailActivity
                     "Download link မရှိပါ။",
                     Toast.LENGTH_LONG
             ).show();
-
             return;
         }
 
@@ -351,22 +323,17 @@ public class RedtubeDetailActivity
                     RedtubeClient.USER_AGENT
             );
 
-            if (
-                    stream.referer != null &&
-                            !stream.referer.isEmpty()
-            ) {
+            if (stream.referer != null
+                    && !stream.referer.isEmpty()) {
                 request.addRequestHeader(
                         "Referer", stream.referer
                 );
             }
 
-            if (
-                    stream.cookieHeader != null &&
-                            !stream.cookieHeader.isEmpty()
-            ) {
+            if (stream.cookieHeader != null
+                    && !stream.cookieHeader.isEmpty()) {
                 request.addRequestHeader(
-                        "Cookie",
-                        stream.cookieHeader
+                        "Cookie", stream.cookieHeader
                 );
             }
 
@@ -419,7 +386,7 @@ public class RedtubeDetailActivity
         ).trim();
 
         if (safe.isEmpty()) {
-            safe = "cmflix_javtiful_video";
+            safe = "cmflix_freeporn_video";
         }
 
         if (safe.length() > 80) {
