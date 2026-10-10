@@ -69,6 +69,48 @@ public class PlayerActivity extends AppCompatActivity {
     private String samusarTitle = "";
     private String samusarThumb = "";
 
+    /*
+     * Cronet (Chromium network stack) engine —
+     * mmlovetv ၏ cfr2ss protection သည်
+     * HttpURLConnection ၏ TLS fingerprint ကို
+     * 403 ဖြင့် ငြင်းသည်။ Cronet သည် Chrome နှင့်
+     * တူသော TLS fingerprint ရှိသောကြောင့်
+     * browser request အဖြစ် လက်ခံသည်။
+     * Lazy singleton — mmlovetv ဖွင့်မှသာ
+     * initialize လုပ်မည်။
+     */
+    private static volatile org.chromium.net
+            .CronetEngine cronetEngine = null;
+
+    private static final Object CRONET_LOCK =
+            new Object();
+
+    private org.chromium.net.CronetEngine
+    getCronetEngine() {
+        if (cronetEngine == null) {
+            synchronized (CRONET_LOCK) {
+                if (cronetEngine == null) {
+                    cronetEngine =
+                            new org.chromium.net
+                                    .CronetEngine
+                                    .Builder(
+                                            getApplicationContext()
+                                    )
+                                    .enableHttpCache(
+                                            org.chromium.net
+                                                    .CronetEngine
+                                                    .Builder
+                                                    .HTTP_CACHE_DISABLED,
+                                            0
+                                    )
+                                    .build();
+                }
+            }
+        }
+
+        return cronetEngine;
+    }
+
     private final Runnable saveProgressTask =
             new Runnable() {
                 @Override
@@ -445,7 +487,72 @@ public class PlayerActivity extends AppCompatActivity {
             );
         }
 
-        if (!requestProps.isEmpty()) {
+        /*
+         * mmlovetv — Cronet (Chromium network stack)
+         * သုံးမည်။ cfr2ss protection သည်
+         * HttpURLConnection request များကို
+         * TLS fingerprint ကွာခြားမှုကြောင့်
+         * 403 ဖြင့် ငြင်းသောကြောင့်။
+         * Cronet ၏ TLS handshake သည် Chrome
+         * browser နှင့် တူသည်။
+         */
+        boolean isMmlovetv =
+                (
+                        titleId != null &&
+                                titleId.startsWith(
+                                        "mmlovetv:"
+                                )
+                ) ||
+                        (
+                                url != null &&
+                                        (
+                                                url.contains(
+                                                        "mmlovetv.com"
+                                                ) ||
+                                                        url.contains(
+                                                                "cfr2ss"
+                                                        )
+                                        )
+                        );
+
+        if (isMmlovetv) {
+            androidx.media3.datasource.cronet
+                    .CronetDataSource.Factory
+                    cronetFactory =
+                    new androidx.media3.datasource
+                            .cronet.CronetDataSource
+                            .Factory(
+                                    getCronetEngine(),
+                                    java.util.concurrent
+                                            .Executors
+                                            .newSingleThreadExecutor()
+                            );
+
+            if (
+                    headerUserAgent != null &&
+                            !headerUserAgent
+                                    .trim()
+                                    .isEmpty()
+            ) {
+                cronetFactory.setUserAgent(
+                        headerUserAgent.trim()
+                );
+            }
+
+            if (!requestProps.isEmpty()) {
+                cronetFactory
+                        .setDefaultRequestProperties(
+                                requestProps
+                        );
+            }
+
+            playerBuilder.setMediaSourceFactory(
+                    new androidx.media3.exoplayer.source
+                            .DefaultMediaSourceFactory(
+                                    cronetFactory
+                            )
+            );
+        } else if (!requestProps.isEmpty()) {
             androidx.media3.datasource
                     .DefaultHttpDataSource.Factory
                     httpFactory =
@@ -876,6 +983,10 @@ public class PlayerActivity extends AppCompatActivity {
                         ||
                         titleId.startsWith(
                                 MmtubeClient.ID_PREFIX
+                        )
+                        ||
+                        titleId.startsWith(
+                                MmlovetvClient.ID_PREFIX
                         )
         ) {
             LocalStore.saveSamusarProgress(

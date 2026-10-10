@@ -965,6 +965,10 @@ public static synchronized void clearResumePosition(
                                 id.startsWith(
                                         MmtubeClient.ID_PREFIX
                                 )
+                                ||
+                                id.startsWith(
+                                        MmlovetvClient.ID_PREFIX
+                                )
                 );
     }
 
