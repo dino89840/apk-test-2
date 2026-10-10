@@ -957,8 +957,14 @@ public static synchronized void clearResumePosition(
 
     private static boolean isSamusarId(String id) {
         return id != null &&
-                id.startsWith(
-                        SamusarClient.ID_PREFIX
+                (
+                        id.startsWith(
+                                SamusarClient.ID_PREFIX
+                        )
+                                ||
+                                id.startsWith(
+                                        MmtubeClient.ID_PREFIX
+                                )
                 );
     }
 

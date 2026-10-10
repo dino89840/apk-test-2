@@ -978,7 +978,7 @@ private void setupDrawer() {
                                             startActivity(
                                                     new Intent(
                                                             this,
-                                                            MyanmarActivity.class
+                                                            MyanmarHubActivity.class
                                                     )
                                             )
                             )
@@ -1778,10 +1778,10 @@ private void ensureHomeSectionLoaded(String value) {
         );
 
         /*
-         * မြန်မာ tab — proxy မှတဆင့် samusar scrape
-         * ဖြစ်သောကြောင့် MainActivity ၏ backend
-         * category flow (openCategory) ကို မသုံးဘဲ
-         * MyanmarActivity သီးသန့် ဖွင့်မည်။
+         * မြန်မာ tab — MyanmarHubActivity (Myanmar 1/2
+         * source ရွေးချယ်မှု) သီးသန့် ဖွင့်မည်။
+         * MainActivity ၏ backend category flow
+         * (openCategory) ကို မသုံးပါ။
          * PIN မရှိပါ။ Kill-switch ပိတ်ထားလျှင်
          * tab ကိုယ်တိုင်က မပေါ်ပါ။
          */
@@ -1790,7 +1790,7 @@ private void ensureHomeSectionLoaded(String value) {
                         startActivity(
                                 new Intent(
                                         this,
-                                        MyanmarActivity.class
+                                        MyanmarHubActivity.class
                                 )
                         )
         );

@@ -26,8 +26,14 @@ import java.util.List;
 import java.util.Set;
 
 /*
- * မြန်မာ category — proxy (tw.kyakya.xubi.org)
- * မှတဆင့် samusar scrape (VPN မလိုရန်)။
+ * မြန်မာ category — source ရွေးချယ်မှု
+ * (MyanmarHubActivity မှ ဖွင့်သည်)။
+ *
+ * - "mmtube"  ("Myanmar 1"): mmtube.net တိုက်ရိုက်
+ *   (proxy မရှိ; လက်ရှိ မြန်မာမှ VPN မလိုသေး)။
+ * - "samusar" ("Myanmar 2"): samusar.com တိုက်ရိုက်
+ *   (proxy မရှိ; မြန်မာမှ VPN လိုအပ်နိုင်သည်) —
+ *   SamusarClient direct mode။
  *
  * - Cover ပုံများ (landscape) ကို 16:9 card grid ဖြင့် ပြသည်။
  * - ကြည့်ခြင်း + Download နှစ်မျိုးလုံး VIP only။
@@ -40,7 +46,32 @@ import java.util.Set;
  */
 public class MyanmarActivity extends AppCompatActivity {
 
+    public static final String EXTRA_SOURCE =
+            "myanmar_source";
+
+    public static final String SOURCE_MMTUBE = "mmtube";
+    public static final String SOURCE_SAMUSAR = "samusar";
+
     private static final int GRID_SPAN = 2;
+
+    private String sourceMode = SOURCE_MMTUBE;
+
+    /*
+     * Source-agnostic list item — MmtubeClient ရော
+     * SamusarClient ရော ဒီ holder ထဲ map ထည့်သည်။
+     */
+    private static final class Item {
+        final String title;
+        final String thumbUrl;
+        final String detailUrl;
+
+        Item(String title, String thumbUrl, String detailUrl) {
+            this.title = title == null ? "" : title;
+            this.thumbUrl = thumbUrl == null ? "" : thumbUrl;
+            this.detailUrl =
+                    detailUrl == null ? "" : detailUrl;
+        }
+    }
 
     private RecyclerView grid;
     private ProgressBar progress;
@@ -50,7 +81,7 @@ public class MyanmarActivity extends AppCompatActivity {
 
     private VideoAdapter adapter;
 
-    private final List<SamusarClient.SamusarVideo> videos =
+    private final List<Item> videos =
             new ArrayList<>();
 
     private int currentPage = 0;
@@ -76,6 +107,29 @@ public class MyanmarActivity extends AppCompatActivity {
         emptyBox = findViewById(R.id.myanmarEmptyBox);
         emptyText = findViewById(R.id.myanmarEmptyText);
         countText = findViewById(R.id.myanmarCountText);
+
+        /*
+         * Source mode — MyanmarHubActivity မှ
+         * EXTRA_SOURCE ("mmtube" / "samusar")။
+         * Default: mmtube (Myanmar 1)။
+         */
+        String modeExtra =
+                getIntent().getStringExtra(EXTRA_SOURCE);
+
+        if (SOURCE_SAMUSAR.equals(modeExtra)) {
+            sourceMode = SOURCE_SAMUSAR;
+        } else {
+            sourceMode = SOURCE_MMTUBE;
+        }
+
+        /*
+         * Samusar direct mode — proxy/D1 config ကို
+         * ကျော်ပြီး samusar.com တိုက်ရိုက်။
+         * (mmtube source မှာ မသက်ဆိုင်ပါ။)
+         */
+        SamusarClient.setDirectMode(
+                SOURCE_SAMUSAR.equals(sourceMode)
+        );
 
         findViewById(R.id.myanmarBackButton)
                 .setOnClickListener(
@@ -296,155 +350,226 @@ public class MyanmarActivity extends AppCompatActivity {
             }
         }
 
-        SamusarClient.fetchPage(
-                page,
-                new SamusarClient.PageCallback() {
-                    @Override
-                    public void onResult(
-                            List<SamusarClient.SamusarVideo>
-                                    newVideos,
-                            boolean more
-                    ) {
-                        runOnUiThread(() -> {
-                            isLoading = false;
-
-                            progress.setVisibility(
-                                    View.GONE
-                            );
-
-                            View vpnHint =
-                                    findViewById(
-                                            R.id.myanmarVpnHint
-                                    );
-
-                            if (vpnHint != null) {
-                                vpnHint.setVisibility(
-                                        View.GONE
-                                );
-                            }
-
-                            if (page == 1) {
-                                videos.clear();
-                                seenDetailUrls.clear();
-                            }
-
-                            /*
-                             * Cross-page duplicate guard —
-                             * samusar repeats page 1 for
-                             * out-of-range pages. Only append
-                             * videos not already shown.
-                             */
-                            int added = 0;
+        if (SOURCE_SAMUSAR.equals(sourceMode)) {
+            SamusarClient.fetchPage(
+                    page,
+                    new SamusarClient.PageCallback() {
+                        @Override
+                        public void onResult(
+                                List<SamusarClient.SamusarVideo>
+                                        newVideos,
+                                boolean more
+                        ) {
+                            List<Item> items =
+                                    new ArrayList<>();
 
                             for (
                                     SamusarClient.SamusarVideo v
                                             : newVideos
                             ) {
-                                if (
-                                        v == null
-                                                || v.detailUrl
-                                                        == null
-                                                || seenDetailUrls.contains(
-                                                        v.detailUrl
-                                                )
-                                ) {
+                                if (v == null) {
                                     continue;
                                 }
 
-                                seenDetailUrls.add(v.detailUrl);
-                                videos.add(v);
-                                added++;
-                            }
-
-                            adapter.notifyDataSetChanged();
-
-                            currentPage = page;
-
-                            /*
-                             * Page added nothing new → stop
-                             * paginating (prevents infinite
-                             * repeat loops).
-                             */
-                            hasMore =
-                                    more
-                                            && !(
-                                                    page > 1
-                                                            && added
-                                                                    == 0
-                                            );
-
-                            updateCount();
-
-                            if (videos.isEmpty()) {
-                                showEmpty(
-                                        "ဗီဒီယို မရှိပါ။",
-                                        true
-                                );
-                            } else {
-                                emptyBox.setVisibility(
-                                        View.GONE
+                                items.add(
+                                        new Item(
+                                                v.title,
+                                                v.thumbUrl,
+                                                v.detailUrl
+                                        )
                                 );
                             }
-                        });
+
+                            handlePageResult(
+                                    page, items, more
+                            );
+                        }
+
+                        @Override
+                        public void onError(Exception error) {
+                            handlePageError(error);
+                        }
                     }
+            );
+        } else {
+            MmtubeClient.fetchPage(
+                    page,
+                    new MmtubeClient.PageCallback() {
+                        @Override
+                        public void onResult(
+                                List<MmtubeClient.MmtubeVideo>
+                                        newVideos,
+                                boolean more
+                        ) {
+                            List<Item> items =
+                                    new ArrayList<>();
 
-                    @Override
-                    public void onError(Exception error) {
-                        runOnUiThread(() -> {
-                            isLoading = false;
+                            for (
+                                    MmtubeClient.MmtubeVideo v
+                                            : newVideos
+                            ) {
+                                if (v == null) {
+                                    continue;
+                                }
 
-                            progress.setVisibility(
-                                    View.GONE
+                                items.add(
+                                        new Item(
+                                                v.title,
+                                                v.thumbUrl,
+                                                v.detailUrl
+                                        )
+                                );
+                            }
+
+                            handlePageResult(
+                                    page, items, more
+                            );
+                        }
+
+                        @Override
+                        public void onError(Exception error) {
+                            handlePageError(error);
+                        }
+                    }
+            );
+        }
+    }
+
+    private void handlePageResult(
+            int page,
+            List<Item> newVideos,
+            boolean more
+    ) {
+        runOnUiThread(() -> {
+            isLoading = false;
+
+            progress.setVisibility(
+                    View.GONE
+            );
+
+            View vpnHint =
+                    findViewById(
+                            R.id.myanmarVpnHint
+                    );
+
+            if (vpnHint != null) {
+                vpnHint.setVisibility(
+                        View.GONE
+                );
+            }
+
+            if (page == 1) {
+                videos.clear();
+                seenDetailUrls.clear();
+            }
+
+            /*
+             * Cross-page duplicate guard —
+             * out-of-range pages may repeat page 1.
+             * Only append videos not already shown.
+             */
+            int added = 0;
+
+            for (Item v : newVideos) {
+                if (
+                        v == null
+                                || v.detailUrl == null
+                                || seenDetailUrls.contains(
+                                        v.detailUrl
+                                )
+                ) {
+                    continue;
+                }
+
+                seenDetailUrls.add(v.detailUrl);
+                videos.add(v);
+                added++;
+            }
+
+            adapter.notifyDataSetChanged();
+
+            currentPage = page;
+
+            /*
+             * Page added nothing new → stop
+             * paginating (prevents infinite
+             * repeat loops).
+             */
+            hasMore =
+                    more
+                            && !(
+                                    page > 1
+                                            && added == 0
                             );
 
-                            View vpnHint =
-                                    findViewById(
-                                            R.id.myanmarVpnHint
-                                    );
+            updateCount();
 
-                            if (vpnHint != null) {
-                                vpnHint.setVisibility(
-                                        View.GONE
-                                );
-                            }
+            if (videos.isEmpty()) {
+                showEmpty(
+                        "ဗီဒီယို မရှိပါ။",
+                        true
+                );
+            } else {
+                emptyBox.setVisibility(
+                        View.GONE
+                );
+            }
+        });
+    }
 
-                            /*
-                             * Debug: အမှန်တကယ် error ကို
-                             * ပြသမည် (user က report
-                             * လုပ်နိုင်ရန်)။
-                             */
-                            String detail =
-                                    error.getClass()
-                                            .getSimpleName()
-                                            + ": "
-                                            + String.valueOf(
-                                                    error.getMessage()
-                                            );
+    private void handlePageError(Exception error) {
+        runOnUiThread(() -> {
+            isLoading = false;
 
-                            if (videos.isEmpty()) {
-                                showEmpty(
-                                        "ဗီဒီယိုများ ရယူ၍မရပါ။\nပြန်စမ်းကြည့်ပါ။\n("
-                                                + detail + ")",
-                                        true
-                                );
+            progress.setVisibility(
+                    View.GONE
+            );
 
-                                Toast.makeText(
-                                        MyanmarActivity.this,
-                                        detail,
-                                        Toast.LENGTH_LONG
-                                ).show();
-                            } else {
-                                Toast.makeText(
-                                        MyanmarActivity.this,
-                                        "နောက် page ရယူ၍မရပါ။\n"
-                                                + detail,
-                                        Toast.LENGTH_LONG
-                                ).show();
-                            }
-                        });
-                    }
-                }
-        );
+            View vpnHint =
+                    findViewById(
+                            R.id.myanmarVpnHint
+                    );
+
+            if (vpnHint != null) {
+                vpnHint.setVisibility(
+                        View.GONE
+                );
+            }
+
+            /*
+             * Debug: အမှန်တကယ် error ကို
+             * ပြသမည် (user က report
+             * လုပ်နိုင်ရန်)။
+             */
+            String detail =
+                    error.getClass()
+                            .getSimpleName()
+                            + ": "
+                            + String.valueOf(
+                                    error.getMessage()
+                            );
+
+            if (videos.isEmpty()) {
+                showEmpty(
+                        "ဗီဒီယိုများ ရယူ၍မရပါ။\nပြန်စမ်းကြည့်ပါ။\n("
+                                + detail + ")",
+                        true
+                );
+
+                Toast.makeText(
+                        MyanmarActivity.this,
+                        detail,
+                        Toast.LENGTH_LONG
+                ).show();
+            } else {
+                Toast.makeText(
+                        MyanmarActivity.this,
+                        "နောက် page ရယူ၍မရပါ။\n"
+                                + detail,
+                        Toast.LENGTH_LONG
+                ).show();
+            }
+        });
     }
 
     private void showEmpty(
@@ -477,13 +602,13 @@ public class MyanmarActivity extends AppCompatActivity {
     // ------------------------------------------------------------------
 
     private void onVideoClick(
-            SamusarClient.SamusarVideo video
+            Item video
     ) {
         openDetail(video);
     }
 
     private void openDetail(
-            SamusarClient.SamusarVideo video
+            Item video
     ) {
         try {
             if (video == null) {
@@ -507,6 +632,10 @@ public class MyanmarActivity extends AppCompatActivity {
             intent.putExtra(
                     MyanmarDetailActivity.EXTRA_DETAIL_URL,
                     video.detailUrl
+            );
+            intent.putExtra(
+                    MyanmarDetailActivity.EXTRA_SOURCE,
+                    sourceMode
             );
 
             startActivity(intent);
@@ -588,7 +717,7 @@ public class MyanmarActivity extends AppCompatActivity {
                 @NonNull Holder holder,
                 int position
         ) {
-            SamusarClient.SamusarVideo video =
+            Item video =
                     videos.get(position);
 
             holder.title.setText(video.title);
