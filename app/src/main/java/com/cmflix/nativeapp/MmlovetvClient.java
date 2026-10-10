@@ -1094,17 +1094,66 @@ public final class MmlovetvClient {
         );
     }
 
+    /*
+     * WebView ၏ CookieManager မှ cookie header
+     * ထုတ်ယူသည် (HttpOnly Worker cookie အပါအဝင် —
+     * getCookie() သည် HttpOnly များပါ ပြန်ပေးသည်)။
+     */
+    private static String getWebViewCookies(String logTag) {
+        String cookies = "";
+
+        try {
+            android.webkit.CookieManager
+                    .getInstance()
+                    .flush();
+
+            String c =
+                    android.webkit.CookieManager
+                            .getInstance()
+                            .getCookie(
+                                    "https://mmlovetv.com"
+                            );
+
+            if (c != null) {
+                cookies = c;
+            }
+        } catch (Exception e) {
+            android.util.Log.d(
+                    logTag,
+                    "getCookie failed: " + e
+            );
+        }
+
+        if (cookies.isEmpty()) {
+            cookies = getCookieHeader();
+        }
+
+        android.util.Log.d(
+                logTag,
+                "cookies length="
+                        + cookies.length()
+                        + " empty="
+                        + cookies.isEmpty()
+        );
+
+        return cookies;
+    }
+
     private static void resolveViaWebViewOnMain(
             final android.content.Context context,
             final String detailUrl,
             final StreamCallback callback
     ) {
+        final String WV_TAG = TAG + "-WV";
+        android.util.Log.d(WV_TAG, "resolveViaWebView start: " + detailUrl);
+
         android.webkit.WebView webView;
 
         try {
             webView =
                     new android.webkit.WebView(context);
         } catch (Exception e) {
+            android.util.Log.d(WV_TAG, "WebView create failed: " + e);
             callback.onError(e);
 
             return;
@@ -1161,6 +1210,11 @@ public final class MmlovetvClient {
         } catch (Exception ignored) {
         }
 
+        final android.os.Handler mainHandler =
+                new android.os.Handler(
+                        android.os.Looper.getMainLooper()
+                );
+
         final java.util.concurrent.atomic.AtomicBoolean
                 done =
                 new java.util.concurrent.atomic.AtomicBoolean(
@@ -1190,13 +1244,183 @@ public final class MmlovetvClient {
             }
         };
 
+
+
+        /*
+         * Site ၏ ကိုယ်�ပိုင် JS နှင့် အတူတူ —
+         * get-video-url API ကို WebView ၏ JS context
+         * (browser cookies + Chromium TLS) ထဲမှ
+         * တိုက်ရိုက်ခေါ်ပြီး fresh presigned URL ကို
+         * @JavascriptInterface မှတဆင့် ပြန်ယူသည်။
+         *
+         * DOM polling (currentSrc) ထက် ပိုစိတ်ချရသည် —
+         * Plyr က media element ကို rebuild လုပ်တတ်သဖြင့်
+         * #cfr2-video-player ၏ currentSrc သည်
+         * လွဲတတ်သည်။
+         */
+        final Object jsBridge = new Object() {
+            @android.webkit.JavascriptInterface
+            public void onVideoUrl(String url) {
+                android.util.Log.d(
+                        WV_TAG,
+                        "JS bridge got URL, len="
+                                + (url == null
+                                        ? -1
+                                        : url.length())
+                );
+
+                if (url == null) {
+                    return;
+                }
+
+                final String cleanUrl = url.trim();
+
+                if (cleanUrl.isEmpty()) {
+                    android.util.Log.d(
+                            WV_TAG,
+                            "JS bridge URL empty"
+                    );
+
+                    return;
+                }
+
+                android.util.Log.d(
+                        WV_TAG,
+                        "JS bridge URL head: "
+                                + cleanUrl.substring(
+                                        0,
+                                        Math.min(
+                                                120,
+                                                cleanUrl.length()
+                                        )
+                                )
+                );
+
+                mainHandler.post(
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                if (
+                                        !done.compareAndSet(
+                                                false,
+                                                true
+                                        )
+                                ) {
+                                        return;
+                                }
+
+                                MmlovetvStream stream =
+                                        new MmlovetvStream(
+                                                cleanUrl,
+                                                getWebViewCookies(WV_TAG),
+                                                detailUrl
+                                        );
+
+                                cleanup.run();
+                                callback.onResult(stream);
+                            }
+                        }
+                );
+            }
+
+            @android.webkit.JavascriptInterface
+            public void onApiError(String msg) {
+                android.util.Log.d(
+                        WV_TAG,
+                        "JS API error: " + msg
+                );
+            }
+        };
+
+        try {
+            wv.addJavascriptInterface(jsBridge, "Android");
+            android.util.Log.d(
+                    WV_TAG,
+                    "JavascriptInterface added"
+            );
+        } catch (Exception e) {
+            android.util.Log.d(
+                    WV_TAG,
+                    "addJavascriptInterface failed: " + e
+            );
+        }
+
         final android.os.Handler pollHandler =
                 new android.os.Handler(
                         android.os.Looper.getMainLooper()
                 );
 
+        /*
+         * API fetch အတွက် JS — site ၏ plyr-js-js-after
+         * နှင့် အတိအကျ တူညီသော request။
+         */
+        final Runnable injectApiFetch = new Runnable() {
+            @Override
+            public void run() {
+                if (done.get()) {
+                    return;
+                }
+
+                android.util.Log.d(
+                        WV_TAG,
+                        "injecting API fetch JS"
+                );
+
+                try {
+                    wv.evaluateJavascript(
+                            "(function(){"
+                                    + "try{"
+                                    + "var v=document.getElementById"
+                                    + "('cfr2-video-player');"
+                                    + "if(!v){Android.onApiError"
+                                    + "('no video element');return;}"
+                                    + "var id=v.getAttribute"
+                                    + "('data-attachment-id');"
+                                    + "if(!id){Android.onApiError"
+                                    + "('no attachment-id');return;}"
+                                    + "Android.onApiError"
+                                    + "('fetching id='+id);"
+                                    + "fetch('https://mmlovetv.com"
+                                    + "/wp-json/cfr2ss/v1/get-video-url/'"
+                                    + "+id+'?_='+Date.now(),{"
+                                    + "method:'GET',"
+                                    + "cache:'no-store',"
+                                    + "credentials:'same-origin',"
+                                    + "headers:{'X-Requested-With':"
+                                    + "'XMLHttpRequest'}})"
+                                    + ".then(function(r){"
+                                    + "Android.onApiError"
+                                    + "('api status='+r.status);"
+                                    + "return r.json();})"
+                                    + ".then(function(d){"
+                                    + "if(d&&d.success&&d.url){"
+                                    + "Android.onVideoUrl(d.url);}"
+                                    + "else{Android.onApiError"
+                                    + "('api bad: '+JSON.stringify(d)"
+                                    + ".substring(0,200));}})"
+                                    + ".catch(function(e){"
+                                    + "Android.onApiError"
+                                    + "('fetch fail: '+e);});"
+                                    + "}catch(e){Android.onApiError"
+                                    + "('js exc: '+e);}"
+                                    + "})()",
+                            null
+                    );
+                } catch (Exception e) {
+                    android.util.Log.d(
+                            WV_TAG,
+                            "evaluateJavascript failed: " + e
+                    );
+                }
+            }
+        };
+
+        /*
+         * Fallback: DOM poll (ယခင် logic) — API fetch
+         * မအောင်မြင်ခဲ့လျှင်။
+         */
         final java.util.concurrent.atomic.AtomicBoolean
-                pollStarted =
+                domPollStarted =
                 new java.util.concurrent.atomic.AtomicBoolean(
                         false
                 );
@@ -1207,13 +1431,9 @@ public final class MmlovetvClient {
                         0
                 );
 
-        final int maxAttempts = 28;
+        final int maxAttempts = 20;
         final long pollIntervalMs = 700L;
 
-        /*
-         * Self-reference အတွက် holder — anonymous
-         * inner class အတွင်းမှ ပြန် schedule လုပ်ရန်။
-         */
         final Runnable[] pollerHolder = new Runnable[1];
 
         final android.webkit.ValueCallback<String>
@@ -1230,46 +1450,30 @@ public final class MmlovetvClient {
                         String src =
                                 unquoteJsValue(value);
 
+                        android.util.Log.d(
+                                WV_TAG,
+                                "DOM poll got: "
+                                        + (src.isEmpty()
+                                                ? "(empty)"
+                                                : src.substring(
+                                                        0,
+                                                        Math.min(
+                                                                100,
+                                                                src.length()
+                                                        )
+                                                ))
+                        );
+
                         if (
                                 !src.isEmpty()
-                                        && src.contains(
-                                                "/wp-json/cfr2ss/v1/stream/"
-                                        )
                                         && done.compareAndSet(
                                                 false, true
                                         )
                         ) {
-                            String cookies = "";
-
-                            try {
-                                android.webkit.CookieManager
-                                        .getInstance()
-                                        .flush();
-
-                                String c =
-                                        android.webkit.CookieManager
-                                                .getInstance()
-                                                .getCookie(
-                                                        detailUrl
-                                                );
-
-                                if (c != null) {
-                                    cookies = c;
-                                }
-                            } catch (
-                                    Exception ignored
-                            ) {
-                            }
-
-                            if (cookies.isEmpty()) {
-                                cookies =
-                                        getCookieHeader();
-                            }
-
                             MmlovetvStream stream =
                                     new MmlovetvStream(
                                             src,
-                                            cookies,
+                                            getWebViewCookies(WV_TAG),
                                             detailUrl
                                     );
 
@@ -1289,7 +1493,7 @@ public final class MmlovetvClient {
                     }
                 };
 
-        final Runnable poller = new Runnable() {
+        final Runnable domPoller = new Runnable() {
             @Override
             public void run() {
                 if (done.get()) {
@@ -1300,6 +1504,10 @@ public final class MmlovetvClient {
                         attempts.incrementAndGet()
                                 > maxAttempts
                 ) {
+                    android.util.Log.d(
+                            WV_TAG,
+                            "DOM poll exhausted, error out"
+                    );
                     cleanup.run();
                     callback.onError(
                             new IllegalStateException(
@@ -1334,17 +1542,22 @@ public final class MmlovetvClient {
             }
         };
 
-        pollerHolder[0] = poller;
+        pollerHolder[0] = domPoller;
 
-        final Runnable startPoll = new Runnable() {
+        final Runnable startDomPoll = new Runnable() {
             @Override
             public void run() {
                 if (
-                        pollStarted.compareAndSet(
-                                false, true
-                        )
+                        !done.get()
+                                && domPollStarted.compareAndSet(
+                                        false, true
+                                )
                 ) {
-                    pollHandler.post(poller);
+                    android.util.Log.d(
+                            WV_TAG,
+                            "starting DOM poll fallback"
+                    );
+                    pollHandler.post(domPoller);
                 }
             }
         };
@@ -1356,8 +1569,41 @@ public final class MmlovetvClient {
                             android.webkit.WebView view,
                             String url
                     ) {
+                        android.util.Log.d(
+                                WV_TAG,
+                                "onPageFinished: " + url
+                        );
+
+                        /*
+                         * Site ၏ ကိုယ်�ပိုင် JS (fetch)
+                         * ပြီးဆုံးရန် ခဏစောင့်၊ ပြီးမှ
+                         * ကိုယ်�ပိုင် API fetch ထိုးမည်။
+                         */
                         pollHandler.postDelayed(
-                                startPoll, 800L
+                                injectApiFetch, 2500L
+                        );
+
+                        /*
+                         * API fetch 12 စက္ကန့်အတွင်း
+                         * မရလျှင် DOM poll fallback။
+                         */
+                        pollHandler.postDelayed(
+                                startDomPoll, 12000L
+                        );
+                    }
+
+                    @Override
+                    public void onReceivedError(
+                            android.webkit.WebView view,
+                            android.webkit.WebResourceRequest
+                                    request,
+                            android.webkit.WebResourceError
+                                    error
+                    ) {
+                        android.util.Log.d(
+                                WV_TAG,
+                                "onReceivedError: "
+                                        + error.getDescription()
                         );
                     }
                 }
@@ -1365,11 +1611,44 @@ public final class MmlovetvClient {
 
         /*
          * Safety: onPageFinished မခေါ်ဖြစ်ခဲ့လျှင်တောင်
-         * poll စမည်။
+         * API fetch စမ်းမည်။
          */
-        pollHandler.postDelayed(startPoll, 5000L);
+        pollHandler.postDelayed(injectApiFetch, 8000L);
+        pollHandler.postDelayed(startDomPoll, 18000L);
+
+        /*
+         * Absolute timeout — 30s ကြာလည်း မရလျှင်
+         * error (MyanmarDetailActivity က fallback
+         * resolveStream ကို ခေါ်မည်)။
+         */
+        pollHandler.postDelayed(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        if (
+                                !done.get()
+                        ) {
+                            android.util.Log.d(
+                                    WV_TAG,
+                                    "absolute timeout, error out"
+                            );
+                            cleanup.run();
+                            callback.onError(
+                                    new IllegalStateException(
+                                            "Video link ရယူ၍မရပါ။"
+                                    )
+                            );
+                        }
+                    }
+                },
+                30000L
+        );
 
         try {
+            android.util.Log.d(
+                    WV_TAG,
+                    "loadUrl: " + detailUrl
+            );
             wv.loadUrl(detailUrl);
         } catch (Exception e) {
             cleanup.run();
