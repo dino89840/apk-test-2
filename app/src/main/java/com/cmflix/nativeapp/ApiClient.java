@@ -1007,6 +1007,32 @@ URL url =
                         }
                     }
 
+                    /*
+                     * Backend maintenance mode — 503 +
+                     * {"error": "maintenance", "message": "..."}.
+                     * MaintenanceException throw လုပ်ပြီး
+                     * MainActivity က MaintenanceActivity
+                     * ဖွင့်မည် (plain text error အစား)။
+                     */
+                    String errorCode =
+                            json.optString(
+                                    "error",
+                                    ""
+                            );
+
+                    if (
+                            "maintenance".equals(
+                                    errorCode.trim()
+                            )
+                    ) {
+                        throw new MaintenanceException(
+                                json.optString(
+                                        "message",
+                                        "CMFLIX ကို ခေတ္တပြုပြင်နေပါသည်။"
+                                )
+                        );
+                    }
+
                     throw new RuntimeException(
                             json.optString(
                                     "message",

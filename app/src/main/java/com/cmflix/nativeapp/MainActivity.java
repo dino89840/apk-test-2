@@ -3063,6 +3063,51 @@ public void onError(Exception error) {
             return;
         }
 
+        /*
+         * Backend maintenance mode — ApiClient က
+         * MaintenanceException throw လုပ်သည်။
+         * Plain text error အစား MaintenanceActivity
+         * full-screen ဖွင့်မည်။
+         */
+        if (error instanceof MaintenanceException) {
+            isLoading = false;
+
+            progress.setVisibility(
+                    View.GONE
+            );
+            hideShimmer();
+
+            String maintMessage =
+                    error.getMessage();
+
+            if (
+                    maintMessage == null ||
+                    maintMessage.trim().isEmpty()
+            ) {
+                maintMessage =
+                        "CMFLIX ကို ခေတ္တပြုပြင်နေပါသည်။";
+            }
+
+            android.content.Intent intent =
+                    new android.content.Intent(
+                            MainActivity.this,
+                            MaintenanceActivity.class
+                    );
+
+            intent.putExtra(
+                    MaintenanceActivity.EXTRA_MESSAGE,
+                    maintMessage.trim()
+            );
+
+            try {
+                startActivity(intent);
+                finish();
+            } catch (Exception ignored) {
+            }
+
+            return;
+        }
+
         isLoading = false;
 
         progress.setVisibility(
