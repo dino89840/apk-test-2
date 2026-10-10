@@ -504,11 +504,11 @@ public class JavtifulActivity extends AppCompatActivity {
         } else if (isActressMode()) {
             titleText.setText(actressName);
         } else if (isUncensoredMode()) {
-            titleText.setText("Asian");
+            titleText.setText("Uncensored");
         } else if (isChineseMode()) {
             titleText.setText("Chinese AV");
         } else {
-            titleText.setText("Jav");
+            titleText.setText("Reduce Mosaic");
         }
     }
 
