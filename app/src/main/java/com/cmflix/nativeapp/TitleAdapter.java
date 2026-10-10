@@ -486,7 +486,7 @@ private String getCategoryBadgeLabel(
                     category
             )
     ) {
-        return "Nosub";
+        return "Nosub Eng";
     }
 
     if (

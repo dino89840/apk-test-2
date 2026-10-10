@@ -225,7 +225,7 @@ private long lastProfileRefreshAttemptAt = 0L;
      */
     private final String[][] categories = {
         {"Horror", "movies"},
-        {"Nosub 18+", "series"},
+        {"Nosub Eng 18+", "series"},
         {"Mmsub 18+", "lugyi"},
         {"Myanmar+All", "myanmar"},
         {"Continue", "continue"},
@@ -881,7 +881,7 @@ private void setupDrawer() {
                                     () ->
                                             openCategory(
                                                     "series",
-                                                    "Nosub 18+"
+                                                    "Nosub Eng 18+"
                                             )
                             )
             );
@@ -1338,7 +1338,7 @@ private void openSectionMore(String sectionId) {
             break;
 
         case "series":
-            openCategory("series", "Nosub 18+");
+            openCategory("series", "Nosub Eng 18+");
             break;
 
         case "lugyi":
@@ -1431,7 +1431,7 @@ private void refreshHomeSections() {
         sections.add(
                 new HomeRowsAdapter.HomeSection(
                         "series",
-                        "Nosub 18+",
+                        "Nosub Eng 18+",
                         nosubItems
                 )
         );
@@ -1761,7 +1761,7 @@ private void ensureHomeSectionLoaded(String value) {
                 intent.getStringExtra("open_category");
 
         if ("series".equals(openCategory)) {
-            openCategory("series", "Nosub 18+");
+            openCategory("series", "Nosub Eng 18+");
         } else if ("lugyi".equals(openCategory)) {
             openCategory("lugyi", "Mmsub 18+");
         } else if ("movies".equals(openCategory)) {
