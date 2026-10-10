@@ -200,6 +200,8 @@ public class JavtifulActivity extends AppCompatActivity {
 
                 updateTitle();
             }
+
+            updateTitle();
         }
 
         adapter = new VideoAdapter();
