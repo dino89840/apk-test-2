@@ -11,13 +11,14 @@ import org.json.JSONObject;
 /*
  * 18+ hub — bottom nav "18+" tab မှ ဖွင့်သည်။
  *
- * Card ၄ ခု:
+ * Card ၅ ခု:
  *  1. Nosub  → MainActivity (category "series")
  *  2. Mmsub  → MainActivity (category "lugyi")
  *  3. Jav   → JavtifulActivity (mode "mosaic")
  *  4. Asian → JavtifulActivity (mode "uncensored")
- *     (Jav + Asian kill-switch: javtiful.enabled=false
- *      → နှစ်ခုလုံး ဝှက်မည်)
+ *  5. Chinese AV → JavtifulActivity (mode "chinese")
+ *     (Jav + Asian + Chinese kill-switch: javtiful.enabled=false
+ *      → သုံးခုလုံး ဝှက်မည်)
  *
  * Horror က သီးသန့် tab အတိုင်း (ဒီထဲမပါ)။
  * PIN မရှိပါ။
@@ -26,6 +27,7 @@ public class AdultHubActivity extends AppCompatActivity {
 
     private View javCard;
     private View asianCard;
+    private View chineseCard;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -38,6 +40,7 @@ public class AdultHubActivity extends AppCompatActivity {
 
         javCard = findViewById(R.id.adultHubJav);
         asianCard = findViewById(R.id.adultHubAsian);
+        chineseCard = findViewById(R.id.adultHubChinese);
 
         findViewById(R.id.adultHubNosub)
                 .setOnClickListener(
@@ -61,10 +64,16 @@ public class AdultHubActivity extends AppCompatActivity {
                 )
         );
 
+        chineseCard.setOnClickListener(
+                view -> openJavtiful(
+                        JavtifulActivity.MODE_CHINESE
+                )
+        );
+
         /*
          * Javtiful kill-switch — /app-content ရဲ့
          * javtiful.enabled flag ကို စစ်သည်။
-         * Jav + Asian နှစ်ခုလုံး ထိန်းသည်။
+         * Jav + Asian + Chinese သုံးခုလုံး ထိန်းသည်။
          * Network request အသစ် မရှိပါ။
          */
         updateJavtifulCards(null);
@@ -121,14 +130,18 @@ public class AdultHubActivity extends AppCompatActivity {
     }
 
     /*
-     * Jav + Asian card visibility — kill-switch။
+     * Jav + Asian + Chinese card visibility — kill-switch။
      * enabled=true (သို့မဟုတ် field မရှိသေးလျှင်
      * default true) → ပြမည်။ Explicitly false →
-     * နှစ်ခုလုံး ဝှက်မည်။
+     * သုံးခုလုံး ဝှက်မည်။
      * Nosub/Mmsub က အမြဲပြမည်။
      */
     private void updateJavtifulCards(JSONObject content) {
-        if (javCard == null || asianCard == null) {
+        if (
+                javCard == null
+                        || asianCard == null
+                        || chineseCard == null
+        ) {
             return;
         }
 
@@ -142,5 +155,6 @@ public class AdultHubActivity extends AppCompatActivity {
 
         javCard.setVisibility(visibility);
         asianCard.setVisibility(visibility);
+        chineseCard.setVisibility(visibility);
     }
 }

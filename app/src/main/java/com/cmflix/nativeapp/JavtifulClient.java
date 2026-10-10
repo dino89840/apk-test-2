@@ -51,6 +51,15 @@ public final class JavtifulClient {
             CryptoUtil.dec("uSM2UR3EsSY8vqQxPthIzw==");
 
     /*
+     * Chinese AV listing path — encrypted fallback
+     * (server-configurable via javtiful.chinese_listing).
+     */
+    private static final String CHINESE_LIST_PATH =
+            CryptoUtil.dec(
+                    "GIchTKG3QS4GcxcH8OxsA0BmUwOO8jsWYITNtJzqNuI="
+            );
+
+    /*
      * Badge filter types for parseListing.
      *
      * - FILTER_NONE: no badge filter (main listings —
@@ -170,6 +179,33 @@ public final class JavtifulClient {
         }
 
         return UNCENSORED_LIST_PATH;
+    }
+
+    /*
+     * Chinese AV listing path resolver — server-configurable။
+     *
+     * /app-content ၏ javtiful.chinese_listing
+     * ရှိလျှင် အဲ့ဒါကို သုံးမည်၊ မရှိလျှင်
+     * CHINESE_LIST_PATH default (encrypted) သို့ fallback။
+     *
+     * Leading slash မရှိလျှင် ဖြည့်ပေးမည်။
+     */
+    public static String getChineseListPath() {
+        String configured =
+                AppContentManager
+                        .getCachedJavtifulChineseListingPath();
+
+        if (configured != null) {
+            configured = configured.trim();
+
+            if (!configured.isEmpty()) {
+                return configured.startsWith("/")
+                        ? configured
+                        : "/" + configured;
+            }
+        }
+
+        return CHINESE_LIST_PATH;
     }
 
     public static final String ID_PREFIX = "javtiful:";
@@ -317,6 +353,26 @@ public final class JavtifulClient {
     }
 
     /*
+     * Chinese AV listing page N — page 1 = /category/chinese-av,
+     * page N = /category/chinese-av?page=N
+     * (all cards carry the "Uncensored" badge).
+     */
+    public static void fetchChinesePage(
+            int page,
+            PageCallback callback
+    ) {
+        final int safePage = Math.max(1, page);
+
+        String url =
+                safePage <= 1
+                        ? getBaseUrl() + getChineseListPath()
+                        : getBaseUrl() + getChineseListPath()
+                                + "?page=" + safePage;
+
+        fetchListingUrl(url, safePage, FILTER_NONE, callback);
+    }
+
+    /*
      * Search (mosaic mode) — server-side rendered HTML, SAME
      * <article class="video-card"> structure as listing.
      *
@@ -340,6 +396,21 @@ public final class JavtifulClient {
      * but keeps only "Uncensored" badge cards.
      */
     public static void searchUncensored(
+            String query,
+            int page,
+            PageCallback callback
+    ) {
+        searchWithFilter(
+                query, page, FILTER_UNCENSORED, callback
+        );
+    }
+
+    /*
+     * Search (chinese mode) — same as searchUncensored:
+     * Chinese AV cards carry the "Uncensored" badge,
+     * so keeps only "Uncensored" badge cards.
+     */
+    public static void searchChinese(
             String query,
             int page,
             PageCallback callback

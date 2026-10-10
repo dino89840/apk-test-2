@@ -934,6 +934,24 @@ private void setupDrawer() {
                             )
             );
 
+    findViewById(R.id.drawerChinese)
+            .setOnClickListener(
+                    view ->
+                            runDrawerAction(
+                                    () ->
+                                            startActivity(
+                                                    new Intent(
+                                                            this,
+                                                            JavtifulActivity.class
+                                                    )
+                                                            .putExtra(
+                                                                    JavtifulActivity.EXTRA_MODE,
+                                                                    JavtifulActivity.MODE_CHINESE
+                                                            )
+                                            )
+                            )
+            );
+
     findViewById(R.id.drawerMyanmar)
             .setOnClickListener(
                     view ->
@@ -2126,7 +2144,7 @@ private void loadRemoteBanner() {
  * default true) → ပြမည်။ Explicitly false → ဝှက်မည်။
  */
 /*
- * Jav/Asian drawer entry visibility — kill-switch။
+ * Jav/Asian/Chinese drawer entry visibility — kill-switch။
  * enabled=true (သို့မဟုတ် field မရှိသေးလျှင်
  * default true) → ပြမည်။ Explicitly false → ဝှက်မည်။
  */
@@ -2148,6 +2166,14 @@ private void updateJavtifulDrawer(JSONObject content) {
             findViewById(R.id.drawerAsian);
     if (drawerAsian != null) {
         drawerAsian.setVisibility(
+                enabled ? View.VISIBLE : View.GONE
+        );
+    }
+
+    View drawerChinese =
+            findViewById(R.id.drawerChinese);
+    if (drawerChinese != null) {
+        drawerChinese.setVisibility(
                 enabled ? View.VISIBLE : View.GONE
         );
     }

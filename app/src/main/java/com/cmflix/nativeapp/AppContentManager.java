@@ -281,6 +281,36 @@ private static final String KEY_NOTICE_SAVED_AT =
     }
 
     /*
+     * Javtiful chinese listing path — server-configurable။
+     *
+     * Backend /app-content မှ "javtiful":
+     * {"chinese_listing": "<path>"} ကို ဖတ်သည်။
+     * Field မရှိလျှင် "" — JavtifulClient က
+     * encrypted fallback သို့ fallback လုပ်မည်။
+     */
+    public static String getJavtifulChineseListingPath(
+            JSONObject content
+    ) {
+        if (content == null) {
+            return "";
+        }
+
+        JSONObject javtiful =
+                content.optJSONObject("javtiful");
+
+        if (javtiful == null) {
+            return "";
+        }
+
+        String listing =
+                javtiful.optString(
+                        "chinese_listing", ""
+                );
+
+        return listing == null ? "" : listing.trim();
+    }
+
+    /*
      * Samusar listing path — server-configurable။
      *
      * Backend /app-content မှ "samusar": {"listing": "<path>"}
@@ -326,6 +356,9 @@ private static final String KEY_NOTICE_SAVED_AT =
     private static volatile String
             cachedJavtifulUncensoredListingPath = "";
 
+    private static volatile String
+            cachedJavtifulChineseListingPath = "";
+
     private static volatile String cachedSamusarListingPath =
             "";
 
@@ -345,6 +378,8 @@ private static final String KEY_NOTICE_SAVED_AT =
                 getJavtifulListingPath(content);
         cachedJavtifulUncensoredListingPath =
                 getJavtifulUncensoredListingPath(content);
+        cachedJavtifulChineseListingPath =
+                getJavtifulChineseListingPath(content);
         cachedSamusarListingPath =
                 getSamusarListingPath(content);
     }
@@ -363,6 +398,10 @@ private static final String KEY_NOTICE_SAVED_AT =
 
     public static String getCachedJavtifulUncensoredListingPath() {
         return cachedJavtifulUncensoredListingPath;
+    }
+
+    public static String getCachedJavtifulChineseListingPath() {
+        return cachedJavtifulChineseListingPath;
     }
 
     public static String getCachedSamusarListingPath() {

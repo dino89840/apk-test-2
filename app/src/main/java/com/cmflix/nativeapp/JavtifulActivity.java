@@ -32,6 +32,7 @@ import java.util.List;
  * Two modes (EXTRA_MODE):
  * - "mosaic" (default) → "Jav" (reducing mosaic)
  * - "uncensored" → "Asian" (uncensored)
+ * - "chinese" → "Chinese AV" (chinese-av)
  *
  * - 16:9 landscape card grid, pagination
  * - Search bar (JAV code / actress name,
@@ -55,13 +56,16 @@ public class JavtifulActivity extends AppCompatActivity {
             "actress_name";
 
     /*
-     * Listing mode: "mosaic" (default) or "uncensored".
+     * Listing mode: "mosaic" (default), "uncensored"
+     * or "chinese".
      * - mosaic → "Jav" (reducing mosaic listing)
      * - uncensored → "Asian" (uncensored listing)
+     * - chinese → "Chinese AV" (chinese-av listing)
      */
     public static final String EXTRA_MODE = "mode";
     public static final String MODE_MOSAIC = "mosaic";
     public static final String MODE_UNCENSORED = "uncensored";
+    public static final String MODE_CHINESE = "chinese";
 
     private RecyclerView grid;
     private ProgressBar progress;
@@ -101,14 +105,19 @@ public class JavtifulActivity extends AppCompatActivity {
     private String actressName = null;
 
     /*
-     * Listing mode — MODE_MOSAIC (default) or
-     * MODE_UNCENSORED. Controls listing URL, search
-     * filter, and title ("Jav" / "Asian").
+     * Listing mode — MODE_MOSAIC (default),
+     * MODE_UNCENSORED or MODE_CHINESE. Controls
+     * listing URL, search filter, and title
+     * ("Jav" / "Asian" / "Chinese AV").
      */
     private String mode = MODE_MOSAIC;
 
     private boolean isUncensoredMode() {
         return MODE_UNCENSORED.equals(mode);
+    }
+
+    private boolean isChineseMode() {
+        return MODE_CHINESE.equals(mode);
     }
 
     @Override
@@ -164,6 +173,10 @@ public class JavtifulActivity extends AppCompatActivity {
                     MODE_UNCENSORED.equals(modeExtra)
             ) {
                 mode = MODE_UNCENSORED;
+            } else if (
+                    MODE_CHINESE.equals(modeExtra)
+            ) {
+                mode = MODE_CHINESE;
             }
 
             String url =
@@ -492,6 +505,8 @@ public class JavtifulActivity extends AppCompatActivity {
             titleText.setText(actressName);
         } else if (isUncensoredMode()) {
             titleText.setText("Asian");
+        } else if (isChineseMode()) {
+            titleText.setText("Chinese AV");
         } else {
             titleText.setText("Jav");
         }
@@ -732,7 +747,13 @@ public class JavtifulActivity extends AppCompatActivity {
                 };
 
         if (isSearchMode()) {
-            if (isUncensoredMode()) {
+            if (isChineseMode()) {
+                JavtifulClient.searchChinese(
+                        searchQuery,
+                        page,
+                        callback
+                );
+            } else if (isUncensoredMode()) {
                 JavtifulClient.searchUncensored(
                         searchQuery,
                         page,
@@ -750,6 +771,10 @@ public class JavtifulActivity extends AppCompatActivity {
                     actressUrl,
                     page,
                     callback
+            );
+        } else if (isChineseMode()) {
+            JavtifulClient.fetchChinesePage(
+                    page, callback
             );
         } else if (isUncensoredMode()) {
             JavtifulClient.fetchUncensoredPage(
