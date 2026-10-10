@@ -147,6 +147,58 @@ public class JavtifulActivity extends AppCompatActivity {
             "most_viewed"
     };
 
+    /*
+     * Chinese AV supports only 5 sort values
+     * (verified live): added_month, added_today,
+     * added_week, popular. The other values return
+     * wrong/empty results, so they are hidden in
+     * Chinese mode.
+     */
+    private static final String[] SORT_LABELS_CHINESE = {
+            "Latest",
+            "Added Today",
+            "Added This Week",
+            "Added This Month",
+            "Popular"
+    };
+
+    private static final String[] SORT_VALUES_CHINESE = {
+            "",
+            "added_today",
+            "added_week",
+            "added_month",
+            "popular"
+    };
+
+    private String[] getSortLabels() {
+        return isChineseMode()
+                ? SORT_LABELS_CHINESE
+                : SORT_LABELS;
+    }
+
+    private String[] getSortValues() {
+        return isChineseMode()
+                ? SORT_VALUES_CHINESE
+                : SORT_VALUES;
+    }
+
+    /*
+     * Current mode နှင့် မကိုက်ညီသော sortParam
+     * (e.g. Chinese mode မှာ most_liked) ကို
+     * Latest ("") သို့ ပြန်ထားမည်။
+     */
+    private void normalizeSortParam() {
+        String[] values = getSortValues();
+
+        for (String v : values) {
+            if (v.equals(sortParam)) {
+                return;
+            }
+        }
+
+        sortParam = "";
+    }
+
     private boolean isUncensoredMode() {
         return MODE_UNCENSORED.equals(mode);
     }
@@ -563,6 +615,9 @@ public class JavtifulActivity extends AppCompatActivity {
             exitToListing();
         }
 
+        normalizeSortParam();
+        updateFilterButtonState();
+
         View dialogView = LayoutInflater.from(this)
                 .inflate(R.layout.dialog_sort, null);
 
@@ -611,12 +666,14 @@ public class JavtifulActivity extends AppCompatActivity {
 
         private final OnSortPicked listener;
         private int selectedPosition = 0;
+        private final String[] labels = getSortLabels();
+        private final String[] values = getSortValues();
 
         SortAdapter(OnSortPicked listener) {
             this.listener = listener;
 
-            for (int i = 0; i < SORT_VALUES.length; i++) {
-                if (SORT_VALUES[i].equals(sortParam)) {
+            for (int i = 0; i < values.length; i++) {
+                if (values[i].equals(sortParam)) {
                     selectedPosition = i;
                     break;
                 }
@@ -639,7 +696,7 @@ public class JavtifulActivity extends AppCompatActivity {
         @Override
         public void onBindViewHolder(
                 @NonNull SortHolder holder, int position) {
-            holder.text.setText(SORT_LABELS[position]);
+            holder.text.setText(labels[position]);
             holder.text.setBackgroundResource(
                     position == selectedPosition
                             ? R.drawable.sort_box_selected
@@ -659,13 +716,13 @@ public class JavtifulActivity extends AppCompatActivity {
                         notifyItemChanged(previous);
                         notifyItemChanged(selectedPosition);
                         listener.onPick(
-                                SORT_VALUES[selectedPosition]);
+                                values[selectedPosition]);
                     });
         }
 
         @Override
         public int getItemCount() {
-            return SORT_LABELS.length;
+            return labels.length;
         }
 
         final class SortHolder
