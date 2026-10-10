@@ -77,10 +77,16 @@ public class MyanmarDetailActivity
                         pendingActionAfterLogin = 0;
                         pendingUrlAfterLogin = "";
                         if (action == 1) {
-                            onPlayClick(url);
-                        } else if (action == 2) {
-                            onDownloadClick(url);
-                        }
+    onPlayClick(url);
+} else if (action == 2) {
+    onDownloadClick(url);
+} else if (action == 3) {
+    if (SessionManager.isVipActive()) {
+        errorView.setOnClickListener(null);
+        resolveStream();
+    } else {
+        PremiumDialog.show(this);
+    }
                     }
             );
 
@@ -165,7 +171,39 @@ public class MyanmarDetailActivity
                     .into(thumbView);
         }
 
-        resolveStream();
+        if (!SessionManager.isLoggedIn()) {
+    showError(
+            "Video ကြည့်ရန် Login ဝင်ပါ။"
+    );
+
+    errorView.setOnClickListener(view -> {
+        pendingActionAfterLogin = 3;
+        pendingUrlAfterLogin = "";
+
+        authLauncher.launch(
+                new Intent(
+                        this,
+                        AuthActivity.class
+                )
+        );
+    });
+
+    return;
+}
+
+if (!SessionManager.isVipActive()) {
+    showError(
+            "Video source ရယူရန် VIP လိုအပ်ပါသည်။"
+    );
+
+    errorView.setOnClickListener(
+            view -> PremiumDialog.show(this)
+    );
+
+    return;
+}
+
+resolveStream();
     }
 
     /*
