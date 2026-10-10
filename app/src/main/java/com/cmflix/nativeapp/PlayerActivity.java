@@ -877,6 +877,10 @@ public class PlayerActivity extends AppCompatActivity {
                         titleId.startsWith(
                                 MmtubeClient.ID_PREFIX
                         )
+                        ||
+                        titleId.startsWith(
+                                MmlovetvClient.ID_PREFIX
+                        )
         ) {
             LocalStore.saveSamusarProgress(
                     titleId,

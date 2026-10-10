@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Myanmar national flag — yellow (top), green (middle),
+    red (bottom) with white 5-pointed star centered.
+    Used for all three Myanmar hub source cards.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="44dp"
+    android:height="32dp"
+    android:viewportWidth="48"
+    android:viewportHeight="32">
+
+    <!-- yellow stripe (top) -->
+    <path
+        android:fillColor="#FECB00"
+        android:pathData="M0,0 L48,0 L48,10.67 L0,10.67 Z" />
+
+    <!-- green stripe (middle) -->
+    <path
+        android:fillColor="#34B233"
+        android:pathData="M0,10.67 L48,10.67 L48,21.33 L0,21.33 Z" />
+
+    <!-- red stripe (bottom) -->
+    <path
+        android:fillColor="#EA2839"
+        android:pathData="M0,21.33 L48,21.33 L48,32 L0,32 Z" />
+
+    <!-- white 5-pointed star (centered) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M24,9 L25.65,13.73 L30.66,13.84 L26.66,16.87 L28.11,21.66 L24,18.8 L19.89,21.66 L21.34,16.87 L17.34,13.84 L22.35,13.73 Z" />
+
+</vector>

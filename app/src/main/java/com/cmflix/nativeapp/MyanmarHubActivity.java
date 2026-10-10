@@ -2,19 +2,22 @@ package com.cmflix.nativeapp;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.view.View;
 
 import androidx.appcompat.app.AppCompatActivity;
 
 /*
- * မြန်မာ hub — bottom nav "Myanmar+All" tab မှ
+ * မြန်မာ hub — bottom nav "Myanmar" tab မှ
  * ဖွင့်သည် (drawer menu မှလည်း)။
  *
- * Card ၂ ခု:
- *  1. Myanmar 1 → MyanmarActivity (source "mmtube")
+ * Card ၃ ခု (source နာမည် UI မှာ မပြပါ):
+ *  1. Myanmar + All 1 → MyanmarActivity (source "mmtube")
  *     mmtube.net တိုက်ရိုက် (လက်ရှိ VPN မလိုသေး)
- *  2. Myanmar 2 → MyanmarActivity (source "samusar")
+ *  2. Myanmar + All 2 → MyanmarActivity (source "samusar")
  *     samusar.com တိုက်ရိုက် (မြန်မာမှ VPN လိုနိုင်)
+ *  3. Myanmar + All 3 → MyanmarActivity (source "mmlovetv")
+ *     mmlovetv.com တိုက်ရိုက် (MP4 stream)
+ *
+ * Card ၃ ခုလုံး မြန်မာအလံ icon အတူတူသုံးသည်။
  *
  * Card အောက်တွင် VPN info box:
  * "ပုံများ Videoများ ကြည့်မရပါက VPN သုံးပါ"
@@ -43,6 +46,13 @@ public class MyanmarHubActivity extends AppCompatActivity {
                 .setOnClickListener(
                         view -> openMyanmar(
                                 MyanmarActivity.SOURCE_SAMUSAR
+                        )
+                );
+
+        findViewById(R.id.myanmarHubSource3)
+                .setOnClickListener(
+                        view -> openMyanmar(
+                                MyanmarActivity.SOURCE_MMLOVETV
                         )
                 );
     }

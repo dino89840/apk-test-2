@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    မြန်မာ hub — bottom nav "Myanmar+All" tab မှ ဖွင့်သည်။
-    Card ၂ ခု: Myanmar 1 / Myanmar 2 (+ VPN info box)
+    မြန်မာ hub — bottom nav "Myanmar" tab မှ ဖွင့်သည်။
+    Card ၃ ခု: Myanmar + All 1 / 2 / 3 (+ VPN info box)
+    Card ၃ ခုလုံး မြန်မာအလံ icon အတူတူသုံးသည်။
 -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -53,7 +54,7 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <!-- Myanmar 1 -->
+            <!-- Myanmar + All 1 -->
             <LinearLayout
                 android:id="@+id/myanmarHubSource1"
                 android:layout_width="match_parent"
@@ -72,7 +73,7 @@
                     android:layout_height="44dp"
                     android:background="@drawable/poster_rounded_bg"
                     android:scaleType="centerCrop"
-                    android:src="@drawable/ic_nav_play" />
+                    android:src="@drawable/ic_myanmar_flag" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -84,7 +85,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Myanmar 1"
+                        android:text="Myanmar + All 1"
                         android:textColor="@color/white"
                         android:textSize="17sp"
                         android:textStyle="bold" />
@@ -93,7 +94,7 @@
 
             </LinearLayout>
 
-            <!-- Myanmar 2 -->
+            <!-- Myanmar + All 2 -->
             <LinearLayout
                 android:id="@+id/myanmarHubSource2"
                 android:layout_width="match_parent"
@@ -112,7 +113,7 @@
                     android:layout_height="44dp"
                     android:background="@drawable/poster_rounded_bg"
                     android:scaleType="centerCrop"
-                    android:src="@drawable/ic_nav_film" />
+                    android:src="@drawable/ic_myanmar_flag" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -124,7 +125,47 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Myanmar 2"
+                        android:text="Myanmar + All 2"
+                        android:textColor="@color/white"
+                        android:textSize="17sp"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- Myanmar + All 3 -->
+            <LinearLayout
+                android:id="@+id/myanmarHubSource3"
+                android:layout_width="match_parent"
+                android:layout_height="90dp"
+                android:layout_marginBottom="12dp"
+                android:background="@drawable/myanmar_source_row_bg"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp">
+
+                <ImageView
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@drawable/poster_rounded_bg"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/ic_myanmar_flag" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:paddingStart="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Myanmar + All 3"
                         android:textColor="@color/white"
                         android:textSize="17sp"
                         android:textStyle="bold" />

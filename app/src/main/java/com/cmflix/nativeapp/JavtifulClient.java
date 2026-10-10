@@ -826,6 +826,13 @@ public final class JavtifulClient {
         }
     }
 
+    /*
+     * Public accessor — Glide header module အတွက်။
+     */
+    public static synchronized String getCookieHeader() {
+        return currentCookieHeader();
+    }
+
     private static synchronized String currentCookieHeader() {
         StringBuilder builder = new StringBuilder();
 

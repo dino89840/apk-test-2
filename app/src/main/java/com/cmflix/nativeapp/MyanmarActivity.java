@@ -29,11 +29,13 @@ import java.util.Set;
  * မြန်မာ category — source ရွေးချယ်မှု
  * (MyanmarHubActivity မှ ဖွင့်သည်)။
  *
- * - "mmtube"  ("Myanmar 1"): mmtube.net တိုက်ရိုက်
+ * - "mmtube"   ("Myanmar + All 1"): mmtube.net တိုက်ရိုက်
  *   (proxy မရှိ; လက်ရှိ မြန်မာမှ VPN မလိုသေး)။
- * - "samusar" ("Myanmar 2"): samusar.com တိုက်ရိုက်
+ * - "samusar"  ("Myanmar + All 2"): samusar.com တိုက်ရိုက်
  *   (proxy မရှိ; မြန်မာမှ VPN လိုအပ်နိုင်သည်) —
  *   SamusarClient direct mode။
+ * - "mmlovetv" ("Myanmar + All 3"): mmlovetv.com တိုက်ရိုက်
+ *   (proxy မရှိ; WordPress cfr2ss MP4 stream)။
  *
  * - Cover ပုံများ (landscape) ကို 16:9 card grid ဖြင့် ပြသည်။
  * - ကြည့်ခြင်း + Download နှစ်မျိုးလုံး VIP only။
@@ -51,14 +53,15 @@ public class MyanmarActivity extends AppCompatActivity {
 
     public static final String SOURCE_MMTUBE = "mmtube";
     public static final String SOURCE_SAMUSAR = "samusar";
+    public static final String SOURCE_MMLOVETV = "mmlovetv";
 
     private static final int GRID_SPAN = 2;
 
     private String sourceMode = SOURCE_MMTUBE;
 
     /*
-     * Source-agnostic list item — MmtubeClient ရော
-     * SamusarClient ရော ဒီ holder ထဲ map ထည့်သည်။
+     * Source-agnostic list item — client ၃ ခုလုံး
+     * ဒီ holder ထဲ map ထည့်သည်။
      */
     private static final class Item {
         final String title;
@@ -110,14 +113,17 @@ public class MyanmarActivity extends AppCompatActivity {
 
         /*
          * Source mode — MyanmarHubActivity မှ
-         * EXTRA_SOURCE ("mmtube" / "samusar")။
-         * Default: mmtube (Myanmar 1)။
+         * EXTRA_SOURCE ("mmtube" / "samusar" /
+         * "mmlovetv")။ Default: mmtube
+         * (Myanmar + All 1)။
          */
         String modeExtra =
                 getIntent().getStringExtra(EXTRA_SOURCE);
 
         if (SOURCE_SAMUSAR.equals(modeExtra)) {
             sourceMode = SOURCE_SAMUSAR;
+        } else if (SOURCE_MMLOVETV.equals(modeExtra)) {
+            sourceMode = SOURCE_MMLOVETV;
         } else {
             sourceMode = SOURCE_MMTUBE;
         }
@@ -365,6 +371,47 @@ public class MyanmarActivity extends AppCompatActivity {
 
                             for (
                                     SamusarClient.SamusarVideo v
+                                            : newVideos
+                            ) {
+                                if (v == null) {
+                                    continue;
+                                }
+
+                                items.add(
+                                        new Item(
+                                                v.title,
+                                                v.thumbUrl,
+                                                v.detailUrl
+                                        )
+                                );
+                            }
+
+                            handlePageResult(
+                                    page, items, more
+                            );
+                        }
+
+                        @Override
+                        public void onError(Exception error) {
+                            handlePageError(error);
+                        }
+                    }
+            );
+        } else if (SOURCE_MMLOVETV.equals(sourceMode)) {
+            MmlovetvClient.fetchPage(
+                    page,
+                    new MmlovetvClient.PageCallback() {
+                        @Override
+                        public void onResult(
+                                List<MmlovetvClient.MmlovetvVideo>
+                                        newVideos,
+                                boolean more
+                        ) {
+                            List<Item> items =
+                                    new ArrayList<>();
+
+                            for (
+                                    MmlovetvClient.MmlovetvVideo v
                                             : newVideos
                             ) {
                                 if (v == null) {

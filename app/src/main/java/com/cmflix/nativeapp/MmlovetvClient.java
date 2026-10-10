@@ -21,34 +21,43 @@ import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
 
 /*
- * mmtube.net scraper — "Myanmar 1" source (direct, no proxy).
+ * mmlovetv.com scraper — "Myanmar + All 3" source
+ * (direct, no proxy).
  *
- * KVS (Kernel Video Sharing) template site:
- * - Listing: GET https://www.mmtube.net/latest-updates
- *   page N = https://www.mmtube.net/latest-updates/N/
- *   (20 cards per page; card = div.thumb.thumb_rel.item,
- *   detail URL in <a href>, title in title attr,
- *   thumb in img[data-original]).
- * - Detail: GET https://www.mmtube.net/video/<id>/<hash>/
- *   → flashvars video_url: '<mp4>' (single quality;
- *   video_url_hd:'1' is only a flag, not a URL).
+ * WordPress site (cfr2ss secure-streaming plugin):
+ * - Listing: GET https://mmlovetv.com/
+ *   page N = https://mmlovetv.com/page/N/
+ *   (cards = li.wp-block-post.video,
+ *   detail URL in a.cfr2ss-video-thumbnail-link href,
+ *   title in img alt / h2.wp-block-post-title,
+ *   thumb in <img src>, duration in
+ *   span.cfr2ss-duration-badge).
+ * - Detail: GET https://mmlovetv.com/video/<slug>/
+ *   → <video data-attachment-id="{id}">
+ *     <source src=".../wp-json/cfr2ss/v1/stream/{id}
+ *       ?cfr2ss_exp=...&cfr2ss_sig=..." type="video/mp4">
+ *   The presigned URL may be short-lived; a fresh one
+ *   can be fetched from
+ *   GET /wp-json/cfr2ss/v1/get-video-url/{id}?_=ts
+ *   (X-Requested-With: XMLHttpRequest,
+ *   credentials/cookies required) which returns
+ *   {"success":true,"url":"..."}.
  *
- * Direct connection (NO proxy) — the site currently
- * works from Myanmar without VPN.
- * No login/cookies needed for listing; the detail
- * page sets session cookies (kt_acctoken, PHPSESSID)
- * which are forwarded to the player/download along
- * with the detail-page Referer for the tokenized
- * get_file MP4 URL.
- * Stream URLs are NOT cached — always fresh resolve.
+ * Video format: MP4 (data-mime-type="video/mp4") —
+ * NOT m3u8.
+ *
+ * Direct connection (NO proxy). Stream URLs are NOT
+ * cached — always fresh resolve. Session cookies
+ * (HttpOnly worker cookie) are forwarded to the
+ * player/download along with the detail-page Referer.
  *
  * NOTE: CookieManager ကို global default အဖြစ်
  * မသတ်မှတ်ပါ — ApiClient ၏ request များကို
  * လုံးဝ မထိခိုက်စေရန် manual cookie jar သုံးသည်။
  */
-public final class MmtubeClient {
+public final class MmlovetvClient {
 
-    private static final String TAG = "MmtubeClient";
+    private static final String TAG = "MmlovetvClient";
 
     /*
      * Direct site URL (plaintext — the user provided
@@ -56,17 +65,17 @@ public final class MmtubeClient {
      * unavailable outside CI).
      */
     public static final String BASE_URL =
-            "https://www.mmtube.net";
+            "https://mmlovetv.com";
 
-    public static final String LIST_PATH =
-            "/latest-updates";
+    public static final String IMG_HOST =
+            "img.mmlovetv.com";
 
     /*
-     * Mmtube video များ၏ stable ID prefix။
+     * Mmlovetv video များ၏ stable ID prefix။
      * LocalStore resume key အဖြစ်
-     * "mmtube:" + detailUrl ကို သုံးသည်။
+     * "mmlovetv:" + detailUrl ကို သုံးသည်။
      */
-    public static final String ID_PREFIX = "mmtube:";
+    public static final String ID_PREFIX = "mmlovetv:";
 
     public static String videoId(String detailUrl) {
         String url =
@@ -102,8 +111,9 @@ public final class MmtubeClient {
             Executors.newCachedThreadPool();
 
     /*
-     * Mmtube-only in-memory cookie jar (KVS session
-     * cookies for the tokenized get_file MP4 URL).
+     * Mmlovetv-only in-memory cookie jar (Cloudflare
+     * worker / session cookies for the presigned
+     * stream URL).
      */
     private static final List<HttpCookie> COOKIE_JAR =
             new ArrayList<>();
@@ -121,12 +131,12 @@ public final class MmtubeClient {
 
     private static final class CachedListing {
         final long fetchedAt;
-        final List<MmtubeVideo> videos;
+        final List<MmlovetvVideo> videos;
         final boolean hasMore;
 
         CachedListing(
                 long fetchedAt,
-                List<MmtubeVideo> videos,
+                List<MmlovetvVideo> videos,
                 boolean hasMore
         ) {
             this.fetchedAt = fetchedAt;
@@ -152,6 +162,7 @@ public final class MmtubeClient {
                         > LISTING_CACHE_TTL_MS
         ) {
             LISTING_CACHE.remove(url);
+
             return null;
         }
 
@@ -160,7 +171,7 @@ public final class MmtubeClient {
 
     private static synchronized void putCachedListing(
             String url,
-            List<MmtubeVideo> videos,
+            List<MmlovetvVideo> videos,
             boolean hasMore
     ) {
         LISTING_CACHE.put(
@@ -185,33 +196,30 @@ public final class MmtubeClient {
         LISTING_CACHE.clear();
     }
 
-    private MmtubeClient() {
+    private MmlovetvClient() {
     }
 
-    public static final class MmtubeVideo {
+    public static final class MmlovetvVideo {
         public final String title;
         public final String thumbUrl;
         public final String detailUrl;
+        public final String duration;
 
-        public MmtubeVideo(
+        public MmlovetvVideo(
                 String title,
                 String thumbUrl,
-                String detailUrl
+                String detailUrl,
+                String duration
         ) {
             this.title = title;
             this.thumbUrl = thumbUrl;
             this.detailUrl = detailUrl;
+            this.duration = duration;
         }
     }
 
-    public static final class MmtubeStream {
+    public static final class MmlovetvStream {
         public final String url;
-
-        /*
-         * flashvars video_url_hd flag ('1' = HD) —
-         * row label အတွက်သာ။
-         */
-        public final boolean isHd;
 
         /*
          * Detail page request မှ ရသော session cookies
@@ -225,14 +233,12 @@ public final class MmtubeClient {
          */
         public final String referer;
 
-        public MmtubeStream(
+        public MmlovetvStream(
                 String url,
-                boolean isHd,
                 String cookieHeader,
                 String referer
         ) {
             this.url = url;
-            this.isHd = isHd;
             this.cookieHeader =
                     cookieHeader == null ? "" : cookieHeader;
             this.referer =
@@ -250,7 +256,7 @@ public final class MmtubeClient {
 
     public interface PageCallback {
         void onResult(
-                List<MmtubeVideo> videos,
+                List<MmlovetvVideo> videos,
                 boolean hasMore
         );
 
@@ -258,14 +264,14 @@ public final class MmtubeClient {
     }
 
     public interface StreamCallback {
-        void onResult(MmtubeStream stream);
+        void onResult(MmlovetvStream stream);
 
         void onError(Exception error);
     }
 
     /*
-     * Listing page N — page 1 = /latest-updates,
-     * page N = /latest-updates/N/
+     * Listing page N — page 1 = https://mmlovetv.com/,
+     * page N = https://mmlovetv.com/page/N/
      * (5-မိနစ် in-memory cache ပါသည်)။
      */
     public static void fetchPage(
@@ -287,9 +293,9 @@ public final class MmtubeClient {
             try {
                 String url =
                         safePage <= 1
-                                ? BASE_URL + LIST_PATH
-                                : BASE_URL + LIST_PATH
-                                        + "/" + safePage + "/";
+                                ? BASE_URL + "/"
+                                : BASE_URL + "/page/"
+                                        + safePage + "/";
 
                 if (!refresh) {
                     CachedListing cached =
@@ -312,14 +318,9 @@ public final class MmtubeClient {
 
                 String html = get(url, BASE_URL + "/");
 
-                List<MmtubeVideo> videos =
+                List<MmlovetvVideo> videos =
                         parseListing(html);
 
-                /*
-                 * Pagination မှ total pages ကို
-                 * ဖတ်နိုင်လျှင် အဲ့ဒါကို သုံးမည်၊
-                 * မရလျှင် non-empty fallback။
-                 */
                 int totalPages = parseTotalPages(html);
 
                 boolean hasMore =
@@ -337,8 +338,12 @@ public final class MmtubeClient {
     }
 
     /*
-     * Detail page ကို fetch လုပ်ပြီး tokenized mp4
+     * Detail page ကို fetch လုပ်ပြီး presigned mp4
      * URL ကို fresh resolve လုပ်သည်။
+     * 1) <source src=".../stream/{id}?..."> ကို
+     *    အရင်ယူမည်။
+     * 2) မရလျှင် /get-video-url/{id} API ကို
+     *    XHR header ဖြင့် ခေါ်မည်။
      * Stream URL ကို cache လုံးဝ မလုပ်ပါ။
      */
     public static void resolveStream(
@@ -356,15 +361,43 @@ public final class MmtubeClient {
                     );
                 }
 
-                String html =
-                        get(detailUrl.trim(), BASE_URL + "/");
+                String trimmedUrl = detailUrl.trim();
 
-                MmtubeStream stream =
+                String html =
+                        get(trimmedUrl, BASE_URL + "/");
+
+                MmlovetvStream stream =
                         parseDetail(
                                 html,
-                                detailUrl.trim(),
-                                currentCookieHeader()
+                                trimmedUrl,
+                                getCookieHeader()
                         );
+
+                if (!stream.hasStream()) {
+                    /*
+                     * Fallback: fresh presigned URL
+                     * via get-video-url API.
+                     */
+                    String attachmentId =
+                            parseAttachmentId(html);
+
+                    if (!attachmentId.isEmpty()) {
+                        String freshUrl =
+                                fetchFreshVideoUrl(
+                                        attachmentId,
+                                        trimmedUrl
+                                );
+
+                        if (!freshUrl.isEmpty()) {
+                            stream =
+                                    new MmlovetvStream(
+                                            freshUrl,
+                                            getCookieHeader(),
+                                            trimmedUrl
+                                    );
+                        }
+                    }
+                }
 
                 if (!stream.hasStream()) {
                     throw new IllegalStateException(
@@ -387,6 +420,18 @@ public final class MmtubeClient {
             String url,
             String referer
     ) throws Exception {
+        return get(url, referer, null);
+    }
+
+    /*
+     * extraHeaders — e.g. X-Requested-With for the
+     * get-video-url JSON API.
+     */
+    private static String get(
+            String url,
+            String referer,
+            Map<String, String> extraHeaders
+    ) throws Exception {
         HttpURLConnection connection = null;
 
         try {
@@ -404,6 +449,7 @@ public final class MmtubeClient {
                     "Accept",
                     "text/html,application/xhtml+xml,"
                             + "application/xml;q=0.9,"
+                            + "application/json,"
                             + "image/avif,image/webp,*/*;q=0.8"
             );
             connection.setRequestProperty(
@@ -418,12 +464,23 @@ public final class MmtubeClient {
                 );
             }
 
-            String cookieHeader = currentCookieHeader();
+            String cookieHeader = getCookieHeader();
 
             if (!cookieHeader.isEmpty()) {
                 connection.setRequestProperty(
                         "Cookie", cookieHeader
                 );
+            }
+
+            if (extraHeaders != null) {
+                for (
+                        Map.Entry<String, String> e :
+                                extraHeaders.entrySet()
+                ) {
+                    connection.setRequestProperty(
+                            e.getKey(), e.getValue()
+                    );
+                }
             }
 
             int status = connection.getResponseCode();
@@ -498,10 +555,6 @@ public final class MmtubeClient {
      * Public accessor — Glide header module အတွက်။
      */
     public static synchronized String getCookieHeader() {
-        return currentCookieHeader();
-    }
-
-    private static synchronized String currentCookieHeader() {
         StringBuilder builder = new StringBuilder();
 
         COOKIE_JAR.removeIf(
@@ -570,52 +623,68 @@ public final class MmtubeClient {
     }
 
     // ------------------------------------------------------------------
-    // Listing parser — div.thumb.thumb_rel.item
+    // Listing parser — li.wp-block-post.video
     // ------------------------------------------------------------------
 
     /*
-     * <div class="thumb thumb_rel item  ">
-     *   <a href="https://www.mmtube.net/video/6404/.../"
-     *      title="...">
-     *     <div class="img-holder">
-     *       <img class="lazy-load"
-     *            src="data:image/gif;base64,..."
-     *            data-original="https://.../390x218/1.jpg"
-     *            ...>
+     * <li class="wp-block-post post-19824 video ...">
+     *   <a href="https://mmlovetv.com/video/<slug>/"
+     *      class="cfr2ss-video-thumbnail-link">
+     *     <img src="https://img.mmlovetv.com/...png"
+     *          alt="<title>">
+     *     <span class="cfr2ss-duration-badge">00:59</span>
+     *   </a>
+     *   <h2 class="wp-block-post-title ...">
+     *     <a ...>title</a>
+     *   </h2>
      */
-    private static final Pattern ITEM_BLOCK =
+    private static final Pattern CARD_ITEM =
             Pattern.compile(
-                    "<div\\s+class=\"thumb\\s+thumb_rel\\s+item[^\"]*\""
-                            + "(.*?)</div>\\s*</div>",
+                    "<li[^>]*class=\"[^\"]*\\bwp-block-post\\b"
+                            + "[^\"]*\\bvideo\\b[^\"]*\"(.*?)</li>",
                     Pattern.CASE_INSENSITIVE | Pattern.DOTALL
             );
 
-    private static final Pattern ITEM_LINK =
+    private static final Pattern CARD_LINK =
             Pattern.compile(
-                    "<a\\s+href=\"([^\"]+)\"[^>]*"
-                            + "title=\"([^\"]*)\"",
+                    "<a[^>]*href=\"([^\"]*?/video/[^\"\"]+)\""
+                            + "[^>]*class=\"[^\"]*cfr2ss-video-thumbnail-link"
+                            + "[^\"]*\"",
                     Pattern.CASE_INSENSITIVE | Pattern.DOTALL
             );
 
-    private static final Pattern ITEM_THUMB =
+    private static final Pattern CARD_IMG =
             Pattern.compile(
-                    "data-original=\"([^\"]+)\"",
+                    "<img[^>]*src=\"([^\"]+)\"[^>]*alt=\"([^\"]*)\"",
+                    Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+            );
+
+    private static final Pattern CARD_IMG_ALT_AFTER =
+            Pattern.compile(
+                    "<img[^>]*alt=\"([^\"]*)\"[^>]*src=\"([^\"]+)\"",
+                    Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+            );
+
+    private static final Pattern CARD_DURATION =
+            Pattern.compile(
+                    "cfr2ss-duration-badge\"[^>]*>([^<]+)<",
                     Pattern.CASE_INSENSITIVE
             );
 
-    private static final Pattern ITEM_THUMB_WEBP =
+    private static final Pattern CARD_TITLE_H2 =
             Pattern.compile(
-                    "data-webp=\"([^\"]+)\"",
-                    Pattern.CASE_INSENSITIVE
+                    "wp-block-post-title[^>]*>\\s*<a[^>]*>"
+                            + "([^<]+)</a>",
+                    Pattern.CASE_INSENSITIVE | Pattern.DOTALL
             );
 
     /*
-     * Pagination: <a href="/latest-updates/307/" ...>307</a>
+     * Pagination: <a href="https://mmlovetv.com/page/208/">
      * → total pages (fallback -1)။
      */
     private static final Pattern PAGE_LINK =
             Pattern.compile(
-                    "/latest-updates/(\\d+)/",
+                    "/page/(\\d+)/",
                     Pattern.CASE_INSENSITIVE
             );
 
@@ -642,10 +711,10 @@ public final class MmtubeClient {
         return max;
     }
 
-    private static List<MmtubeVideo> parseListing(
+    private static List<MmlovetvVideo> parseListing(
             String html
     ) {
-        List<MmtubeVideo> videos = new ArrayList<>();
+        List<MmlovetvVideo> videos = new ArrayList<>();
 
         if (html == null || html.isEmpty()) {
             return videos;
@@ -653,12 +722,12 @@ public final class MmtubeClient {
 
         String normalized = html.replace("\\/", "/");
 
-        Matcher itemMatcher = ITEM_BLOCK.matcher(normalized);
+        Matcher itemMatcher = CARD_ITEM.matcher(normalized);
 
         while (itemMatcher.find()) {
             String body = itemMatcher.group(1);
 
-            Matcher linkMatcher = ITEM_LINK.matcher(body);
+            Matcher linkMatcher = CARD_LINK.matcher(body);
 
             if (!linkMatcher.find()) {
                 continue;
@@ -669,49 +738,72 @@ public final class MmtubeClient {
                             linkMatcher.group(1).trim()
                     );
 
-            if (detailUrl.isEmpty()) {
+            if (
+                    detailUrl.isEmpty() ||
+                            !detailUrl.contains("/video/")
+            ) {
                 continue;
             }
 
-            String title =
-                    unescapeHtml(
-                            linkMatcher.group(2).trim()
-                    );
-
-            if (title.isEmpty()) {
-                title = "အမည်မသိ ဗီဒီယို";
-            }
-
+            String title = "";
             String thumbUrl = "";
-            Matcher thumbMatcher =
-                    ITEM_THUMB.matcher(body);
 
-            if (thumbMatcher.find()) {
+            Matcher imgMatcher = CARD_IMG.matcher(body);
+
+            if (imgMatcher.find()) {
                 thumbUrl =
                         absoluteUrl(
-                                thumbMatcher.group(1).trim()
+                                imgMatcher.group(1).trim()
+                        );
+                title =
+                        unescapeHtml(
+                                imgMatcher.group(2).trim()
                         );
             } else {
-                Matcher webpMatcher =
-                        ITEM_THUMB_WEBP.matcher(body);
+                Matcher imgAltMatcher =
+                        CARD_IMG_ALT_AFTER.matcher(body);
 
-                if (webpMatcher.find()) {
+                if (imgAltMatcher.find()) {
+                    title =
+                            unescapeHtml(
+                                    imgAltMatcher.group(1)
+                                            .trim()
+                            );
                     thumbUrl =
                             absoluteUrl(
-                                    webpMatcher.group(1)
+                                    imgAltMatcher.group(2)
                                             .trim()
                             );
                 }
             }
 
-            // base64 placeholder ကို ကျော်မည်
-            if (thumbUrl.startsWith("data:")) {
-                thumbUrl = "";
+            if (title.isEmpty()) {
+                Matcher h2Matcher =
+                        CARD_TITLE_H2.matcher(body);
+
+                if (h2Matcher.find()) {
+                    title =
+                            unescapeHtml(
+                                    h2Matcher.group(1).trim()
+                            );
+                }
+            }
+
+            if (title.isEmpty()) {
+                title = "အမည်မသိ ဗီဒီယို";
+            }
+
+            String duration = "";
+            Matcher durMatcher =
+                    CARD_DURATION.matcher(body);
+
+            if (durMatcher.find()) {
+                duration = durMatcher.group(1).trim();
             }
 
             boolean duplicate = false;
 
-            for (MmtubeVideo existing : videos) {
+            for (MmlovetvVideo existing : videos) {
                 if (
                         existing.detailUrl.equals(detailUrl)
                 ) {
@@ -722,8 +814,9 @@ public final class MmtubeClient {
 
             if (!duplicate) {
                 videos.add(
-                        new MmtubeVideo(
-                                title, thumbUrl, detailUrl
+                        new MmlovetvVideo(
+                                title, thumbUrl,
+                                detailUrl, duration
                         )
                 );
             }
@@ -735,68 +828,149 @@ public final class MmtubeClient {
     }
 
     // ------------------------------------------------------------------
-    // Detail parser — flashvars video_url
+    // Detail parser — cfr2ss presigned stream URL
     // ------------------------------------------------------------------
 
     /*
-     * var flashvars = { ... video_url: 'https://www.mmtube.net/get_file/0/...mp4/?v-acctoken=...',
-     *                   video_url_hd: '1', ... }
-     * NOTE: video_url_hd သည် flag သာ ('1') — URL မဟုတ်။
+     * <video id="cfr2-video-player"
+     *        data-attachment-id="19816"
+     *        data-mime-type="video/mp4" ...>
+     *   <source src="https://mmlovetv.com/wp-json/cfr2ss/v1/stream/19816
+     *     ?cfr2ss_exp=...&#038;cfr2ss_sig=..."
+     *     type="video/mp4">
+     *
+     * NOTE: format is MP4 (NOT m3u8).
      */
-    private static final Pattern VIDEO_URL =
+    private static final Pattern ATTACHMENT_ID =
             Pattern.compile(
-                    "\\bvideo_url\\b\\s*:\\s*'([^']+)'",
+                    "data-attachment-id=\"(\\d+)\"",
                     Pattern.CASE_INSENSITIVE
             );
 
-    private static final Pattern VIDEO_URL_HD_FLAG =
+    private static final Pattern STREAM_SOURCE =
             Pattern.compile(
-                    "\\bvideo_url_hd\\b\\s*:\\s*'([^']*)'",
+                    "<source[^>]*src=\"([^\"]*?/wp-json/cfr2ss/v1/stream/[^\"]+)\"",
+                    Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+            );
+
+    private static final Pattern FRESH_URL_JSON =
+            Pattern.compile(
+                    "\"url\"\\s*:\\s*\"([^\"]+)\"",
                     Pattern.CASE_INSENSITIVE
             );
 
-    private static MmtubeStream parseDetail(
+    private static String parseAttachmentId(String html) {
+        if (html == null || html.isEmpty()) {
+            return "";
+        }
+
+        Matcher m = ATTACHMENT_ID.matcher(html);
+
+        if (m.find()) {
+            return m.group(1).trim();
+        }
+
+        return "";
+    }
+
+    private static MmlovetvStream parseDetail(
             String html,
             String detailUrl,
             String cookieHeader
     ) {
         String streamUrl = "";
-        boolean isHd = false;
 
         if (html != null && !html.isEmpty()) {
             String normalized = html.replace("\\/", "/");
 
-            Matcher urlMatcher =
-                    VIDEO_URL.matcher(normalized);
+            Matcher srcMatcher =
+                    STREAM_SOURCE.matcher(normalized);
 
-            if (urlMatcher.find()) {
-                streamUrl = urlMatcher.group(1).trim();
-            }
-
-            Matcher hdMatcher =
-                    VIDEO_URL_HD_FLAG.matcher(normalized);
-
-            if (hdMatcher.find()) {
-                isHd =
-                        "1".equals(
-                                hdMatcher.group(1).trim()
+            if (srcMatcher.find()) {
+                streamUrl =
+                        decodeEntities(
+                                srcMatcher.group(1).trim()
                         );
             }
 
             Log.d(
                     TAG,
                     "parseDetail: url found=" +
-                            !streamUrl.isEmpty() +
-                            " hd=" + isHd
+                            !streamUrl.isEmpty()
             );
         }
 
-        return new MmtubeStream(
+        return new MmlovetvStream(
                 streamUrl,
-                isHd,
                 cookieHeader,
                 detailUrl
         );
+    }
+
+    /*
+     * Fresh presigned URL via get-video-url JSON API:
+     * GET /wp-json/cfr2ss/v1/get-video-url/{id}?_=ts
+     * with X-Requested-With: XMLHttpRequest.
+     * Returns {"success":true,"url":"..."}.
+     */
+    private static String fetchFreshVideoUrl(
+            String attachmentId,
+            String referer
+    ) {
+        try {
+            String apiUrl =
+                    BASE_URL
+                            + "/wp-json/cfr2ss/v1/get-video-url/"
+                            + attachmentId
+                            + "?_="
+                            + System.currentTimeMillis();
+
+            Map<String, String> extra =
+                    new LinkedHashMap<>();
+            extra.put(
+                    "X-Requested-With", "XMLHttpRequest"
+            );
+
+            String json = get(apiUrl, referer, extra);
+
+            if (json == null || json.isEmpty()) {
+                return "";
+            }
+
+            if (!json.contains("\"success\":true")
+                    && !json.contains("\"success\": true")) {
+                Log.d(
+                        TAG,
+                        "get-video-url not successful"
+                );
+
+                return "";
+            }
+
+            Matcher m = FRESH_URL_JSON.matcher(
+                    json.replace("\\/", "/")
+            );
+
+            if (m.find()) {
+                String freshUrl =
+                        decodeEntities(m.group(1).trim());
+
+                Log.d(
+                        TAG,
+                        "get-video-url: fresh url found=" +
+                                !freshUrl.isEmpty()
+                );
+
+                return freshUrl;
+            }
+        } catch (Exception e) {
+            Log.d(
+                    TAG,
+                    "get-video-url failed: " + e.getMessage()
+            );
+        }
+
+        return "";
     }
 
     // ------------------------------------------------------------------
@@ -834,12 +1008,26 @@ public final class MmtubeClient {
         }
     }
 
+    private static String decodeEntities(String text) {
+        if (text == null) {
+            return "";
+        }
+
+        return text
+                .replace("&#038;", "&")
+                .replace("&#38;", "&")
+                .replace("&amp;", "&")
+                .replace("\\/", "/")
+                .trim();
+    }
+
     private static String unescapeHtml(String text) {
         if (text == null) {
             return "";
         }
 
         return text
+                .replace("&#038;", "&")
                 .replace("&amp;", "&")
                 .replace("&quot;", "\"")
                 .replace("&#39;", "'")
