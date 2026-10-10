@@ -91,6 +91,16 @@
             android:name=".JavtifulDetailActivity"
             android:exported="false"
             android:screenOrientation="unspecified" />
+
+        <activity
+            android:name=".RedtubeActivity"
+            android:exported="false"
+            android:screenOrientation="unspecified" />
+
+        <activity
+            android:name=".RedtubeDetailActivity"
+            android:exported="false"
+            android:screenOrientation="unspecified" />
                 <activity
             android:name=".ProfileActivity"
             android:exported="false"

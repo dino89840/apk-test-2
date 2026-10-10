@@ -19,6 +19,8 @@ import org.json.JSONObject;
  *  5. Chinese AV → JavtifulActivity (mode "chinese")
  *     (Jav + Asian + Chinese kill-switch: javtiful.enabled=false
  *      → သုံးခုလုံး ဝှက်မည်)
+ *  6. Free Porn → RedtubeActivity (redtube.com direct;
+ *     UI label "Free Porn" only — no source name)
  *
  * Horror က သီးသန့် tab အတိုင်း (ဒီထဲမပါ)။
  * PIN မရှိပါ။
@@ -28,6 +30,7 @@ public class AdultHubActivity extends AppCompatActivity {
     private View javCard;
     private View asianCard;
     private View chineseCard;
+    private View freePornCard;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,6 +44,7 @@ public class AdultHubActivity extends AppCompatActivity {
         javCard = findViewById(R.id.adultHubJav);
         asianCard = findViewById(R.id.adultHubAsian);
         chineseCard = findViewById(R.id.adultHubChinese);
+        freePornCard = findViewById(R.id.adultHubFreePorn);
 
         findViewById(R.id.adultHubNosub)
                 .setOnClickListener(
@@ -70,13 +74,25 @@ public class AdultHubActivity extends AppCompatActivity {
                 )
         );
 
+        findViewById(R.id.adultHubFreePorn)
+                .setOnClickListener(
+                        view -> startActivity(
+                                new Intent(
+                                        this,
+                                        RedtubeActivity.class
+                                )
+                        )
+                );
+
         /*
          * Javtiful kill-switch — /app-content ရဲ့
          * javtiful.enabled flag ကို စစ်သည်။
          * Jav + Asian + Chinese သုံးခုလုံး ထိန်းသည်။
+         * Free Porn kill-switch — freeporn.enabled။
          * Network request အသစ် မရှိပါ။
          */
         updateJavtifulCards(null);
+        updateFreePornCard(null);
 
         AppContentManager.loadBanner(
                 this,
@@ -94,6 +110,7 @@ public class AdultHubActivity extends AppCompatActivity {
                             }
 
                             updateJavtifulCards(content);
+                            updateFreePornCard(content);
                         });
                     }
 
@@ -156,5 +173,27 @@ public class AdultHubActivity extends AppCompatActivity {
         javCard.setVisibility(visibility);
         asianCard.setVisibility(visibility);
         chineseCard.setVisibility(visibility);
+    }
+
+    /*
+     * Free Porn card visibility — kill-switch။
+     * freeporn.enabled=true (သို့မဟုတ် field
+     * မရှိသေးလျှင် default true) → ပြမည်။
+     * Explicitly false → ဝှက်မည်။
+     * (D1 app_freeporn_enabled="0" → hidden)
+     */
+    private void updateFreePornCard(JSONObject content) {
+        if (freePornCard == null) {
+            return;
+        }
+
+        boolean enabled =
+                AppContentManager.isFreePornEnabled(
+                        content
+                );
+
+        freePornCard.setVisibility(
+                enabled ? View.VISIBLE : View.GONE
+        );
     }
 }

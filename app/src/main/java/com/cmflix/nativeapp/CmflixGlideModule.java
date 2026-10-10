@@ -188,6 +188,19 @@ public final class CmflixGlideModule extends AppGlideModule {
             cookie = safeCookie(
                     JavtifulClient::getCookieHeader
             );
+        } else if (
+                lower.contains("rdtcdn.com")
+                        || lower.contains("redtube.com")
+        ) {
+            /*
+             * RedTube thumbnails (rdtcdn.com CDN).
+             * Defensive headers.
+             */
+            userAgent = RedtubeClient.USER_AGENT;
+            referer = RedtubeClient.BASE_URL + "/";
+            cookie = safeCookie(
+                    RedtubeClient::getCookieHeader
+            );
         } else {
             /*
              * အခြား image host — generic browser
