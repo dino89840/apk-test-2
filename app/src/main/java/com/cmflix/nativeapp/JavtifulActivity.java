@@ -157,7 +157,6 @@ public class JavtifulActivity extends AppCompatActivity {
     private static final String[] SORT_LABELS_CHINESE = {
             "Latest",
             "Added Today",
-            "Added This Week",
             "Added This Month",
             "Popular"
     };
@@ -165,7 +164,6 @@ public class JavtifulActivity extends AppCompatActivity {
     private static final String[] SORT_VALUES_CHINESE = {
             "",
             "added_today",
-            "added_week",
             "added_month",
             "popular"
     };
