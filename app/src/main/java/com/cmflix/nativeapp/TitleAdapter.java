@@ -50,6 +50,14 @@ public class TitleAdapter
      */
     private final int layoutRes;
 
+    /*
+     * Series (Nosub Eng) category အတွက် landscape
+     * cover layout သုံးရန်။ true ဖြစ်လျှင်
+     * item_title_landscape / item_title_row_landscape
+     * ကို သုံးမည်။
+     */
+    private boolean landscapeMode = false;
+
     private boolean favoriteMode = false;
 private static final Object
         PAYLOAD_PROGRESS =
@@ -154,22 +162,59 @@ public void refreshProgressSnapshot() {
         notifyDataSetChanged();
     }
 
+    /*
+     * Landscape cover mode (series category) အဖွင့်/အပိတ်။
+     * Mode ပြောင်းလျှင် list ကို ပြန်ဆွဲမည်။
+     */
+    public void setLandscapeMode(boolean value) {
+        if (landscapeMode == value) {
+            return;
+        }
+
+        landscapeMode = value;
+        notifyDataSetChanged();
+    }
+
+    public boolean isLandscapeMode() {
+        return landscapeMode;
+    }
+
+    /*
+     * Landscape mode ဖွင့်ထားလျှင် landscape layout
+     * ကို ပြန်ပေးမည်။
+     */
+    private int getEffectiveLayoutRes() {
+        if (!landscapeMode) {
+            return layoutRes;
+        }
+
+        if (layoutRes == R.layout.item_title_row) {
+            return R.layout.item_title_row_landscape;
+        }
+
+        return R.layout.item_title_landscape;
+    }
+
     @NonNull
     @Override
     public Holder onCreateViewHolder(
             @NonNull ViewGroup parent,
             int viewType
     ) {
+        int effectiveRes = getEffectiveLayoutRes();
+
         View view =
                 LayoutInflater
                         .from(parent.getContext())
                         .inflate(
-                                layoutRes,
+                                effectiveRes,
                                 parent,
                                 false
                         );
 
-        if (layoutRes == R.layout.item_title_row) {
+        if (effectiveRes == R.layout.item_title_row
+                || effectiveRes
+                        == R.layout.item_title_row_landscape) {
             applyResponsiveRowWidth(parent, view);
         }
 
@@ -209,8 +254,14 @@ public void refreshProgressSnapshot() {
                             (int) (30 * density);
         }
 
+        /*
+         * Landscape cover များ 16:9 မို့ တစ်တန်းမှာ
+         * ၂ ခု ပြမည်။ Portrait poster များ ၃ ခု။
+         */
+        float perRow = landscapeMode ? 2.0f : 3.0f;
+
         int itemTotalPx =
-                (int) (rowContentPx / 3.0f);
+                (int) (rowContentPx / perRow);
 
         /*
          * Card ရဲ့ start/end margin 4dp+4dp နှုတ်မည်။

@@ -315,6 +315,14 @@ public class HomeRowsAdapter
                             )
             );
 
+            /*
+             * Series (Nosub Eng) section က cover ပုံပဲရှိသဖြင့်
+             * landscape cover layout သုံးမည်။
+             */
+            rowAdapter.setLandscapeMode(
+                    "series".equals(section.id)
+            );
+
             rowAdapter.submitList(section.items);
             rowAdapter.refreshProgressSnapshot();
         }

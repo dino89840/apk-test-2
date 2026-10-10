@@ -1285,8 +1285,13 @@ Glide.with(this)
 /*
  * Detail poster ကိုလည်း dark placeholder ကနေ
  * 650ms အတွင်း fade-in ပုံစံနဲ့ပေါ်လာစေပါမယ်။
+ *
+ * Series (Nosub Eng) က cover ပုံပဲရှိသဖြင့်
+ * portrait poster ကို ဝှက်ပြီး backdrop
+ * (landscape cover) ပဲ ပြမည်။
  */
-if (posterUrl.isEmpty()) {
+if (posterUrl.isEmpty()
+        || "series".equalsIgnoreCase(titleCategory)) {
     poster.setVisibility(View.GONE);
 
     Glide.with(this)

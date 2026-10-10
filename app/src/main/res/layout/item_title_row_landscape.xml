@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Home screen horizontal rows (Continue Watching / Recently Viewed)
+    အတွက် fixed-width card။ TitleAdapter က view ID များ
+    (poster, vipRibbon, favoriteRemove, watchProgress,
+    movieTitle, meta) အတူတူပဲဖြစ်ရမည်။
+-->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="124dp"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="4dp"
+    android:layout_marginTop="4dp"
+    android:layout_marginEnd="4dp"
+    android:layout_marginBottom="4dp"
+    android:background="@drawable/card_bg"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?android:attr/selectableItemBackground"
+    android:orientation="vertical">
+
+    <com.cmflix.nativeapp.CoverAspectFrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/poster_rounded_bg"
+        android:clipChildren="true"
+        android:clipToOutline="true"
+        android:outlineProvider="background">
+
+        <com.cmflix.nativeapp.TopCropImageView
+            android:id="@+id/poster"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#20232A"
+            android:contentDescription="Video cover"
+            android:scaleType="matrix" />
+
+        <TextView
+            android:id="@+id/vipRibbon"
+            android:layout_width="wrap_content"
+            android:layout_height="22dp"
+            android:layout_gravity="top|end"
+            android:layout_marginTop="6dp"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/vip_badge_bg"
+            android:elevation="7dp"
+            android:gravity="center"
+            android:minWidth="38dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:textColor="@color/white"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <ImageButton
+            android:id="@+id/favoriteRemove"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_gravity="top|end"
+            android:layout_margin="6dp"
+            android:background="@drawable/favorite_remove_bg"
+            android:contentDescription="Remove from favorites"
+            android:elevation="8dp"
+            android:padding="8dp"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:tint="@color/white"
+            android:visibility="gone" />
+
+        <ProgressBar
+            android:id="@+id/watchProgress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:layout_gravity="bottom"
+            android:indeterminate="false"
+            android:max="1000"
+            android:progress="0"
+            android:progressBackgroundTint="#66000000"
+            android:progressTint="@color/brand_red"
+            android:visibility="gone" />
+
+    </com.cmflix.nativeapp.CoverAspectFrameLayout>
+
+    <TextView
+        android:id="@+id/movieTitle"
+        android:layout_width="match_parent"
+        android:layout_height="36dp"
+        android:ellipsize="end"
+        android:gravity="center_vertical"
+        android:maxLines="2"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:textColor="@color/white"
+        android:textSize="11sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/meta"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="gone" />
+
+</LinearLayout>

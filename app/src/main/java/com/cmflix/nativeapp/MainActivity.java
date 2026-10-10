@@ -1155,6 +1155,16 @@ private void enterCategory(
     homeMode = false;
 
     /*
+     * Series (Nosub Eng) category က cover ပုံပဲရှိသဖြင့်
+     * landscape cover layout သုံးမည်။
+     */
+    if (adapter != null) {
+        adapter.setLandscapeMode(
+                "series".equals(value)
+        );
+    }
+
+    /*
      * Network category full-grid (Horror / 18+ —
      * Home "More ›" ကလာသော) တွင် hamburger +
      * search bar သာ ပြမည်။ Banner / username /
