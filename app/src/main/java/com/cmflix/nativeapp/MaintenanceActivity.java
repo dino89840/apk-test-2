@@ -166,6 +166,45 @@ public class MaintenanceActivity extends AppCompatActivity {
                                     View.GONE
                             );
 
+                            /*
+                             * Maintenance ပိတ်မသွားသေးလျှင်
+                             * (backend 503 + {"error":
+                             * "maintenance"}) ဒီ screen မှာပဲ
+                             * ဆက်နေပြီး message ကို update
+                             * လုပ်မည် — "no internet" မပြပါ။
+                             */
+                            if (
+                                    error instanceof
+                                            MaintenanceException
+                            ) {
+                                String maintMessage =
+                                        error.getMessage();
+
+                                if (
+                                        maintMessage == null ||
+                                                maintMessage
+                                                        .trim()
+                                                        .isEmpty()
+                                ) {
+                                    maintMessage =
+                                            AppContentManager
+                                                    .getMaintenanceMessage(
+                                                            null
+                                                    );
+                                }
+
+                                messageView.setText(
+                                        maintMessage.trim()
+                                );
+
+                                return;
+                            }
+
+                            /*
+                             * တကယ့် network failure
+                             * (timeout / connection error)
+                             * မှသာ "no internet" ပြမည်။
+                             */
                             Toast.makeText(
                                             MaintenanceActivity.this,
                                             "အင်တာနက်ချိတ်ဆက်မှု မရှိပါ။",

@@ -1037,6 +1037,40 @@ URL url =
                     errorBody != null &&
                     !errorBody.trim().isEmpty()
             ) {
+                /*
+                 * Backend maintenance mode — 503 +
+                 * {"error": "maintenance", "message": "..."}.
+                 * MaintenanceActivity ရဲ့ retry က ဒီ
+                 * exception ကို စစ်ပြီး "no internet"
+                 * အစား maintenance screen မှာပဲ
+                 * ဆက်နေမည်။
+                 */
+                try {
+                    JSONObject errorJson =
+                            new JSONObject(
+                                    errorBody
+                            );
+
+                    if (
+                            "maintenance".equals(
+                                    errorJson
+                                            .optString(
+                                                    "error",
+                                                    ""
+                                            )
+                                            .trim()
+                            )
+                    ) {
+                        return new MaintenanceException(
+                                errorJson.optString(
+                                        "message",
+                                        "CMFLIX ကို ခေတ္တပြုပြင်နေပါသည်။"
+                                )
+                        );
+                    }
+                } catch (Exception ignored) {
+                }
+
                 return new IllegalStateException(
                         errorBody
                 );

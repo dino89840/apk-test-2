@@ -1697,6 +1697,28 @@ private void ensureHomeSectionLoaded(String value) {
                                 homeSectionLoading
                                         .remove(value);
 
+                                /*
+                                 * Backend maintenance mode — Home
+                                 * section API များ 503 +
+                                 * {"error": "maintenance"} ပြန်ပေးလျှင်
+                                 * ApiClient က MaintenanceException
+                                 * throw လုပ်သည်။ Section ၃ ခု parallel
+                                 * fetch လုပ်သောကြောင့် maintenance
+                                 * screen ကို တစ်ကြိမ်တည်း ဖွင့်ရန်
+                                 * openMaintenanceScreen() က guard
+                                 * လုပ်ပေးသည်။
+                                 */
+                                if (
+                                        error instanceof
+                                                MaintenanceException
+                                ) {
+                                    openMaintenanceScreen(
+                                            error.getMessage()
+                                    );
+
+                                    return;
+                                }
+
                                 checkHomeGate();
                             }
                     );
@@ -2170,6 +2192,52 @@ private void renderVipBannerImage(
         finish();
 
         return true;
+    }
+
+    /*
+     * MaintenanceException (backend 503 +
+     * {"error": "maintenance"}) ကနေ maintenance
+     * screen ဖွင့်ရန် helper။
+     *
+     * Home section ၃ ခု parallel fetch လုပ်သောကြောင့်
+     * error ၃ ခု တစ်ပြိုင်တည်း ရောက်လာနိုင်သည် —
+     * maintenanceLaunched guard က တစ်ကြိမ်တည်း
+     * ဖွင့်ရန် အာမခံသည်။
+     */
+    private void openMaintenanceScreen(
+            String message
+    ) {
+        if (maintenanceLaunched) {
+            return;
+        }
+
+        maintenanceLaunched = true;
+
+        if (
+                message == null ||
+                        message.trim().isEmpty()
+        ) {
+            message =
+                    "CMFLIX ကို ခေတ္တပြုပြင်နေပါသည်။";
+        }
+
+        Intent intent =
+                new Intent(
+                        this,
+                        MaintenanceActivity.class
+                );
+
+        intent.putExtra(
+                MaintenanceActivity.EXTRA_MESSAGE,
+                message.trim()
+        );
+
+        try {
+            startActivity(intent);
+
+            finish();
+        } catch (Exception ignored) {
+        }
     }
 
 private void loadRemoteBanner() {
@@ -3077,33 +3145,9 @@ public void onError(Exception error) {
             );
             hideShimmer();
 
-            String maintMessage =
-                    error.getMessage();
-
-            if (
-                    maintMessage == null ||
-                    maintMessage.trim().isEmpty()
-            ) {
-                maintMessage =
-                        "CMFLIX ကို ခေတ္တပြုပြင်နေပါသည်။";
-            }
-
-            android.content.Intent intent =
-                    new android.content.Intent(
-                            MainActivity.this,
-                            MaintenanceActivity.class
-                    );
-
-            intent.putExtra(
-                    MaintenanceActivity.EXTRA_MESSAGE,
-                    maintMessage.trim()
+            openMaintenanceScreen(
+                    error.getMessage()
             );
-
-            try {
-                startActivity(intent);
-                finish();
-            } catch (Exception ignored) {
-            }
 
             return;
         }
