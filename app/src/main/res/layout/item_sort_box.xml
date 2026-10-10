@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Sort option box for the 2-column grid in the Sort by dialog.
+    Compact rounded box with centered text; the adapter swaps
+    the background between sort_box_normal.xml and
+    sort_box_selected.xml.
+-->
+<TextView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/sortBoxText"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minHeight="44dp"
+    android:gravity="center"
+    android:paddingStart="8dp"
+    android:paddingEnd="8dp"
+    android:paddingTop="10dp"
+    android:paddingBottom="10dp"
+    android:layout_margin="4dp"
+    android:background="@drawable/sort_box_normal"
+    android:textColor="@color/white"
+    android:textSize="13sp" />

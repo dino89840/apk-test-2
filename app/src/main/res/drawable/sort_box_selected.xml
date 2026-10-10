@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Selected sort box: dark fill with gold border.
+-->
+<shape
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+
+    <corners android:radius="10dp" />
+
+    <solid android:color="#242A36" />
+
+    <stroke
+        android:width="2dp"
+        android:color="@color/gold" />
+
+</shape>

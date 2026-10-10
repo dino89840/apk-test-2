@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Custom content for the Sort by dialog: gold title, 2-column
+    grid of sort boxes, CANCEL button. Compact — wraps content.
+-->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingBottom="12dp"
+        android:text="Sort by"
+        android:textColor="@color/gold"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/sortGrid"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:nestedScrollingEnabled="false" />
+
+    <TextView
+        android:id="@+id/sortCancelButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end"
+        android:layout_marginTop="12dp"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:clickable="true"
+        android:focusable="true"
+        android:padding="10dp"
+        android:text="CANCEL"
+        android:textColor="@color/gold"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+</LinearLayout>

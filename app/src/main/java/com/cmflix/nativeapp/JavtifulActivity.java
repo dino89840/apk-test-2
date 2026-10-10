@@ -556,42 +556,128 @@ public class JavtifulActivity extends AppCompatActivity {
      * Sort/filter dialog — listing mode only.
      * Search/actress mode မှ ထွက်ပြီး listing
      * မှာ sort အသုံးပြုမည်။
+     * Compact 2-column grid of selectable boxes.
      */
     private void showSortDialog() {
         if (isSearchMode() || isActressMode()) {
             exitToListing();
         }
 
-        int checked = 0;
+        View dialogView = LayoutInflater.from(this)
+                .inflate(R.layout.dialog_sort, null);
 
-        for (int i = 0; i < SORT_VALUES.length; i++) {
-            if (SORT_VALUES[i].equals(sortParam)) {
-                checked = i;
-                break;
+        RecyclerView sortGrid =
+                dialogView.findViewById(R.id.sortGrid);
+        sortGrid.setLayoutManager(
+                new GridLayoutManager(this, 2));
+        sortGrid.setNestedScrollingEnabled(false);
+
+        final AlertDialog dialog =
+                new AlertDialog.Builder(
+                        this, R.style.CmflixSortDialog)
+                        .setView(dialogView)
+                        .create();
+
+        SortAdapter sortAdapter = new SortAdapter(
+                picked -> {
+                    sortParam = picked;
+                    dialog.dismiss();
+                    updateFilterButtonState();
+                    currentPage = 0;
+                    videos.clear();
+                    adapter.notifyDataSetChanged();
+                    loadPage(1);
+                });
+        sortGrid.setAdapter(sortAdapter);
+
+        dialogView.findViewById(R.id.sortCancelButton)
+                .setOnClickListener(
+                        view -> dialog.dismiss());
+
+        dialog.show();
+    }
+
+    /*
+     * 2-column grid adapter for the Sort by dialog.
+     * Tapping a box highlights it (gold border), applies
+     * the sort and dismisses the dialog.
+     */
+    private final class SortAdapter
+            extends RecyclerView.Adapter<SortAdapter.SortHolder> {
+
+        interface OnSortPicked {
+            void onPick(String value);
+        }
+
+        private final OnSortPicked listener;
+        private int selectedPosition = 0;
+
+        SortAdapter(OnSortPicked listener) {
+            this.listener = listener;
+
+            for (int i = 0; i < SORT_VALUES.length; i++) {
+                if (SORT_VALUES[i].equals(sortParam)) {
+                    selectedPosition = i;
+                    break;
+                }
             }
         }
 
-        new AlertDialog.Builder(this, R.style.CmflixSortDialog)
-                .setTitle("Sort by")
-                .setSingleChoiceItems(
-                        new android.widget.ArrayAdapter<>(
-                                this,
-                                R.layout.item_sort_option,
-                                SORT_LABELS
-                        ),
-                        checked,
-                        (dialog, which) -> {
-                            sortParam = SORT_VALUES[which];
-                            dialog.dismiss();
-                            updateFilterButtonState();
-                            currentPage = 0;
-                            videos.clear();
-                            adapter.notifyDataSetChanged();
-                            loadPage(1);
+        @NonNull
+        @Override
+        public SortHolder onCreateViewHolder(
+                @NonNull ViewGroup parent, int viewType) {
+            View view = LayoutInflater.from(
+                    parent.getContext())
+                    .inflate(
+                            R.layout.item_sort_box,
+                            parent,
+                            false);
+            return new SortHolder(view);
+        }
+
+        @Override
+        public void onBindViewHolder(
+                @NonNull SortHolder holder, int position) {
+            holder.text.setText(SORT_LABELS[position]);
+            holder.text.setBackgroundResource(
+                    position == selectedPosition
+                            ? R.drawable.sort_box_selected
+                            : R.drawable.sort_box_normal);
+            holder.itemView.setOnClickListener(
+                    view -> {
+                        int clicked =
+                                holder.getAdapterPosition();
+
+                        if (clicked ==
+                                RecyclerView.NO_POSITION) {
+                            return;
                         }
-                )
-                .setNegativeButton("Cancel", null)
-                .show();
+
+                        int previous = selectedPosition;
+                        selectedPosition = clicked;
+                        notifyItemChanged(previous);
+                        notifyItemChanged(selectedPosition);
+                        listener.onPick(
+                                SORT_VALUES[selectedPosition]);
+                    });
+        }
+
+        @Override
+        public int getItemCount() {
+            return SORT_LABELS.length;
+        }
+
+        final class SortHolder
+                extends RecyclerView.ViewHolder {
+            final TextView text;
+
+            SortHolder(@NonNull View itemView) {
+                super(itemView);
+                text = itemView.findViewById(
+                        R.id.sortBoxText);
+            }
+        }
     }
 
     /*
