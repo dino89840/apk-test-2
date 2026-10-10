@@ -87,6 +87,8 @@ public class MyanmarDetailActivity
     } else {
         PremiumDialog.show(this);
     }
+}
+
                     }
             );
 
@@ -204,6 +206,7 @@ if (!SessionManager.isVipActive()) {
 }
 
 resolveStream();
+
     }
 
     /*
