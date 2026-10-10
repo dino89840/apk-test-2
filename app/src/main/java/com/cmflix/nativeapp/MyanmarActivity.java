@@ -21,7 +21,9 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /*
  * မြန်မာ category — proxy (tw.kyakya.xubi.org)
@@ -54,6 +56,14 @@ public class MyanmarActivity extends AppCompatActivity {
     private int currentPage = 0;
     private boolean isLoading = false;
     private boolean hasMore = true;
+
+    /*
+     * Cross-page duplicate guard — samusar repeats
+     * page 1 for out-of-range page numbers. Track
+     * seen detailUrls to stop infinite pagination.
+     */
+    private final Set<String> seenDetailUrls =
+            new HashSet<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -315,13 +325,53 @@ public class MyanmarActivity extends AppCompatActivity {
 
                             if (page == 1) {
                                 videos.clear();
+                                seenDetailUrls.clear();
                             }
 
-                            videos.addAll(newVideos);
+                            /*
+                             * Cross-page duplicate guard —
+                             * samusar repeats page 1 for
+                             * out-of-range pages. Only append
+                             * videos not already shown.
+                             */
+                            int added = 0;
+
+                            for (
+                                    SamusarClient.SamusarVideo v
+                                            : newVideos
+                            ) {
+                                if (
+                                        v == null
+                                                || v.detailUrl
+                                                        == null
+                                                || seenDetailUrls.contains(
+                                                        v.detailUrl
+                                                )
+                                ) {
+                                    continue;
+                                }
+
+                                seenDetailUrls.add(v.detailUrl);
+                                videos.add(v);
+                                added++;
+                            }
+
                             adapter.notifyDataSetChanged();
 
                             currentPage = page;
-                            hasMore = more;
+
+                            /*
+                             * Page added nothing new → stop
+                             * paginating (prevents infinite
+                             * repeat loops).
+                             */
+                            hasMore =
+                                    more
+                                            && !(
+                                                    page > 1
+                                                            && added
+                                                                    == 0
+                                            );
 
                             updateCount();
 
