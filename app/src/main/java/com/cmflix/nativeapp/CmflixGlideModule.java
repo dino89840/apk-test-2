@@ -33,8 +33,6 @@ import java.util.Locale;
  * - mmtube.net       → MmtubeClient UA + Referer + Cookie
  * - samusar.com      → SamusarClient UA + Referer + Cookie
  *   (+ proxy host — server-configurable)
- * - mmlovetv.com     → MmlovetvClient UA + Referer + Cookie
- *   img.mmlovetv.com → (ထို header များအတိုင်း)
  * - javtiful domain  → JavtifulClient UA + Referer + Cookie
  * - အခြား            → generic browser UA သာ
  *
@@ -162,14 +160,6 @@ public final class CmflixGlideModule extends AppGlideModule {
         String cookie;
 
         if (
-                lower.contains("mmlovetv.com")
-        ) {
-            userAgent = MmlovetvClient.USER_AGENT;
-            referer = MmlovetvClient.BASE_URL + "/";
-            cookie = safeCookie(
-                    MmlovetvClient::getCookieHeader
-            );
-        } else if (
                 lower.contains("mmtube.net")
         ) {
             userAgent = MmtubeClient.USER_AGENT;
