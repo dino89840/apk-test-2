@@ -537,7 +537,7 @@ private String getCategoryBadgeLabel(
                     category
             )
     ) {
-        return "Nosub Eng";
+        return "Eng";
     }
 
     if (

@@ -529,7 +529,7 @@ runOnUiThread(() -> {
                     category
             )
     ) {
-        return "Nosub Eng";
+        return "Eng";
     }
 
     if (
