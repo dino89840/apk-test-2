@@ -5,6 +5,7 @@ import android.util.Log;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.HttpCookie;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
@@ -12,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
@@ -30,7 +32,10 @@ import java.util.zip.GZIPInputStream;
  *   (same video-card HTML as listing; mosaic-only).
  *
  * Direct connection (NO proxy for now — user will test first).
- * No cookies/tokens needed. Browser-like User-Agent.
+ * Defensive headers on every request: browser-like
+ * User-Agent + Referer + cookie jar (site currently
+ * needs no cookies, but they are stored/sent so a
+ * future site change doesn't require an APK rebuild).
  * Stream URLs are NOT cached — always fresh resolve.
  */
 public final class JavtifulClient {
@@ -243,6 +248,19 @@ public final class JavtifulClient {
     private static final ExecutorService EXECUTOR =
             Executors.newCachedThreadPool();
 
+    /*
+     * Javtiful-only in-memory cookie jar — defensive.
+     * The site currently sets no required cookies,
+     * but any Set-Cookie is stored and re-sent so a
+     * future site change doesn't need an APK rebuild.
+     *
+     * NOTE: CookieManager ကို global default အဖြစ်
+     * မသတ်မှတ်ပါ — ApiClient ၏ request များကို
+     * လုံးဝ မထိခိုက်စေရန် manual cookie jar သုံးသည်။
+     */
+    private static final List<HttpCookie> COOKIE_JAR =
+            new ArrayList<>();
+
     private JavtifulClient() {
     }
 
@@ -269,9 +287,26 @@ public final class JavtifulClient {
         public final String url;
         public final String referer;
 
+        /*
+         * Detail page request မှ ရသော session cookies
+         * ("Cookie" header အဖြစ် ပြန်ပို့ရန် — player /
+         * download အတွက် defensive)။
+         */
+        public final String cookieHeader;
+
         public JavtifulStream(String url, String referer) {
+            this(url, referer, "");
+        }
+
+        public JavtifulStream(
+                String url,
+                String referer,
+                String cookieHeader
+        ) {
             this.url = url;
             this.referer = referer;
+            this.cookieHeader =
+                    cookieHeader == null ? "" : cookieHeader;
         }
 
         public boolean hasStream() {
@@ -603,7 +638,7 @@ public final class JavtifulClient {
     ) {
         EXECUTOR.execute(() -> {
             try {
-                String html = get(url);
+                String html = get(url, getBaseUrl() + "/");
 
                 List<JavtifulVideo> videos =
                         parseListing(html, filter);
@@ -648,7 +683,9 @@ public final class JavtifulClient {
                     );
                 }
 
-                String html = get(detailUrl.trim());
+                String html =
+                        get(detailUrl.trim(),
+                                getBaseUrl() + "/");
                 String streamUrl = parseDetail(html);
 
                 List<JavtifulActress> actresses =
@@ -666,7 +703,8 @@ public final class JavtifulClient {
                 callback.onResult(
                         new JavtifulStream(
                                 streamUrl,
-                                detailUrl.trim()
+                                detailUrl.trim(),
+                                currentCookieHeader()
                         ),
                         actresses
                 );
@@ -677,10 +715,13 @@ public final class JavtifulClient {
     }
 
     // ------------------------------------------------------------------
-    // HTTP
+    // HTTP — defensive headers (UA + Referer + cookie jar)
     // ------------------------------------------------------------------
 
-    private static String get(String url) throws Exception {
+    private static String get(
+            String url,
+            String referer
+    ) throws Exception {
         HttpURLConnection connection = null;
 
         try {
@@ -703,7 +744,25 @@ public final class JavtifulClient {
                     "Accept-Language", "en-US,en;q=0.9"
             );
 
+            if (
+                    referer != null && !referer.isEmpty()
+            ) {
+                connection.setRequestProperty(
+                        "Referer", referer
+                );
+            }
+
+            String cookieHeader = currentCookieHeader();
+
+            if (!cookieHeader.isEmpty()) {
+                connection.setRequestProperty(
+                        "Cookie", cookieHeader
+                );
+            }
+
             int status = connection.getResponseCode();
+
+            storeCookies(connection);
 
             if (status < 200 || status >= 300) {
                 throw new IllegalStateException(
@@ -717,6 +776,84 @@ public final class JavtifulClient {
                 connection.disconnect();
             }
         }
+    }
+
+    private static synchronized void storeCookies(
+            HttpURLConnection connection
+    ) {
+        Map<String, List<String>> headers =
+                connection.getHeaderFields();
+
+        if (headers == null) {
+            return;
+        }
+
+        for (
+                Map.Entry<String, List<String>> entry :
+                        headers.entrySet()
+        ) {
+            if (
+                    entry.getKey() == null ||
+                            !entry.getKey()
+                                    .equalsIgnoreCase(
+                                            "Set-Cookie"
+                                    )
+            ) {
+                continue;
+            }
+
+            for (String value : entry.getValue()) {
+                try {
+                    List<HttpCookie> parsed =
+                            HttpCookie.parse(value);
+
+                    for (HttpCookie cookie : parsed) {
+                        COOKIE_JAR.removeIf(
+                                existing ->
+                                        existing.getName()
+                                                .equals(
+                                                        cookie.getName()
+                                                )
+                        );
+
+                        if (!cookie.hasExpired()) {
+                            COOKIE_JAR.add(cookie);
+                        }
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+        }
+    }
+
+    private static synchronized String currentCookieHeader() {
+        StringBuilder builder = new StringBuilder();
+
+        COOKIE_JAR.removeIf(
+                cookie -> {
+                    try {
+                        return cookie.hasExpired();
+                    } catch (Exception ignored) {
+                        return true;
+                    }
+                }
+        );
+
+        for (HttpCookie cookie : COOKIE_JAR) {
+            if (builder.length() > 0) {
+                builder.append("; ");
+            }
+
+            builder.append(cookie.getName())
+                    .append("=")
+                    .append(cookie.getValue());
+        }
+
+        return builder.toString();
+    }
+
+    public static synchronized void clearCookies() {
+        COOKIE_JAR.clear();
     }
 
     private static String readStream(

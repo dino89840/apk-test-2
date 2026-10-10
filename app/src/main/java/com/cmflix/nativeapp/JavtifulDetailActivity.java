@@ -401,6 +401,16 @@ public class JavtifulDetailActivity
             );
         }
 
+        if (
+                stream.cookieHeader != null &&
+                        !stream.cookieHeader.isEmpty()
+        ) {
+            intent.putExtra(
+                    "video_cookie",
+                    stream.cookieHeader
+            );
+        }
+
         intent.putExtra(
                 "video_user_agent",
                 JavtifulClient.USER_AGENT
@@ -470,6 +480,16 @@ public class JavtifulDetailActivity
             ) {
                 request.addRequestHeader(
                         "Referer", stream.referer
+                );
+            }
+
+            if (
+                    stream.cookieHeader != null &&
+                            !stream.cookieHeader.isEmpty()
+            ) {
+                request.addRequestHeader(
+                        "Cookie",
+                        stream.cookieHeader
                 );
             }
 
