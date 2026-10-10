@@ -85,4 +85,47 @@
 
     </style>
 
+    <!-- Premium dark+gold sort dialog (JavtifulActivity) -->
+    <style
+        name="CmflixSortDialog"
+        parent="Theme.AppCompat.Dialog.Alert">
+
+        <item name="android:windowBackground">
+            @drawable/dialog_rounded_dark
+        </item>
+
+        <!-- Dialog title ("Sort by") -->
+        <item name="android:textColorPrimary">
+            @color/gold
+        </item>
+
+        <item name="android:textColorSecondary">
+            @color/gray_text
+        </item>
+
+        <item name="colorAccent">@color/gold</item>
+        <item name="android:colorAccent">@color/gold</item>
+
+        <item name="buttonBarNegativeButtonStyle">
+            @style/CmflixDialogButton
+        </item>
+
+        <item name="buttonBarPositiveButtonStyle">
+            @style/CmflixDialogButton
+        </item>
+
+        <item name="buttonBarNeutralButtonStyle">
+            @style/CmflixDialogButton
+        </item>
+
+    </style>
+
+    <style
+        name="CmflixDialogButton"
+        parent="Widget.AppCompat.Button.ButtonBar.AlertDialog">
+
+        <item name="android:textColor">@color/gold</item>
+
+    </style>
+
 </resources>

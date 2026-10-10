@@ -571,10 +571,14 @@ public class JavtifulActivity extends AppCompatActivity {
             }
         }
 
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.CmflixSortDialog)
                 .setTitle("Sort by")
                 .setSingleChoiceItems(
-                        SORT_LABELS,
+                        new android.widget.ArrayAdapter<>(
+                                this,
+                                R.layout.item_sort_option,
+                                SORT_LABELS
+                        ),
                         checked,
                         (dialog, which) -> {
                             sortParam = SORT_VALUES[which];
