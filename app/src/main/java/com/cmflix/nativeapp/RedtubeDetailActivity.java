@@ -3,11 +3,15 @@ package com.cmflix.nativeapp;
 import android.app.DownloadManager;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -18,17 +22,21 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.bumptech.glide.Glide;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /*
  * "Free Porn" detail page (redtube.com).
  * (UI label is "Free Porn"; the word "redtube" never
  * appears in user-visible strings.)
  *
  * - 16:9 thumbnail + title (+ duration)
- * - Single Play button + single Download button
- *   (best quality auto-selected)
+ * - Quality rows (1080p / 720p / 480p / 240p —
+ *   whichever the site provides): each row has
+ *   Play + Download for that quality.
  * - Play + Download: FREE (no VIP), LOGIN required.
  *   Not logged in → AuthActivity prompt; after login
- *   returns, user must tap Play/Download again manually
+ *   returns, user must tap again manually
  *   (no auto-resume).
  * - Download: in-APK DownloadManager
  */
@@ -48,7 +56,7 @@ public class RedtubeDetailActivity extends AppCompatActivity {
 
     private ProgressBar progress;
     private TextView errorView;
-    private View buttonsBox;
+    private LinearLayout sourcesBox;
 
     private RedtubeClient.RedtubeStream stream;
     private boolean isResolving = false;
@@ -76,8 +84,8 @@ public class RedtubeDetailActivity extends AppCompatActivity {
                 findViewById(R.id.javtifulDetailError);
         progress =
                 findViewById(R.id.javtifulDetailProgress);
-        buttonsBox =
-                findViewById(R.id.javtifulDetailButtons);
+        sourcesBox =
+                findViewById(R.id.javtifulDetailSources);
 
         try {
             onCreateSafe();
@@ -126,15 +134,14 @@ public class RedtubeDetailActivity extends AppCompatActivity {
                     .into(thumbView);
         }
 
-        findViewById(R.id.javtifulDetailPlay)
-                .setOnClickListener(
-                        view -> onPlayClick()
-                );
-
-        findViewById(R.id.javtifulDetailDownload)
-                .setOnClickListener(
-                        view -> onDownloadClick()
-                );
+        // Single Play/Download buttons are not used
+        // for Free Porn — quality rows are built
+        // after the stream resolves.
+        View buttonsBox =
+                findViewById(R.id.javtifulDetailButtons);
+        if (buttonsBox != null) {
+            buttonsBox.setVisibility(View.GONE);
+        }
 
         resolveStream();
     }
@@ -161,7 +168,7 @@ public class RedtubeDetailActivity extends AppCompatActivity {
         isResolving = true;
         progress.setVisibility(View.VISIBLE);
         errorView.setVisibility(View.GONE);
-        buttonsBox.setVisibility(View.GONE);
+        sourcesBox.setVisibility(View.GONE);
 
         RedtubeClient.resolveStream(
                 detailUrl,
@@ -181,9 +188,7 @@ public class RedtubeDetailActivity extends AppCompatActivity {
 
                             if (stream != null
                                     && stream.hasStream()) {
-                                buttonsBox.setVisibility(
-                                        View.VISIBLE
-                                );
+                                buildQualityRows();
                             } else {
                                 showError(
                                         "Video link ရှာမတွေ့ပါ။"
@@ -212,13 +217,236 @@ public class RedtubeDetailActivity extends AppCompatActivity {
 
     private void showError(String message) {
         progress.setVisibility(View.GONE);
-        buttonsBox.setVisibility(View.GONE);
+        sourcesBox.setVisibility(View.GONE);
         errorView.setText(message);
         errorView.setVisibility(View.VISIBLE);
     }
 
-    private void onPlayClick() {
-        // Free Porn: login required, VIP NOT required.
+    // ------------------------------------------------------------------
+    // Quality rows
+    // ------------------------------------------------------------------
+
+    private void buildQualityRows() {
+        try {
+            buildQualityRowsSafe();
+        } catch (Exception rowError) {
+            showError(
+                    "Error: ("
+                            + rowError.getClass()
+                                    .getSimpleName()
+                            + ": "
+                            + rowError.getMessage()
+                            + ")"
+            );
+        }
+    }
+
+    private void buildQualityRowsSafe() {
+        sourcesBox.removeAllViews();
+
+        if (stream == null || !stream.hasStream()) {
+            showError("Video link ရှာမတွေ့ပါ။");
+            return;
+        }
+
+        List<String> labels = new ArrayList<>();
+        List<String> urls = new ArrayList<>();
+
+        if (stream.url1080 != null
+                && !stream.url1080.isEmpty()) {
+            labels.add("1080p");
+            urls.add(stream.url1080);
+        }
+
+        if (stream.url720 != null
+                && !stream.url720.isEmpty()) {
+            labels.add("720p");
+            urls.add(stream.url720);
+        }
+
+        if (stream.url480 != null
+                && !stream.url480.isEmpty()) {
+            labels.add("480p");
+            urls.add(stream.url480);
+        }
+
+        if (stream.url240 != null
+                && !stream.url240.isEmpty()) {
+            labels.add("240p");
+            urls.add(stream.url240);
+        }
+
+        for (int i = 0; i < labels.size(); i++) {
+            sourcesBox.addView(
+                    buildQualityRow(
+                            labels.get(i),
+                            urls.get(i)
+                    )
+            );
+        }
+
+        sourcesBox.setVisibility(View.VISIBLE);
+    }
+
+    /*
+     * Quality row — play button + label + download
+     * button (same style as Myanmar source rows).
+     */
+    private View buildQualityRow(
+            String label,
+            String url
+    ) {
+        float density =
+                getResources()
+                        .getDisplayMetrics().density;
+
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+
+        LinearLayout.LayoutParams rowParams =
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams
+                                .MATCH_PARENT,
+                        LinearLayout.LayoutParams
+                                .WRAP_CONTENT
+                );
+
+        rowParams.topMargin = (int) (6 * density);
+        rowParams.bottomMargin = (int) (6 * density);
+        row.setLayoutParams(rowParams);
+
+        try {
+            GradientDrawable rowBg =
+                    new GradientDrawable();
+
+            rowBg.setColor(0xFF151820);
+            rowBg.setCornerRadius(12 * density);
+            rowBg.setStroke(
+                    (int) (1 * density),
+                    0xFF252A33
+            );
+
+            row.setBackground(rowBg);
+        } catch (Exception ignored) {
+        }
+
+        int padding = (int) (12 * density);
+        row.setPadding(
+                padding, padding, padding, padding
+        );
+
+        int iconSize = (int) (28 * density);
+
+        ImageView playButton = new ImageView(this);
+        playButton.setImageResource(
+                android.R.drawable.ic_media_play
+        );
+
+        LinearLayout.LayoutParams playParams =
+                new LinearLayout.LayoutParams(
+                        iconSize, iconSize
+                );
+
+        playButton.setLayoutParams(playParams);
+        playButton.setColorFilter(0xFFE8B93E);
+
+        TextView labelView = new TextView(this);
+        labelView.setText(label);
+
+        LinearLayout.LayoutParams labelParams =
+                new LinearLayout.LayoutParams(
+                        0,
+                        LinearLayout.LayoutParams
+                                .WRAP_CONTENT,
+                        1f
+                );
+
+        labelParams.setMarginStart(
+                (int) (12 * density)
+        );
+
+        labelView.setLayoutParams(labelParams);
+        labelView.setTextColor(0xFFFFFFFF);
+        labelView.setTextSize(16);
+
+        try {
+            TypedValue rippleValue =
+                    new TypedValue();
+
+            getTheme().resolveAttribute(
+                    android.R.attr
+                            .selectableItemBackgroundBorderless,
+                    rippleValue,
+                    true
+            );
+
+            playButton.setBackgroundResource(
+                    rippleValue.resourceId
+            );
+        } catch (Exception ignored) {
+        }
+
+        playButton.setClickable(true);
+        playButton.setFocusable(true);
+        playButton.setContentDescription(
+                "ဖွင့်ရန်"
+        );
+        playButton.setOnClickListener(
+                view -> onPlayClick(url)
+        );
+
+        ImageView downloadButton = new ImageView(this);
+        downloadButton.setImageResource(
+                android.R.drawable.stat_sys_download
+        );
+
+        LinearLayout.LayoutParams dlParams =
+                new LinearLayout.LayoutParams(
+                        iconSize, iconSize
+                );
+
+        downloadButton.setLayoutParams(dlParams);
+        downloadButton.setColorFilter(0xFFE8B93E);
+
+        try {
+            TypedValue rippleValue =
+                    new TypedValue();
+
+            getTheme().resolveAttribute(
+                    android.R.attr
+                            .selectableItemBackgroundBorderless,
+                    rippleValue,
+                    true
+            );
+
+            downloadButton.setBackgroundResource(
+                    rippleValue.resourceId
+            );
+        } catch (Exception ignored) {
+        }
+
+        downloadButton.setClickable(true);
+        downloadButton.setFocusable(true);
+        downloadButton.setContentDescription(
+                "ဒေါင်းလုဒ်လုပ်ရန်"
+        );
+        downloadButton.setOnClickListener(
+                view -> onDownloadClick(url)
+        );
+
+        row.addView(playButton);
+        row.addView(labelView);
+        row.addView(downloadButton);
+
+        return row;
+    }
+
+    // ------------------------------------------------------------------
+    // Play / Download — FREE (no VIP), LOGIN required
+    // ------------------------------------------------------------------
+
+    private void onPlayClick(String url) {
         if (!SessionManager.isLoggedIn()) {
             pendingActionAfterLogin = 1;
             authLauncher.launch(
@@ -231,9 +459,7 @@ public class RedtubeDetailActivity extends AppCompatActivity {
             return;
         }
 
-        String url = stream.bestUrl();
-
-        if (url.isEmpty()) {
+        if (url == null || url.isEmpty()) {
             Toast.makeText(
                     this,
                     "Video link မရှိပါ။",
@@ -276,8 +502,7 @@ public class RedtubeDetailActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
-    private void onDownloadClick() {
-        // Free Porn: login required, VIP NOT required.
+    private void onDownloadClick(String url) {
         if (!SessionManager.isLoggedIn()) {
             pendingActionAfterLogin = 2;
             authLauncher.launch(
@@ -299,9 +524,7 @@ public class RedtubeDetailActivity extends AppCompatActivity {
             return;
         }
 
-        String url = stream.bestUrl();
-
-        if (url.isEmpty()) {
+        if (url == null || url.isEmpty()) {
             Toast.makeText(
                     this,
                     "Download link မရှိပါ။",
