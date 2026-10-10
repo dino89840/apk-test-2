@@ -314,21 +314,56 @@ public final class JavtifulClient {
     }
 
     /*
+     * Query builder — appends ?sort=X and/or ?page=N
+     * (verified live: /reducing-mosaic?sort=added_month&page=2
+     * returns 23 cards; same for /uncensored and
+     * /category/chinese-av).
+     */
+    private static String buildSortPageQuery(
+            String sort,
+            int page
+    ) {
+        StringBuilder q = new StringBuilder();
+
+        if (sort != null && !sort.trim().isEmpty()) {
+            q.append("?sort=").append(sort.trim());
+        }
+
+        if (page > 1) {
+            q.append(
+                    q.length() == 0 ? "?page=" : "&page="
+            ).append(page);
+        }
+
+        return q.toString();
+    }
+
+    /*
      * Listing page N — page 1 = /reducing-mosaic,
      * page N = /reducing-mosaic?page=N
      * (reducing mosaic listing).
+     * sort = "" (Latest) or added_today/added_week/
+     * added_month/popular_today/popular_week/
+     * popular_month/most_liked/most_viewed.
      */
     public static void fetchPage(
             int page,
             PageCallback callback
     ) {
+        fetchPage(page, "", callback);
+    }
+
+    public static void fetchPage(
+            int page,
+            String sort,
+            PageCallback callback
+    ) {
         final int safePage = Math.max(1, page);
 
         String url =
-                safePage <= 1
-                        ? getBaseUrl() + getListPath()
-                        : getBaseUrl() + getListPath()
-                                + "?page=" + safePage;
+                getBaseUrl()
+                        + getListPath()
+                        + buildSortPageQuery(sort, safePage);
 
         fetchListingUrl(url, safePage, FILTER_NONE, callback);
     }
@@ -341,13 +376,20 @@ public final class JavtifulClient {
             int page,
             PageCallback callback
     ) {
+        fetchUncensoredPage(page, "", callback);
+    }
+
+    public static void fetchUncensoredPage(
+            int page,
+            String sort,
+            PageCallback callback
+    ) {
         final int safePage = Math.max(1, page);
 
         String url =
-                safePage <= 1
-                        ? getBaseUrl() + getUncensoredListPath()
-                        : getBaseUrl() + getUncensoredListPath()
-                                + "?page=" + safePage;
+                getBaseUrl()
+                        + getUncensoredListPath()
+                        + buildSortPageQuery(sort, safePage);
 
         fetchListingUrl(url, safePage, FILTER_NONE, callback);
     }
@@ -356,18 +398,27 @@ public final class JavtifulClient {
      * Chinese AV listing page N — page 1 = /category/chinese-av,
      * page N = /category/chinese-av?page=N
      * (all cards carry the "Uncensored" badge).
+     * NOTE: sorted category pages return a single page
+     * (no pagination links) — ?sort=X&page=2 yields 0 cards.
      */
     public static void fetchChinesePage(
             int page,
             PageCallback callback
     ) {
+        fetchChinesePage(page, "", callback);
+    }
+
+    public static void fetchChinesePage(
+            int page,
+            String sort,
+            PageCallback callback
+    ) {
         final int safePage = Math.max(1, page);
 
         String url =
-                safePage <= 1
-                        ? getBaseUrl() + getChineseListPath()
-                        : getBaseUrl() + getChineseListPath()
-                                + "?page=" + safePage;
+                getBaseUrl()
+                        + getChineseListPath()
+                        + buildSortPageQuery(sort, safePage);
 
         fetchListingUrl(url, safePage, FILTER_NONE, callback);
     }

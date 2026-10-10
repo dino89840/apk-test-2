@@ -16,6 +16,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -112,6 +113,40 @@ public class JavtifulActivity extends AppCompatActivity {
      */
     private String mode = MODE_MOSAIC;
 
+    /*
+     * Sort/filter — "" = Latest (default, no param).
+     * Verified live on javtiful.com:
+     * added_today / added_week / added_month /
+     * popular_today / popular_week / popular_month /
+     * most_liked / most_viewed.
+     * Applies to listing only (not search/actress).
+     */
+    private String sortParam = "";
+
+    private static final String[] SORT_LABELS = {
+            "Latest",
+            "Added Today",
+            "Added This Week",
+            "Added This Month",
+            "Popular Today",
+            "Popular This Week",
+            "Popular This Month",
+            "Most Liked",
+            "Most Viewed"
+    };
+
+    private static final String[] SORT_VALUES = {
+            "",
+            "added_today",
+            "added_week",
+            "added_month",
+            "popular_today",
+            "popular_week",
+            "popular_month",
+            "most_liked",
+            "most_viewed"
+    };
+
     private boolean isUncensoredMode() {
         return MODE_UNCENSORED.equals(mode);
     }
@@ -143,6 +178,9 @@ public class JavtifulActivity extends AppCompatActivity {
 
         findViewById(R.id.javtifulSearchToggle)
                 .setOnClickListener(view -> toggleSearchBar());
+
+        findViewById(R.id.javtifulFilterButton)
+                .setOnClickListener(view -> showSortDialog());
 
         findViewById(R.id.javtifulSearchClear)
                 .setOnClickListener(view -> onSearchClear());
@@ -514,6 +552,80 @@ public class JavtifulActivity extends AppCompatActivity {
         }
     }
 
+    /*
+     * Sort/filter dialog — listing mode only.
+     * Search/actress mode မှ ထွက်ပြီး listing
+     * မှာ sort အသုံးပြုမည်။
+     */
+    private void showSortDialog() {
+        if (isSearchMode() || isActressMode()) {
+            exitToListing();
+        }
+
+        int checked = 0;
+
+        for (int i = 0; i < SORT_VALUES.length; i++) {
+            if (SORT_VALUES[i].equals(sortParam)) {
+                checked = i;
+                break;
+            }
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle("Sort by")
+                .setSingleChoiceItems(
+                        SORT_LABELS,
+                        checked,
+                        (dialog, which) -> {
+                            sortParam = SORT_VALUES[which];
+                            dialog.dismiss();
+                            updateFilterButtonState();
+                            currentPage = 0;
+                            videos.clear();
+                            adapter.notifyDataSetChanged();
+                            loadPage(1);
+                        }
+                )
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    /*
+     * Search/actress mode မှ listing သို့ ပြန်ထွက်သည်
+     * (sort dialog မပြမီ)။
+     */
+    private void exitToListing() {
+        searchQuery = null;
+        searchInput.setText("");
+        searchBar.setVisibility(View.GONE);
+        actressUrl = null;
+        actressName = null;
+        hideKeyboard();
+        updateTitle();
+    }
+
+    /*
+     * Filter button state — active sort (Latest မဟုတ်)
+     * ဆိုရင် gold tint ပြမည်။
+     */
+    private void updateFilterButtonState() {
+        ImageView filterBtn =
+                findViewById(R.id.javtifulFilterButton);
+
+        if (filterBtn == null) {
+            return;
+        }
+
+        if (sortParam == null || sortParam.isEmpty()) {
+            filterBtn.clearColorFilter();
+        } else {
+            filterBtn.setColorFilter(
+                    0xFFE8B93E,
+                    android.graphics.PorterDuff.Mode.SRC_IN
+            );
+        }
+    }
+
     private void showKeyboard() {
         try {
             InputMethodManager imm =
@@ -776,14 +888,16 @@ public class JavtifulActivity extends AppCompatActivity {
             );
         } else if (isChineseMode()) {
             JavtifulClient.fetchChinesePage(
-                    page, callback
+                    page, sortParam, callback
             );
         } else if (isUncensoredMode()) {
             JavtifulClient.fetchUncensoredPage(
-                    page, callback
+                    page, sortParam, callback
             );
         } else {
-            JavtifulClient.fetchPage(page, callback);
+            JavtifulClient.fetchPage(
+                    page, sortParam, callback
+            );
         }
     }
 

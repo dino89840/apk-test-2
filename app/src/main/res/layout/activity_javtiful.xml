@@ -48,6 +48,17 @@
             android:textSize="12sp" />
 
         <ImageView
+            android:id="@+id/javtifulFilterButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="Filter"
+            android:focusable="true"
+            android:padding="8dp"
+            android:src="@drawable/ic_filter" />
+
+        <ImageView
             android:id="@+id/javtifulSearchToggle"
             android:layout_width="40dp"
             android:layout_height="40dp"
