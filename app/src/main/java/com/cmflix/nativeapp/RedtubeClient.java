@@ -2,23 +2,24 @@ package com.cmflix.nativeapp;
 
 import android.util.Log;
 
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.IOException;
 import java.net.HttpCookie;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.zip.GZIPInputStream;
+
+import okhttp3.ConnectionSpec;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -39,10 +40,11 @@ import org.json.JSONObject;
  * - Stream: GET https://www.redtube.com/media/mp4?s={token}
  *   → JSON array: [{format, quality (1080/720/480/240), videoUrl (direct MP4)}]
  *
- * Direct connection (no proxy). Defensive headers on every
- * request: browser-like User-Agent + Referer + cookie jar.
- * Stream URLs are NOT cached — always fresh resolve
- * (tokens carry expiry).
+ * Direct connection (no proxy). HTTP via OkHttp (browser-like
+ * TLS fingerprint, HTTP/2) with defensive headers on every
+ * request: browser-like User-Agent + Sec-Fetch-* + Referer +
+ * manual cookie jar. Stream URLs are NOT cached — always
+ * fresh resolve (tokens carry expiry).
  *
  * UI label is "Free Porn" — the word "redtube" never
  * appears in user-visible strings.
@@ -88,6 +90,31 @@ public final class RedtubeClient {
 
     private static final ExecutorService EXECUTOR =
             Executors.newCachedThreadPool();
+
+    /*
+     * Shared OkHttp client — browser-like TLS, HTTP/2,
+     * connection pooling. Built once, reused for all
+     * redtube requests.
+     */
+    private static final OkHttpClient HTTP_CLIENT =
+            new OkHttpClient.Builder()
+                    .connectTimeout(
+                            CONNECT_TIMEOUT_MS,
+                            TimeUnit.MILLISECONDS)
+                    .readTimeout(
+                            READ_TIMEOUT_MS,
+                            TimeUnit.MILLISECONDS)
+                    .writeTimeout(
+                            CONNECT_TIMEOUT_MS,
+                            TimeUnit.MILLISECONDS)
+                    .followRedirects(true)
+                    .followSslRedirects(true)
+                    .retryOnConnectionFailure(true)
+                    .connectionSpecs(java.util.Arrays.asList(
+                            ConnectionSpec.MODERN_TLS,
+                            ConnectionSpec.COMPATIBLE_TLS,
+                            ConnectionSpec.CLEARTEXT))
+                    .build();
 
     /*
      * Redtube-only in-memory cookie jar (manual —
@@ -204,7 +231,8 @@ public final class RedtubeClient {
                                 ? "?page=" + safePage
                                 : "");
 
-                String html = get(url, BASE_URL + "/");
+                String html = get(url, BASE_URL + "/",
+                        true);
                 List<RedtubeVideo> videos =
                         parseListing(html);
 
@@ -253,7 +281,8 @@ public final class RedtubeClient {
 
         EXECUTOR.execute(() -> {
             try {
-                String html = get(url, BASE_URL + "/");
+                String html = get(url, BASE_URL + "/",
+                        true);
                 List<RedtubeVideo> videos =
                         parseListing(html);
 
@@ -284,7 +313,8 @@ public final class RedtubeClient {
                 }
 
                 String pageUrl = detailUrl.trim();
-                String html = get(pageUrl, BASE_URL + "/");
+                String html = get(pageUrl, BASE_URL + "/",
+                        true);
 
                 String token = extractMediaToken(html);
 
@@ -296,7 +326,8 @@ public final class RedtubeClient {
 
                 String mediaUrl =
                         BASE_URL + "/media/mp4?s=" + token;
-                String json = get(mediaUrl, pageUrl);
+                String json = get(mediaUrl, pageUrl,
+                        false);
 
                 RedtubeStream stream = parseMediaJson(
                         json, pageUrl,
@@ -441,6 +472,7 @@ public final class RedtubeClient {
     /*
      * mediaDefinition: [{"format":"hls",...},
      *   {"format":"mp4","videoUrl":"\/media\/mp4?s={token}"}]
+     * Token is base64url JSON (may contain dots).
      * Returns the {token} part.
      */
     private static String extractMediaToken(String html) {
@@ -450,7 +482,7 @@ public final class RedtubeClient {
 
         // Escaped form: \/media\/mp4?s=TOKEN
         Matcher m = Pattern.compile(
-                "media\\\\/mp4\\?s=([A-Za-z0-9_\\-=]+)"
+                "media\\\\/mp4\\?s=([A-Za-z0-9_\\-=.]+)"
         ).matcher(html);
 
         if (m.find()) {
@@ -459,7 +491,7 @@ public final class RedtubeClient {
 
         // Unescaped form: /media/mp4?s=TOKEN
         m = Pattern.compile(
-                "/media/mp4\\?s=([A-Za-z0-9_\\-=]+)"
+                "/media/mp4\\?s=([A-Za-z0-9_\\-=.]+)"
         ).matcher(html);
 
         if (m.find()) {
@@ -532,49 +564,65 @@ public final class RedtubeClient {
     }
 
     // ------------------------------------------------------------------
-    // HTTP layer — UA + Referer + cookie jar
+    // HTTP layer — OkHttp, browser-like TLS + headers + cookie jar
     // ------------------------------------------------------------------
 
+    /*
+     * GET via OkHttp. isDocument=true sends
+     * navigation-style Sec-Fetch headers (for HTML
+     * pages); false sends XHR-style headers (for
+     * the /media/mp4 JSON API).
+     */
     private static String get(
             String url,
-            String referer
+            String referer,
+            boolean isDocument
     ) throws Exception {
-        HttpURLConnection connection = null;
+        Request.Builder builder = new Request.Builder()
+                .url(url)
+                .header("User-Agent", USER_AGENT)
+                .header("Accept", isDocument
+                        ? "text/html,application/xhtml+xml,"
+                                + "application/xml;q=0.9,"
+                                + "image/avif,image/webp,"
+                                + "image/apng,*/*;q=0.8"
+                        : "application/json, text/plain, "
+                                + "*/*;q=0.8")
+                .header("Accept-Language",
+                        "en-US,en;q=0.9");
 
-        try {
-            connection =
-                    (HttpURLConnection)
-                            new URL(url).openConnection();
+        if (isDocument) {
+            builder.header("Upgrade-Insecure-Requests",
+                    "1");
+            builder.header("Sec-Fetch-Dest", "document");
+            builder.header("Sec-Fetch-Mode", "navigate");
+            builder.header("Sec-Fetch-Site", "none");
+            builder.header("Sec-Fetch-User", "?1");
+        } else {
+            builder.header("X-Requested-With",
+                    "XMLHttpRequest");
+            builder.header("Sec-Fetch-Dest", "empty");
+            builder.header("Sec-Fetch-Mode", "cors");
+            builder.header("Sec-Fetch-Site", "same-origin");
+        }
 
-            connection.setConnectTimeout(
-                    CONNECT_TIMEOUT_MS);
-            connection.setReadTimeout(READ_TIMEOUT_MS);
-            connection.setRequestMethod("GET");
-            connection.setRequestProperty(
-                    "User-Agent", USER_AGENT);
-            connection.setRequestProperty(
-                    "Accept",
-                    "text/html,application/xhtml+xml,"
-                            + "application/xml;q=0.9,*/*;q=0.8"
-            );
-            connection.setRequestProperty(
-                    "Accept-Language", "en-US,en;q=0.9");
+        if (referer != null && !referer.isEmpty()) {
+            builder.header("Referer", referer);
+        }
 
-            if (referer != null && !referer.isEmpty()) {
-                connection.setRequestProperty(
-                        "Referer", referer);
-            }
+        String cookieHeader = currentCookieHeader();
 
-            String cookieHeader = currentCookieHeader();
+        if (!cookieHeader.isEmpty()) {
+            builder.header("Cookie", cookieHeader);
+        }
 
-            if (!cookieHeader.isEmpty()) {
-                connection.setRequestProperty(
-                        "Cookie", cookieHeader);
-            }
+        Request request = builder.build();
 
-            int status = connection.getResponseCode();
+        try (Response response =
+                     HTTP_CLIENT.newCall(request).execute()) {
+            storeCookies(response);
 
-            storeCookies(connection);
+            int status = response.code();
 
             Log.d(TAG, "GET " + url + " -> " + status);
 
@@ -583,51 +631,39 @@ public final class RedtubeClient {
                         "Request failed: " + status);
             }
 
-            return readStream(connection);
-        } finally {
-            if (connection != null) {
-                connection.disconnect();
+            ResponseBody body = response.body();
+
+            if (body == null) {
+                return "";
             }
+
+            return body.string();
         }
     }
 
     private static synchronized void storeCookies(
-            HttpURLConnection connection
+            Response response
     ) {
-        Map<String, List<String>> headers =
-                connection.getHeaderFields();
+        List<String> setCookies =
+                response.headers("Set-Cookie");
 
-        if (headers == null) {
-            return;
-        }
+        for (String value : setCookies) {
+            try {
+                List<HttpCookie> parsed =
+                        HttpCookie.parse(value);
 
-        for (Map.Entry<String, List<String>> entry :
-                headers.entrySet()) {
-            if (entry.getKey() == null
-                    || !entry.getKey().equalsIgnoreCase(
-                            "Set-Cookie")) {
-                continue;
-            }
+                for (HttpCookie cookie : parsed) {
+                    final String name = cookie.getName();
 
-            for (String value : entry.getValue()) {
-                try {
-                    List<HttpCookie> parsed =
-                            HttpCookie.parse(value);
+                    COOKIE_JAR.removeIf(
+                            existing -> existing.getName()
+                                    .equals(name));
 
-                    for (HttpCookie cookie : parsed) {
-                        final String name =
-                                cookie.getName();
-                        COOKIE_JAR.removeIf(
-                                existing -> existing
-                                        .getName()
-                                        .equals(name));
-
-                        if (!cookie.hasExpired()) {
-                            COOKIE_JAR.add(cookie);
-                        }
+                    if (!cookie.hasExpired()) {
+                        COOKIE_JAR.add(cookie);
                     }
-                } catch (Exception ignored) {
                 }
+            } catch (Exception ignored) {
             }
         }
     }
@@ -653,39 +689,6 @@ public final class RedtubeClient {
         }
 
         return builder.toString();
-    }
-
-    private static String readStream(
-            HttpURLConnection connection
-    ) throws Exception {
-        InputStream input = connection.getInputStream();
-
-        if (input == null) {
-            return "";
-        }
-
-        String encoding = connection.getContentEncoding();
-        InputStream decoded = input;
-
-        if (encoding != null
-                && encoding.equalsIgnoreCase("gzip")) {
-            decoded = new GZIPInputStream(input);
-        }
-
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(
-                        decoded, StandardCharsets.UTF_8))) {
-            StringBuilder result = new StringBuilder();
-            char[] buffer = new char[8192];
-            int read;
-
-            while ((read = reader.read(
-                    buffer, 0, buffer.length)) != -1) {
-                result.append(buffer, 0, read);
-            }
-
-            return result.toString();
-        }
     }
 
     private static String unescapeHtml(String text) {
