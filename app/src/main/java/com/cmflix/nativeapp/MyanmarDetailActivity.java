@@ -33,8 +33,6 @@ import java.util.List;
  *   single MP4 (HD/SD label)။
  * - "samusar"  (Myanmar + All 2): samusar.com တိုက်ရိုက်
  *   (direct mode) — 1080p/720p/480p quality rows။
- * - "mmlovetv" (Myanmar + All 3): mmlovetv.com တိုက်ရိုက် —
- *   single MP4 (cfr2ss presigned URL)။
  *
  * - 16:9 thumbnail (Glide) + Burmese title
  * - Row တိုင်းတွင် play + download button
@@ -69,7 +67,6 @@ public class MyanmarDetailActivity
 
     private SamusarClient.SamusarStream stream;
     private MmtubeClient.MmtubeStream mmtubeStream;
-    private MmlovetvClient.MmlovetvStream mmlovetvStream;
     private boolean isResolving = false;
 
     private int pendingActionAfterLogin = 0; // 0=none, 1=play, 2=download
@@ -156,9 +153,8 @@ public class MyanmarDetailActivity
 
         /*
          * Source mode — MyanmarActivity မှ
-         * EXTRA_SOURCE ("mmtube" / "samusar" /
-         * "mmlovetv")။ Default: mmtube
-         * (Myanmar + All 1)။
+         * EXTRA_SOURCE ("mmtube" / "samusar")။
+         * Default: mmtube (Myanmar + All 1)။
          */
         String modeExtra =
                 intent.getStringExtra(EXTRA_SOURCE);
@@ -169,12 +165,6 @@ public class MyanmarDetailActivity
         ) {
             sourceMode =
                     MyanmarActivity.SOURCE_SAMUSAR;
-        } else if (
-                MyanmarActivity.SOURCE_MMLOVETV
-                        .equals(modeExtra)
-        ) {
-            sourceMode =
-                    MyanmarActivity.SOURCE_MMLOVETV;
         } else {
             sourceMode =
                     MyanmarActivity.SOURCE_MMTUBE;
@@ -277,11 +267,6 @@ public class MyanmarDetailActivity
                         .equals(sourceMode)
         ) {
             resolveSamusarStream();
-        } else if (
-                MyanmarActivity.SOURCE_MMLOVETV
-                        .equals(sourceMode)
-        ) {
-            resolveMmlovetvStream();
         } else {
             resolveMmtubeStream();
         }
@@ -401,89 +386,6 @@ public class MyanmarDetailActivity
         );
     }
 
-    private void resolveMmlovetvStream() {
-        /*
-         * WebView first (browser-identical resolve) —
-         * HttpURLConnection-based resolveStream သည်
-         * fallback အဖြစ်။
-         */
-        final MmlovetvClient.StreamCallback uiCallback =
-                new MmlovetvClient.StreamCallback() {
-                    @Override
-                    public void onResult(
-                            MmlovetvClient.MmlovetvStream
-                                    result
-                    ) {
-                        runOnUiThread(() -> {
-                            try {
-                                isResolving = false;
-                                progress.setVisibility(
-                                        View.GONE
-                                );
-
-                                mmlovetvStream = result;
-
-                                buildSourceRows();
-                            } catch (Exception uiError) {
-                                isResolving = false;
-
-                                showError(
-                                        "Error: ("
-                                                + uiError.getClass()
-                                                        .getSimpleName()
-                                                + ": "
-                                                + uiError
-                                                        .getMessage()
-                                                + ")"
-                                );
-                            }
-                        });
-                    }
-
-                    @Override
-                    public void onError(Exception error) {
-                        runOnUiThread(() -> {
-                            try {
-                                isResolving = false;
-
-                                showError(
-                                        "Video link ရယူ၍မရပါ။\n"
-                                                + "ပြန်စမ်းကြည့်ပါ။"
-                                );
-                            } catch (Exception uiError) {
-                                // activity dying — nothing to show
-                            }
-                        });
-                    }
-                };
-
-        MmlovetvClient.resolveStreamViaWebView(
-                this,
-                detailUrl,
-                new MmlovetvClient.StreamCallback() {
-                    @Override
-                    public void onResult(
-                            MmlovetvClient.MmlovetvStream
-                                    result
-                    ) {
-                        uiCallback.onResult(result);
-                    }
-
-                    @Override
-                    public void onError(Exception error) {
-                        /*
-                         * WebView မရလျှင်
-                         * HttpURLConnection လမ်းဟောင်း။
-                         */
-                        MmlovetvClient.resolveStream(
-                                detailUrl,
-                                uiCallback
-                        );
-                    }
-                }
-        );
-    }
-
     private void showError(String message) {
         errorView.setText(message);
         errorView.setVisibility(View.VISIBLE);
@@ -514,20 +416,15 @@ public class MyanmarDetailActivity
     }
 
     /*
-     * Source checks — ၃ မျိုး။
+     * Source checks — ၂ မျိုး။
      */
     private boolean isSamusar() {
         return MyanmarActivity.SOURCE_SAMUSAR
                 .equals(sourceMode);
     }
 
-    private boolean isMmlovetv() {
-        return MyanmarActivity.SOURCE_MMLOVETV
-                .equals(sourceMode);
-    }
-
     private boolean isMmtube() {
-        return !isSamusar() && !isMmlovetv();
+        return !isSamusar();
     }
 
     private void buildSourceRowsSafe() {
@@ -556,32 +453,6 @@ public class MyanmarDetailActivity
                                     ? "HD"
                                     : "SD",
                             mmtubeStream.bestUrl()
-                    )
-            );
-
-            return;
-        }
-
-        /*
-         * Mmlovetv — single direct MP4 (cfr2ss
-         * presigned URL, quality variants မရှိ)။
-         */
-        if (isMmlovetv()) {
-            if (
-                    mmlovetvStream == null
-                            || !mmlovetvStream.hasStream()
-            ) {
-                showError(
-                        "Video link ရှာမတွေ့ပါ။"
-                );
-
-                return;
-            }
-
-            sourcesBox.addView(
-                    buildSourceRow(
-                            "HD",
-                            mmlovetvStream.bestUrl()
                     )
             );
 
@@ -823,16 +694,10 @@ public class MyanmarDetailActivity
 
     /*
      * လက်ရှိ source အလိုက် header များ —
-     * source ၃ မျိုးလုံး detail-page Referer +
+     * source ၂ မျိုးလုံး detail-page Referer +
      * session Cookie + browser UA ပို့သည်။
      */
     private String currentReferer() {
-        if (isMmlovetv()) {
-            return mmlovetvStream == null
-                    ? ""
-                    : mmlovetvStream.referer;
-        }
-
         if (isMmtube()) {
             return mmtubeStream == null
                     ? ""
@@ -843,12 +708,6 @@ public class MyanmarDetailActivity
     }
 
     private String currentCookie() {
-        if (isMmlovetv()) {
-            return mmlovetvStream == null
-                    ? ""
-                    : mmlovetvStream.cookieHeader;
-        }
-
         if (isMmtube()) {
             return mmtubeStream == null
                     ? ""
@@ -859,10 +718,6 @@ public class MyanmarDetailActivity
     }
 
     private String currentUserAgent() {
-        if (isMmlovetv()) {
-            return MmlovetvClient.USER_AGENT;
-        }
-
         if (isMmtube()) {
             return MmtubeClient.USER_AGENT;
         }
@@ -871,11 +726,6 @@ public class MyanmarDetailActivity
     }
 
     private boolean hasResolvedStream() {
-        if (isMmlovetv()) {
-            return mmlovetvStream != null
-                    && mmlovetvStream.hasStream();
-        }
-
         if (isMmtube()) {
             return mmtubeStream != null
                     && mmtubeStream.hasStream();
@@ -945,14 +795,12 @@ public class MyanmarDetailActivity
         intent.putExtra("video_orientation", "portrait");
 
         /*
-         * Resume support — "mmtube:" / "samusar:" /
-         * "mmlovetv:" prefix (LocalStore)။
+         * Resume support — "mmtube:" / "samusar:"
+         * prefix (LocalStore)။
          */
         String resumeId;
 
-        if (isMmlovetv()) {
-            resumeId = MmlovetvClient.videoId(detailUrl);
-        } else if (isMmtube()) {
+        if (isMmtube()) {
             resumeId = MmtubeClient.videoId(detailUrl);
         } else {
             resumeId = SamusarClient.videoId(detailUrl);
