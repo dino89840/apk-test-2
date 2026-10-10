@@ -121,31 +121,6 @@ private static final String KEY_NOTICE_SAVED_AT =
     }
 
     /*
-     * Free Porn (redtube) category kill-switch.
-     *
-     * Backend /app-content မှ "freeporn": {"enabled": ...}
-     * ကို ဖတ်သည်။ Field မရှိသေးလျှင် default TRUE —
-     * card ပြမည်။ Explicitly false ဖြစ်မှသာ ဝှက်မည်။
-     * (D1 app_freeporn_enabled="0" → hidden)
-     */
-    public static boolean isFreePornEnabled(
-            JSONObject content
-    ) {
-        if (content == null) {
-            return true;
-        }
-
-        JSONObject freeporn =
-                content.optJSONObject("freeporn");
-
-        if (freeporn == null) {
-            return true;
-        }
-
-        return freeporn.optBoolean("enabled", true);
-    }
-
-    /*
      * In-app APK update — server-driven version info။
      *
      * Backend /app-content မှ "apk": {"versionCode": N,
