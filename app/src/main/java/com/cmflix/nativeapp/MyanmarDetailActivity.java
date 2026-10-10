@@ -76,20 +76,11 @@ public class MyanmarDetailActivity
             registerForActivityResult(
                     new ActivityResultContracts.StartActivityForResult(),
                     result -> {
-                        if (result.getResultCode() != RESULT_OK) {
-                            pendingActionAfterLogin = 0;
-                            pendingUrlAfterLogin = "";
-                            return;
-                        }
-                        int action = pendingActionAfterLogin;
-                        String url = pendingUrlAfterLogin;
+                        // Login ပြီးရင် auto play/download မလုပ်ပါ —
+                        // user က Play/Download ကို ကိုယ်တိုင် ပြန်နှိပ်ရမည်
+                        // (18+ mmsub/eng/horror တို့နဲ့ အပြုအမူ တူညီရန်)။
                         pendingActionAfterLogin = 0;
                         pendingUrlAfterLogin = "";
-                        if (action == 1) {
-                            onPlayClick(url);
-                        } else if (action == 2) {
-                            onDownloadClick(url);
-                        }
                     }
             );
 
