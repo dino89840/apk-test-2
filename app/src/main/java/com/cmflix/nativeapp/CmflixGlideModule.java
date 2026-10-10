@@ -4,17 +4,18 @@ import android.content.Context;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.Registry;
 import com.bumptech.glide.annotation.GlideModule;
+import com.bumptech.glide.load.Options;
 import com.bumptech.glide.load.model.GlideUrl;
 import com.bumptech.glide.load.model.Headers;
 import com.bumptech.glide.load.model.LazyHeaders;
 import com.bumptech.glide.load.model.ModelLoader;
 import com.bumptech.glide.load.model.ModelLoaderFactory;
 import com.bumptech.glide.load.model.MultiModelLoaderFactory;
-import com.bumptech.glide.load.model.stream.BaseGlideUrlLoader;
 import com.bumptech.glide.module.AppGlideModule;
 
 import java.io.InputStream;
@@ -53,13 +54,19 @@ public final class CmflixGlideModule extends AppGlideModule {
             @NonNull Registry registry
     ) {
         try {
-            registry.replace(
-                    GlideUrl.class,
+            /*
+             * String URL model အတွက် header-adding
+             * loader ကို prepend လုပ်သည် — Glide
+             * .load("https://...") ခေါ်ဆိုမှုတိုင်း
+             * ဒီကနေ ဖြတ်မည်။
+             */
+            registry.prepend(
+                    String.class,
                     InputStream.class,
-                    new HeaderedGlideUrlLoader.Factory()
+                    new HeaderedStringLoader.Factory()
             );
 
-            Log.d(TAG, "headered GlideUrl loader registered");
+            Log.d(TAG, "headered String loader registered");
         } catch (Exception e) {
             Log.w(
                     TAG,
@@ -75,38 +82,44 @@ public final class CmflixGlideModule extends AppGlideModule {
     }
 
     /*
-     * String URL → header ပါသော GlideUrl။
-     * Glide.with(...).load("https://...") ခေါ်ဆိုမှု
-     * တိုင်းတွင် ဒီ loader က ဝင်ကိုင်တွယ်သည်။
+     * String URL → header ပါသော GlideUrl → default
+     * GlideUrl loader သို့ delegate။
      */
-    private static final class HeaderedGlideUrlLoader
-            extends BaseGlideUrlLoader<String> {
+    private static final class HeaderedStringLoader
+            implements ModelLoader<String, InputStream> {
 
-        HeaderedGlideUrlLoader(
+        private final ModelLoader<GlideUrl, InputStream>
+                concreteLoader;
+
+        HeaderedStringLoader(
                 ModelLoader<GlideUrl, InputStream>
                         concreteLoader
         ) {
-            super(concreteLoader);
+            this.concreteLoader = concreteLoader;
         }
 
         @Override
-        protected String getUrl(
-                String model,
-                int width,
-                int height,
-                com.bumptech.glide.load.Options options
+        public boolean handles(
+                @NonNull String model
         ) {
-            return model;
+            return model.startsWith("http://")
+                    || model.startsWith("https://");
         }
 
+        @Nullable
         @Override
-        protected Headers getHeaders(
-                String model,
+        public LoadData<InputStream> buildLoadData(
+                @NonNull String model,
                 int width,
                 int height,
-                com.bumptech.glide.load.Options options
+                @NonNull Options options
         ) {
-            return buildHeaders(model);
+            GlideUrl glideUrl =
+                    new GlideUrl(model, buildHeaders(model));
+
+            return concreteLoader.buildLoadData(
+                    glideUrl, width, height, options
+            );
         }
 
         static final class Factory
@@ -119,7 +132,7 @@ public final class CmflixGlideModule extends AppGlideModule {
                     @NonNull
                     MultiModelLoaderFactory multiFactory
             ) {
-                return new HeaderedGlideUrlLoader(
+                return new HeaderedStringLoader(
                         multiFactory.build(
                                 GlideUrl.class,
                                 InputStream.class
