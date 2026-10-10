@@ -1049,6 +1049,365 @@ public final class MmlovetvClient {
                 .trim();
     }
 
+
+    /*
+     * WebView-based stream resolve — hidden Chromium WebView
+     * ဖြင့် detail page ကို browser အတိုင်း load လုပ်သည်။
+     * Site ၏ ကိုယ်�ပိုင် JS (get-video-url API →
+     * player.source) က ချပေးသော fresh presigned URL ကို
+     * video element ၏ currentSrc မှ ပြန်ယူသည်။
+     *
+     * ဘာကြောင့် WebView လဲ:
+     * /wp-json/cfr2ss/v1/* endpoint များသည်
+     * HttpURLConnection (Java TLS fingerprint) မှ
+     * ခေါ်သော request များကို cfr2ss_stream_forbidden
+     * (403) ဖြင့် ငြင်းပယ်သည် — browser (Chromium)
+     * stack သာလျှင် လက်ခံသည်။ WebView သည်
+     * HttpOnly Worker cookie အပါအဝင် cookie အားလုံးကို
+     * အလိုအလျောက် ကိုင်တွယ်သည်။
+     *
+     * NOTE: main thread ပေါ်တွင် အလုပ်လုပ်သည် —
+     * ခေါ်သော thread မည်သည်ဖြစ်စေ main looper သို့
+     * post လုပ်သည်။
+     */
+    public static void resolveStreamViaWebView(
+            final android.content.Context context,
+            final String detailUrl,
+            final StreamCallback callback
+    ) {
+        android.os.Handler mainHandler =
+                new android.os.Handler(
+                        android.os.Looper.getMainLooper()
+                );
+
+        mainHandler.post(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        resolveViaWebViewOnMain(
+                                context,
+                                detailUrl,
+                                callback
+                        );
+                    }
+                }
+        );
+    }
+
+    private static void resolveViaWebViewOnMain(
+            final android.content.Context context,
+            final String detailUrl,
+            final StreamCallback callback
+    ) {
+        android.webkit.WebView webView;
+
+        try {
+            webView =
+                    new android.webkit.WebView(context);
+        } catch (Exception e) {
+            callback.onError(e);
+
+            return;
+        }
+
+        final android.webkit.WebView wv = webView;
+
+        /*
+         * 1x1 invisible — window attached ဖြစ်မှ
+         * JS timer / page load ပုံမှန်အလုပ်လုပ်သည်။
+         */
+        try {
+            if (
+                    context
+                            instanceof
+                            android.app.Activity
+            ) {
+                android.app.Activity activity =
+                        (android.app.Activity) context;
+
+                android.widget.FrameLayout.LayoutParams
+                        lp =
+                        new android.widget.FrameLayout.LayoutParams(
+                                1,
+                                1
+                        );
+
+                wv.setLayoutParams(lp);
+                wv.setVisibility(
+                        android.view.View.INVISIBLE
+                );
+                activity.addContentView(wv, lp);
+            }
+        } catch (Exception ignored) {
+        }
+
+        android.webkit.WebSettings settings =
+                wv.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        settings.setMediaPlaybackRequiresUserGesture(
+                false
+        );
+
+        try {
+            settings.setUserAgentString(USER_AGENT);
+        } catch (Exception ignored) {
+        }
+
+        try {
+            android.webkit.CookieManager
+                    .getInstance()
+                    .setAcceptCookie(true);
+        } catch (Exception ignored) {
+        }
+
+        final java.util.concurrent.atomic.AtomicBoolean
+                done =
+                new java.util.concurrent.atomic.AtomicBoolean(
+                        false
+                );
+
+        final Runnable cleanup = new Runnable() {
+            @Override
+            public void run() {
+                if (
+                        done.compareAndSet(false, true)
+                ) {
+                    try {
+                        if (wv.getParent() != null) {
+                            ((android.view.ViewGroup)
+                                    wv.getParent())
+                                    .removeView(wv);
+                        }
+                    } catch (Exception ignored) {
+                    }
+
+                    try {
+                        wv.destroy();
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
+        };
+
+        final android.os.Handler pollHandler =
+                new android.os.Handler(
+                        android.os.Looper.getMainLooper()
+                );
+
+        final java.util.concurrent.atomic.AtomicBoolean
+                pollStarted =
+                new java.util.concurrent.atomic.AtomicBoolean(
+                        false
+                );
+
+        final java.util.concurrent.atomic.AtomicInteger
+                attempts =
+                new java.util.concurrent.atomic.AtomicInteger(
+                        0
+                );
+
+        final int maxAttempts = 28;
+        final long pollIntervalMs = 700L;
+
+        /*
+         * Self-reference အတွက် holder — anonymous
+         * inner class အတွင်းမှ ပြန် schedule လုပ်ရန်။
+         */
+        final Runnable[] pollerHolder = new Runnable[1];
+
+        final android.webkit.ValueCallback<String>
+                jsCallback =
+                new android.webkit.ValueCallback<String>() {
+                    @Override
+                    public void onReceiveValue(
+                            String value
+                    ) {
+                        if (done.get()) {
+                            return;
+                        }
+
+                        String src =
+                                unquoteJsValue(value);
+
+                        if (
+                                !src.isEmpty()
+                                        && src.contains(
+                                                "/wp-json/cfr2ss/v1/stream/"
+                                        )
+                                        && done.compareAndSet(
+                                                false, true
+                                        )
+                        ) {
+                            String cookies = "";
+
+                            try {
+                                android.webkit.CookieManager
+                                        .getInstance()
+                                        .flush();
+
+                                String c =
+                                        android.webkit.CookieManager
+                                                .getInstance()
+                                                .getCookie(
+                                                        detailUrl
+                                                );
+
+                                if (c != null) {
+                                    cookies = c;
+                                }
+                            } catch (
+                                    Exception ignored
+                            ) {
+                            }
+
+                            if (cookies.isEmpty()) {
+                                cookies =
+                                        getCookieHeader();
+                            }
+
+                            MmlovetvStream stream =
+                                    new MmlovetvStream(
+                                            src,
+                                            cookies,
+                                            detailUrl
+                                    );
+
+                            cleanup.run();
+                            callback.onResult(stream);
+                        } else if (!done.get()) {
+                            Runnable p =
+                                    pollerHolder[0];
+
+                            if (p != null) {
+                                pollHandler.postDelayed(
+                                        p,
+                                        pollIntervalMs
+                                );
+                            }
+                        }
+                    }
+                };
+
+        final Runnable poller = new Runnable() {
+            @Override
+            public void run() {
+                if (done.get()) {
+                    return;
+                }
+
+                if (
+                        attempts.incrementAndGet()
+                                > maxAttempts
+                ) {
+                    cleanup.run();
+                    callback.onError(
+                            new IllegalStateException(
+                                    "Video link ရယူ၍မရပါ။"
+                            )
+                    );
+
+                    return;
+                }
+
+                try {
+                    wv.evaluateJavascript(
+                            "(function(){"
+                                    + "var v=document.getElementById"
+                                    + "('cfr2-video-player');"
+                                    + "if(!v)return '';"
+                                    + "var s=v.currentSrc||v.src||'';"
+                                    + "if(s)return s;"
+                                    + "var sc=v.querySelector"
+                                    + "('source');"
+                                    + "return sc?(sc.src||''):'';"
+                                    + "})()",
+                            jsCallback
+                    );
+                } catch (Exception e) {
+                    if (!done.get()) {
+                        pollHandler.postDelayed(
+                                this, pollIntervalMs
+                        );
+                    }
+                }
+            }
+        };
+
+        pollerHolder[0] = poller;
+
+        final Runnable startPoll = new Runnable() {
+            @Override
+            public void run() {
+                if (
+                        pollStarted.compareAndSet(
+                                false, true
+                        )
+                ) {
+                    pollHandler.post(poller);
+                }
+            }
+        };
+
+        wv.setWebViewClient(
+                new android.webkit.WebViewClient() {
+                    @Override
+                    public void onPageFinished(
+                            android.webkit.WebView view,
+                            String url
+                    ) {
+                        pollHandler.postDelayed(
+                                startPoll, 800L
+                        );
+                    }
+                }
+        );
+
+        /*
+         * Safety: onPageFinished မခေါ်ဖြစ်ခဲ့လျှင်တောင်
+         * poll စမည်။
+         */
+        pollHandler.postDelayed(startPoll, 5000L);
+
+        try {
+            wv.loadUrl(detailUrl);
+        } catch (Exception e) {
+            cleanup.run();
+            callback.onError(e);
+        }
+    }
+
+    /*
+     * evaluateJavascript ၏ quoted JSON string
+     * result ကို unquote/unescape လုပ်သည်။
+     */
+    private static String unquoteJsValue(String value) {
+        if (value == null) {
+            return "";
+        }
+
+        String s = value.trim();
+
+        if (
+                s.length() >= 2
+                        && s.startsWith("\"")
+                        && s.endsWith("\"")
+        ) {
+            s = s.substring(1, s.length() - 1);
+        }
+
+        s =
+                s.replace("\\\"", "\"")
+                        .replace("\\\\", "\\")
+                        .replace("\\/", "/");
+
+        if ("null".equals(s)) {
+            return "";
+        }
+
+        return s.trim();
+    }
+
     public static synchronized void clearCookies() {
         COOKIE_JAR.clear();
     }

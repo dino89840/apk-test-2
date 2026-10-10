@@ -402,8 +402,12 @@ public class MyanmarDetailActivity
     }
 
     private void resolveMmlovetvStream() {
-        MmlovetvClient.resolveStream(
-                detailUrl,
+        /*
+         * WebView first (browser-identical resolve) —
+         * HttpURLConnection-based resolveStream သည်
+         * fallback အဖြစ်။
+         */
+        final MmlovetvClient.StreamCallback uiCallback =
                 new MmlovetvClient.StreamCallback() {
                     @Override
                     public void onResult(
@@ -441,9 +445,6 @@ public class MyanmarDetailActivity
                         runOnUiThread(() -> {
                             try {
                                 isResolving = false;
-                                progress.setVisibility(
-                                        View.GONE
-                                );
 
                                 showError(
                                         "Video link ရယူ၍မရပါ။\n"
@@ -453,6 +454,31 @@ public class MyanmarDetailActivity
                                 // activity dying — nothing to show
                             }
                         });
+                    }
+                };
+
+        MmlovetvClient.resolveStreamViaWebView(
+                this,
+                detailUrl,
+                new MmlovetvClient.StreamCallback() {
+                    @Override
+                    public void onResult(
+                            MmlovetvClient.MmlovetvStream
+                                    result
+                    ) {
+                        uiCallback.onResult(result);
+                    }
+
+                    @Override
+                    public void onError(Exception error) {
+                        /*
+                         * WebView မရလျှင်
+                         * HttpURLConnection လမ်းဟောင်း။
+                         */
+                        MmlovetvClient.resolveStream(
+                                detailUrl,
+                                uiCallback
+                        );
                     }
                 }
         );
