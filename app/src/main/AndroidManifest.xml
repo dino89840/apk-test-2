@@ -103,6 +103,12 @@
     android:screenOrientation="unspecified"
     android:theme="@style/Theme.CMFLIXNative" />
 
+        <activity
+            android:name=".MaintenanceActivity"
+            android:exported="false"
+            android:screenOrientation="unspecified"
+            android:theme="@style/Theme.CMFLIXNative" />
+
 <activity
     android:name=".SplashActivity"
     android:exported="true"

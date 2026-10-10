@@ -72,6 +72,13 @@ public class MainActivity extends AppCompatActivity {
      */
     private boolean homeMode = true;
 
+    /*
+     * Maintenance screen တစ်ခါသာ ဖွင့်ရန် guard —
+     * /app-content callback က cached + fresh ဆိုပြီး
+     * နှစ်ခါ လာနိုင်သည်။
+     */
+    private boolean maintenanceLaunched = false;
+
     private LinearLayout localHeader;
     private TextView localHeaderTitle;
 
@@ -396,7 +403,18 @@ gridToggleButton.setVisibility(View.GONE);
  * Banner ကို local 12-hour cache မှအရင်ပြမည်။
  * Refresh လိုအပ်မှ CDN-backed /app-content ကိုခေါ်မည်။
  */
-loadRemoteBanner();
+        /*
+         * Maintenance mode — cached /app-content ကို
+         * synchronous စစ်မည်။ Maintenance ON ဖြစ်လျှင်
+         * maintenance screen ပြပြီး ဒီ activity ကို
+         * ပိတ်မည် (content loading မစစေရန်)။
+         * Network request အသစ် လုံးဝ မရှိပါ။
+         */
+        if (checkCachedMaintenance()) {
+            return;
+        }
+
+        loadRemoteBanner();
 
 refreshSearchHistory();
 
@@ -2091,6 +2109,69 @@ private void renderVipBannerImage(
             .into(bannerView);
 }
 
+    /*
+     * Synchronous cached maintenance gate။
+     *
+     * onCreate မှာ content loading မစခင် ခေါ်သည်။
+     * Cached /app-content ရဲ့ maintenance flag true
+     * ဖြစ်လျှင် MaintenanceActivity ဖွင့်၍ ဒီ activity
+     * ကို ပိတ်ပြီး true ပြန်ပေးမည်။
+     * Network request အသစ် လုံးဝ မရှိပါ။
+     */
+    private boolean checkCachedMaintenance() {
+        JSONObject cached =
+                AppContentManager.getCachedContent(
+                        this
+                );
+
+        return launchMaintenanceScreen(cached);
+    }
+
+    /*
+     * Maintenance screen launcher — sync (cached) ရော
+     * async (fresh /app-content callback) ရော သုံးသည်။
+     *
+     * content null / maintenance false /
+     * အရင်ဖွင့်ပြီးသား ဖြစ်လျှင် false ပြန်ပေးမည်။
+     * Maintenance ON ဖြစ်လျှင် MaintenanceActivity
+     * ဖွင့်၍ ဒီ activity ကို ပိတ်ပြီး true ပြန်ပေးမည်။
+     */
+    private boolean launchMaintenanceScreen(
+            JSONObject content
+    ) {
+        if (
+                content == null ||
+                        !AppContentManager
+                                .isMaintenanceMode(
+                                        content
+                                ) ||
+                        maintenanceLaunched
+        ) {
+            return false;
+        }
+
+        maintenanceLaunched = true;
+
+        Intent intent =
+                new Intent(
+                        this,
+                        MaintenanceActivity.class
+                );
+
+        intent.putExtra(
+                MaintenanceActivity.EXTRA_MESSAGE,
+                AppContentManager.getMaintenanceMessage(
+                        content
+                )
+        );
+
+        startActivity(intent);
+
+        finish();
+
+        return true;
+    }
+
 private void loadRemoteBanner() {
     /*
      * မြန်မာ tab kill-switch — /app-content ရဲ့
@@ -2109,6 +2190,24 @@ private void loadRemoteBanner() {
                         JSONObject content
                 ) {
                     runOnUiThread(() -> {
+                        /*
+                         * Maintenance mode — /app-content ရဲ့
+                         * maintenance flag true ဖြစ်လျှင်
+                         * maintenance screen ပြပြီး ဒီ
+                         * activity ကို ပိတ်မည်။ Network
+                         * request အသစ် မရှိ (banner fetch
+                         * နဲ့ အတူတူ ပါလာသော JSON ကိုသုံးသည်)။
+                         * Fresh response မှာ maintenance
+                         * ဖွင့်သွားတာကို catch လုပ်ရန်။
+                         */
+                        if (
+                                launchMaintenanceScreen(
+                                        content
+                                )
+                        ) {
+                            return;
+                        }
+
                         applyRemoteBanner(
                                 content
                         );

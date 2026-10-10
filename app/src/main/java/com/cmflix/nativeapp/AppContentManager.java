@@ -168,6 +168,147 @@ private static final String KEY_NOTICE_SAVED_AT =
     }
 
     /*
+     * Maintenance mode — server-driven။
+     *
+     * Backend /app-content မှ "maintenance": true/false
+     * နှင့် "maintenance_message": "<text>" ကို ဖတ်သည်။
+     * (Nested "maintenance": {"enabled": ...} ပုံစံလည်း
+     *  support ထားသည်။)
+     *
+     * Field မရှိသေးလျှင် (backend မပြင်ရသေးလျှင်)
+     * default FALSE — ပုံမှန် app flow ဆက်သွားမည်။
+     *
+     * Cached JSON body ထဲက ဖတ်သောကြောင့် network
+     * request အသစ် လုံးဝ မလိုပါ။
+     */
+    public static boolean isMaintenanceMode(
+            JSONObject content
+    ) {
+        if (content == null) {
+            return false;
+        }
+
+        if (!content.has("maintenance")) {
+            return false;
+        }
+
+        Object value = content.opt("maintenance");
+
+        if (value instanceof Boolean) {
+            return (Boolean) value;
+        }
+
+        if (value instanceof JSONObject) {
+            return ((JSONObject) value)
+                    .optBoolean("enabled", false);
+        }
+
+        return false;
+    }
+
+    /*
+     * Maintenance message — backend က ပေးသော
+     * "maintenance_message" (သို့မဟုတ် nested
+     * "maintenance": {"message": ...})။ မရှိလျှင်
+     * default မြန်မာ စာသား ပြန်ပေးမည်။
+     */
+    public static String getMaintenanceMessage(
+            JSONObject content
+    ) {
+        String fallback =
+                "CMFLIX ကို ခေတ္တပြုပြင်နေပါသည်။";
+
+        if (content == null) {
+            return fallback;
+        }
+
+        String message =
+                content
+                        .optString(
+                                "maintenance_message",
+                                ""
+                        )
+                        .trim();
+
+        if (!message.isEmpty()) {
+            return message;
+        }
+
+        JSONObject nested =
+                content.optJSONObject("maintenance");
+
+        if (nested != null) {
+            message =
+                    nested
+                            .optString("message", "")
+                            .trim();
+
+            if (!message.isEmpty()) {
+                return message;
+            }
+        }
+
+        return fallback;
+    }
+
+    /*
+     * Cached /app-content JSON ကို synchronous ပြန်ပေးမည်။
+     * Maintenance launch gate အတွက် — network request
+     * မလုပ်ဘဲ cache ထဲက maintenance flag ကို စစ်ရန်။
+     * Cache မရှိလျှင် null ပြန်ပေးမည်။
+     */
+    public static JSONObject getCachedContent(
+            Context context
+    ) {
+        Context appContext =
+                context.getApplicationContext();
+
+        SharedPreferences preferences =
+                preferences(appContext);
+
+        String cachedBody =
+                preferences.getString(
+                        KEY_BANNER_BODY,
+                        ""
+                );
+
+        return parseCachedBody(
+                preferences,
+                KEY_BANNER_BODY,
+                cachedBody
+        );
+    }
+
+    /*
+     * Maintenance retry အတွက် — cache ကို ကျော်ပြီး
+     * /app-content ကို network ကနေ အမြဲ ပြန်ခေါ်မည်။
+     * User ကိုယ်တိုင် "ပြန်စမ်းမယ်" နှိပ်မှသာ
+     * ခေါ်သောကြောင့် request spam မဖြစ်ပါ။
+     *
+     * hasCachedBody=false ပေးထားသောကြောင့် network
+     * error ဖြစ်လျှင်လည်း onError ပြန်လာမည်
+     * (silent fallback မလုပ်ပါ)။
+     */
+    public static void refreshAppContentNow(
+            Context context,
+            Callback callback
+    ) {
+        Context appContext =
+                context.getApplicationContext();
+
+        SharedPreferences preferences =
+                preferences(appContext);
+
+        EXECUTOR.execute(() ->
+                requestBanner(
+                        preferences,
+                        false,
+                        callback
+                )
+        );
+    }
+
+    /*
      * Samusar proxy URL — server-configurable။
      *
      * Backend /app-content မှ "samusar": {"proxy": "<url>"}

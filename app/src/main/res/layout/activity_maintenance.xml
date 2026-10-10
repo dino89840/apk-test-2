@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+  Maintenance mode full-screen layout။
+  Backend /app-content ရဲ့ maintenance flag true
+  ဖြစ်နေလျှင် MaintenanceActivity က ပြမည်။
+-->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/maintenanceRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#050609"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:paddingStart="32dp"
+    android:paddingEnd="32dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans-serif-black"
+        android:letterSpacing="0.08"
+        android:text="CMFLIX"
+        android:textColor="#E50914"
+        android:textSize="34sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:fontFamily="sans-serif-medium"
+        android:text="ပြုပြင်ထိန်းသိမ်းနေပါသည်"
+        android:textColor="#D6D6DA"
+        android:textSize="18sp" />
+
+    <TextView
+        android:id="@+id/maintenanceMessage"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:lineSpacingExtra="4dp"
+        android:text="CMFLIX ကို ခေတ္တပြုပြင်နေပါသည်။"
+        android:textColor="#8E8E96"
+        android:textSize="14sp" />
+
+    <Button
+        android:id="@+id/maintenanceRetryButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="28dp"
+        android:background="@drawable/auth_primary_button_bg"
+        android:backgroundTint="@null"
+        android:minWidth="160dp"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:text="ပြန်စမ်းမယ်"
+        android:textColor="#14161C"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+
+    <ProgressBar
+        android:id="@+id/maintenanceProgress"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="28dp"
+        android:visibility="gone" />
+
+</LinearLayout>
